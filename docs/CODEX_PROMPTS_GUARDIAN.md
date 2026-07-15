@@ -283,7 +283,7 @@ NO IMPLEMENTAR
 Tareas automáticas clínicas, plan de seguridad, check-ins, alertas o integración HCE.
 
 ACTUALIZA
-REQ-01 y REQ-14 solo en lo aplicable. Documenta decisiones locales pendientes.
+REQ-01. No modifiques REQ-14: queda reservado a Caída del Sistema, contingencia, restablecimiento y continuidad de negocio. Documenta decisiones locales pendientes.
 ```
 
 ---
