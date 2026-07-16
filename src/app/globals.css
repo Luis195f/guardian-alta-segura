@@ -1,0 +1,159 @@
+:root {
+  color-scheme: light;
+  --ink: #17231e;
+  --muted: #52635b;
+  --paper: #f7faf7;
+  --panel: #ffffff;
+  --line: #cfdbd4;
+  --accent: #146b4b;
+  --warning: #8a3f08;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(145deg, #edf5ef 0%, var(--paper) 48%, #f3eee6 100%);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.55;
+}
+
+main {
+  width: min(70rem, calc(100% - 2rem));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 5rem) 0 2rem;
+}
+
+.hero {
+  max-width: 50rem;
+}
+
+h1,
+h2 {
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+h1 {
+  margin: 0.35rem 0 1rem;
+  font-size: clamp(2.4rem, 8vw, 5.2rem);
+  letter-spacing: -0.045em;
+}
+
+h2 {
+  margin: 0.25rem 0 0.75rem;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+}
+
+.badge {
+  display: inline-block;
+  margin: 0 0 1rem;
+  border: 2px solid var(--warning);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin: 2.5rem 0;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  box-shadow: 0 1rem 3rem rgb(32 65 50 / 8%);
+}
+
+form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+label {
+  font-weight: 700;
+}
+
+select,
+button {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+select {
+  border: 1px solid #7b8d84;
+  background: #fff;
+  padding: 0.55rem 0.7rem;
+}
+
+button {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.65rem 1rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:focus-visible,
+select:focus-visible {
+  outline: 3px solid #f1a64b;
+  outline-offset: 3px;
+}
+
+.status {
+  min-height: 1.5rem;
+  color: var(--muted);
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 46rem) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

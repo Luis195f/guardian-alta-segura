@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  nurse
+  clinician
+  patient
+  caregiver
+  support
+}
+
+enum AuditAction {
+  DEMO_LOGIN
+  SESSION_LOGOUT
+  ROLE_ASSIGNED
+  ROLE_REVOKED
+  CRITICAL_MUTATION
+}
+
+enum AuditOutcome {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+model User {
+  id              String            @id @default(cuid())
+  syntheticAlias  String            @unique @map("synthetic_alias") @db.VarChar(64)
+  displayLabel    String            @map("display_label") @db.VarChar(160)
+  isSynthetic     Boolean           @default(false) @map("is_synthetic")
+  isActive        Boolean           @default(true) @map("is_active")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  roleAssignments RoleAssignment[]  @relation("UserRoleAssignments")
+  rolesAssigned   RoleAssignment[]  @relation("RoleAssigner")
+  sessions        SessionMetadata[]
+  auditEvents     AuditEvent[]      @relation("AuditActor")
+
+  @@map("users")
+}
+
+model RoleAssignment {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  role         Role
+  assignedById String?   @map("assigned_by_id")
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  revokedAt    DateTime? @map("revoked_at")
+  user         User      @relation("UserRoleAssignments", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy   User?     @relation("RoleAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([userId, revokedAt])
+  @@index([assignedById])
+  @@map("role_assignments")
+}
+
+model SessionMetadata {
+  id                   String    @id @default(cuid())
+  userId               String    @map("user_id")
+  sessionTokenHash     String    @unique @map("session_token_hash") @db.Char(64)
+  authenticationMethod String    @map("authentication_method") @db.VarChar(32)
+  correlationId        String    @map("correlation_id") @db.Uuid
+  userAgentHash        String?   @map("user_agent_hash") @db.Char(64)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  expiresAt            DateTime  @map("expires_at")
+  revokedAt            DateTime? @map("revoked_at")
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@map("session_metadata")
+}
+
+model AuditEvent {
+  id            String       @id @default(cuid())
+  actorUserId   String?      @map("actor_user_id")
+  actorRole     Role?        @map("actor_role")
+  action        AuditAction
+  resourceType  String       @map("resource_type") @db.VarChar(64)
+  resourceId    String?      @map("resource_id") @db.VarChar(128)
+  outcome       AuditOutcome
+  correlationId String       @map("correlation_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at")
+  actor         User?        @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, createdAt])
+  @@index([correlationId])
+  @@map("audit_events")
+}

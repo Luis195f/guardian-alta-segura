@@ -1,0 +1,9 @@
+.next
+.github/pull_request_template.md
+AGENTS.md
+coverage
+docs
+node_modules
+playwright-report
+pnpm-lock.yaml
+test-results
