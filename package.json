@@ -1,0 +1,49 @@
+{
+  "name": "guardian-alta-segura",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fundación técnica del MVP Guardián Alta Segura (solo datos sintéticos).",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.14.0 <25"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:e2e": "playwright test",
+    "prisma:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:seed": "prisma db seed",
+    "traceability:check": "pwsh -NoProfile -File scripts/check-requirements-traceability.ps1",
+    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.10",
+    "prettier": "3.9.0",
+    "prisma": "6.19.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  }
+}
