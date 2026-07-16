@@ -3,6 +3,9 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
 
+import { evaluateLegalRecordAuthorization } from "../../src/domain/legal/legal-authorization";
+import type { LegalRecordType } from "../../src/domain/legal/legal-records";
+
 const prisma = new PrismaClient();
 const baseURL = "http://127.0.0.1:3000";
 const originHeaders = { Origin: baseURL };
@@ -35,6 +38,31 @@ async function createAuthenticatedContext(role: DemoRole): Promise<APIRequestCon
   });
   expect(response.status()).toBe(201);
   return context;
+}
+
+async function createPersistedAuthenticatedContext(role: DemoRole): Promise<APIRequestContext> {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { syntheticAlias: `demo-${role}` },
+  });
+  const rawToken = randomBytes(32).toString("base64url");
+  await prisma.sessionMetadata.create({
+    data: {
+      userId: user.id,
+      sessionTokenHash: createHash("sha256").update(rawToken).digest("hex"),
+      authenticationMethod: "demo-local",
+      correlationId: randomUUID(),
+      userAgentHash: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    },
+  });
+
+  return apiRequest.newContext({
+    baseURL,
+    extraHTTPHeaders: {
+      ...originHeaders,
+      Cookie: `${sessionCookieName}=${rawToken}`,
+    },
+  });
 }
 
 test.afterAll(async () => {
@@ -152,6 +180,387 @@ test.describe.serial("HTTP demo authentication and authorization with PostgreSQL
     );
     await staleContext.dispose();
     await context.dispose();
+  });
+
+  test("panel jurídico separa registros y mantiene políticas locales pendientes", async () => {
+    const patientContext = await createAuthenticatedContext("patient");
+    const state = await patientContext.get("/api/demo/legal-records?subject=demo-patient");
+    expect(state.status()).toBe(200);
+    const body = (await state.json()) as {
+      notice: string;
+      policies: {
+        id: string;
+        policyKey: string;
+        recordType: LegalRecordType;
+        scope: string;
+        state: string;
+      }[];
+      records: {
+        id: string;
+        recordType: string;
+        revoked: boolean;
+        evidencePresent: boolean;
+        effectiveAuthorization: {
+          allowed: boolean;
+          reason: string;
+          code: string;
+          label: string;
+          recordId: string | null;
+          policyVersionId: string | null;
+        };
+      }[];
+    };
+    expect(body.notice).toBe("SINTÉTICO / NO USO CLÍNICO");
+    expect(body.policies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ scope: "pilot", state: "PENDING" }),
+        expect.objectContaining({ scope: "care-treatment", state: "PENDING" }),
+      ]),
+    );
+
+    const pilotPolicy = body.policies.find(({ policyKey }) => policyKey === "pilot-participation");
+    if (!pilotPolicy) throw new Error("Expected synthetic pilot policy");
+    const created = await patientContext.post("/api/demo/legal-records", {
+      data: {
+        action: "record",
+        subjectAlias: "demo-patient",
+        recordType: "PARTICIPATION",
+        state: "ACTIVE",
+        policyVersionId: pilotPolicy.id,
+      },
+    });
+    expect(created.status()).toBe(201);
+    const { recordId } = (await created.json()) as { recordId: string };
+
+    const patient = await prisma.user.findUniqueOrThrow({
+      where: { syntheticAlias: "demo-patient" },
+    });
+    const digitalPolicy = body.policies.find(
+      ({ policyKey }) => policyKey === "digital-participation",
+    );
+    if (!digitalPolicy) throw new Error("Expected synthetic digital policy");
+    const sharedId = `shared-${randomUUID()}`;
+    await prisma.$transaction([
+      prisma.participationRecord.create({
+        data: {
+          id: sharedId,
+          subjectUserId: patient.id,
+          state: "ACTIVE",
+          scope: "pilot",
+          policyVersionId: pilotPolicy.id,
+          actorUserId: patient.id,
+          origin: "DEMO_UI",
+          evidenceType: "RECORDED_INTERACTION",
+          evidenceRef: "SYNTHETIC-SHARED-PARTICIPATION",
+        },
+      }),
+      prisma.digitalParticipationRecord.create({
+        data: {
+          id: sharedId,
+          subjectUserId: patient.id,
+          state: "ACTIVE",
+          scope: "check-ins",
+          policyVersionId: digitalPolicy.id,
+          actorUserId: patient.id,
+          origin: "DEMO_UI",
+          evidenceType: "RECORDED_INTERACTION",
+          evidenceRef: "SYNTHETIC-SHARED-DIGITAL",
+        },
+      }),
+      prisma.revocationEvent.create({
+        data: {
+          targetType: "PARTICIPATION",
+          targetRecordId: sharedId,
+          subjectUserId: patient.id,
+          scope: "pilot",
+          policyVersionId: pilotPolicy.id,
+          actorUserId: patient.id,
+          origin: "DEMO_UI",
+          evidenceType: "RECORDED_INTERACTION",
+          evidenceRef: "SYNTHETIC-SHARED-REVOCATION",
+        },
+      }),
+    ]);
+
+    const refreshed = await patientContext.get("/api/demo/legal-records?subject=demo-patient");
+    const refreshedBody = (await refreshed.json()) as typeof body;
+    const activePendingPolicyRecord = refreshedBody.records.find(({ id }) => id === recordId);
+    const [persistedRecord, persistedPolicy, persistedRevocations] = await Promise.all([
+      prisma.participationRecord.findUniqueOrThrow({ where: { id: recordId } }),
+      prisma.policyVersion.findUniqueOrThrow({ where: { id: pilotPolicy.id } }),
+      prisma.revocationEvent.findMany({ where: { subjectUserId: patient.id } }),
+    ]);
+    const domainDecision = evaluateLegalRecordAuthorization(
+      { ...persistedRecord, recordType: "PARTICIPATION" },
+      { policies: [persistedPolicy], revocations: persistedRevocations, now: new Date() },
+    );
+    expect(activePendingPolicyRecord?.evidencePresent).toBe(true);
+    expect(activePendingPolicyRecord?.effectiveAuthorization).toEqual(domainDecision);
+    expect(domainDecision).toMatchObject({
+      allowed: false,
+      code: "POLICY_PENDING",
+      label: "DENEGADO — política pendiente de validación local",
+    });
+    expect(JSON.stringify(refreshedBody)).not.toContain("evidenceRef");
+    expect(
+      refreshedBody.records.find(
+        (record) => record.id === sharedId && record.recordType === "PARTICIPATION",
+      )?.revoked,
+    ).toBe(true);
+    expect(
+      refreshedBody.records.find(
+        (record) => record.id === sharedId && record.recordType === "DIGITAL_PARTICIPATION",
+      )?.revoked,
+    ).toBe(false);
+    await patientContext.dispose();
+
+    const caregiverContext = await createAuthenticatedContext("caregiver");
+    expect(
+      (await caregiverContext.get("/api/demo/legal-records?subject=demo-patient")).status(),
+    ).toBe(403);
+    await caregiverContext.dispose();
+  });
+
+  test("aplica por HTTP la matriz de creación y minimiza la base jurídica", async () => {
+    const patientContext = await createPersistedAuthenticatedContext("patient");
+    const clinicianContext = await createPersistedAuthenticatedContext("clinician");
+    const state = (await (
+      await patientContext.get("/api/demo/legal-records?subject=demo-patient")
+    ).json()) as {
+      policies: { id: string; policyKey: string; recordType: LegalRecordType; scope: string }[];
+    };
+    const policyId = (policyKey: string) => {
+      const policy = state.policies.find((candidate) => candidate.policyKey === policyKey);
+      if (!policy) throw new Error(`Expected canonical policy ${policyKey}`);
+      return policy.id;
+    };
+    const policyByType: Record<LegalRecordType, string> = {
+      PARTICIPATION: policyId("pilot-participation"),
+      DIGITAL_PARTICIPATION: policyId("digital-participation"),
+      COMMUNICATION_PERMISSION: policyId("communication-permission-email-check-in"),
+      CAREGIVER_AUTHORIZATION: policyId("caregiver-appointments"),
+      PROCESSING_BASIS: policyId("processing-basis-care-treatment"),
+    };
+    const matrix = [
+      ["patient", "PARTICIPATION", 201],
+      ["patient", "DIGITAL_PARTICIPATION", 201],
+      ["patient", "COMMUNICATION_PERMISSION", 201],
+      ["patient", "CAREGIVER_AUTHORIZATION", 201],
+      ["patient", "PROCESSING_BASIS", 403],
+      ["clinician", "PARTICIPATION", 403],
+      ["clinician", "DIGITAL_PARTICIPATION", 403],
+      ["clinician", "COMMUNICATION_PERMISSION", 403],
+      ["clinician", "CAREGIVER_AUTHORIZATION", 403],
+      ["clinician", "PROCESSING_BASIS", 201],
+    ] as const satisfies readonly (readonly ["patient" | "clinician", LegalRecordType, number])[];
+    let processingBasisRecordId: string | null = null;
+
+    for (const [role, recordType, expectedStatus] of matrix) {
+      const context = role === "patient" ? patientContext : clinicianContext;
+      const response = await context.post("/api/demo/legal-records", {
+        data: {
+          action: "record",
+          subjectAlias: "demo-patient",
+          recordType,
+          state: "PENDING",
+          policyVersionId: policyByType[recordType],
+          ...(recordType === "COMMUNICATION_PERMISSION"
+            ? { channel: "EMAIL", purpose: "check-in" }
+            : {}),
+          ...(recordType === "CAREGIVER_AUTHORIZATION"
+            ? { caregiverAlias: "demo-caregiver", scope: "caregiver:appointments" }
+            : {}),
+          ...(recordType === "PROCESSING_BASIS"
+            ? { scope: "care-treatment", basisCode: "PENDING_INSTITUTIONAL_DECISION" }
+            : {}),
+        },
+      });
+      expect(response.status(), `${role} / ${recordType}`).toBe(expectedStatus);
+      if (role === "clinician" && recordType === "PROCESSING_BASIS") {
+        processingBasisRecordId = ((await response.json()) as { recordId: string }).recordId;
+      }
+    }
+
+    const panelResponse = await clinicianContext.get(
+      "/api/demo/legal-records?subject=demo-patient",
+    );
+    const panelJson = (await panelResponse.json()) as {
+      records: {
+        id: string;
+        basisConfigured?: boolean;
+        label?: string;
+      }[];
+    };
+    expect(JSON.stringify(panelJson)).not.toContain("basisCode");
+    expect(JSON.stringify(panelJson)).not.toContain("PENDING_INSTITUTIONAL_DECISION");
+    expect(panelJson.records.find(({ id }) => id === processingBasisRecordId)).toMatchObject({
+      basisConfigured: true,
+      label: "Base institucional registrada",
+    });
+    await patientContext.dispose();
+    await clinicianContext.dispose();
+  });
+
+  test("rechaza sujetos no patient y cuidadores sin identidad caregiver válida", async () => {
+    const patientContext = await createPersistedAuthenticatedContext("patient");
+    const state = (await (
+      await patientContext.get("/api/demo/legal-records?subject=demo-patient")
+    ).json()) as { policies: { id: string; policyKey: string; scope: string }[] };
+    const pilotPolicy = state.policies.find(({ policyKey }) => policyKey === "pilot-participation");
+    const caregiverPolicy = state.policies.find(
+      ({ policyKey }) => policyKey === "caregiver-appointments",
+    );
+    if (!pilotPolicy || !caregiverPolicy) throw new Error("Expected synthetic legal policies");
+
+    const [noRole, inactivePatient, nonSynthetic, inactiveCaregiver, nonSyntheticCaregiver] =
+      await Promise.all([
+        prisma.user.create({
+          data: {
+            syntheticAlias: `leg-nr-${randomUUID()}`,
+            displayLabel: "SINTÉTICO / NO USO CLÍNICO — sin rol patient",
+            isSynthetic: true,
+          },
+        }),
+        prisma.user.create({
+          data: {
+            syntheticAlias: `leg-ip-${randomUUID()}`,
+            displayLabel: "SINTÉTICO / NO USO CLÍNICO — patient inactivo",
+            isSynthetic: true,
+            isActive: false,
+            roleAssignments: { create: { role: "patient" } },
+          },
+        }),
+        prisma.user.create({
+          data: {
+            syntheticAlias: `leg-ns-${randomUUID()}`,
+            displayLabel: "SINTÉTICO / NO USO CLÍNICO — fixture no sintética",
+            isSynthetic: false,
+            roleAssignments: { create: { role: "patient" } },
+          },
+        }),
+        prisma.user.create({
+          data: {
+            syntheticAlias: `leg-ic-${randomUUID()}`,
+            displayLabel: "SINTÉTICO / NO USO CLÍNICO — caregiver inactivo",
+            isSynthetic: true,
+            isActive: false,
+            roleAssignments: { create: { role: "caregiver" } },
+          },
+        }),
+        prisma.user.create({
+          data: {
+            syntheticAlias: `leg-nc-${randomUUID()}`,
+            displayLabel: "SINTÉTICO / NO USO CLÍNICO — caregiver no sintético",
+            isSynthetic: false,
+            roleAssignments: { create: { role: "caregiver" } },
+          },
+        }),
+      ]);
+
+    for (const subjectAlias of [
+      "demo-support",
+      "demo-admin",
+      "demo-caregiver",
+      noRole.syntheticAlias,
+      inactivePatient.syntheticAlias,
+      nonSynthetic.syntheticAlias,
+    ]) {
+      expect(
+        (
+          await patientContext.post("/api/demo/legal-records", {
+            data: {
+              action: "record",
+              subjectAlias,
+              recordType: "PARTICIPATION",
+              state: "PENDING",
+              policyVersionId: pilotPolicy.id,
+            },
+          })
+        ).status(),
+        subjectAlias,
+      ).toBe(403);
+    }
+
+    for (const caregiverAlias of [
+      "demo-patient",
+      "demo-support",
+      "demo-admin",
+      "demo-clinician",
+      inactiveCaregiver.syntheticAlias,
+      nonSyntheticCaregiver.syntheticAlias,
+      noRole.syntheticAlias,
+    ]) {
+      expect(
+        (
+          await patientContext.post("/api/demo/legal-records", {
+            data: {
+              action: "record",
+              subjectAlias: "demo-patient",
+              recordType: "CAREGIVER_AUTHORIZATION",
+              state: "ACTIVE",
+              policyVersionId: caregiverPolicy.id,
+              caregiverAlias,
+              scope: "caregiver:appointments",
+            },
+          })
+        ).status(),
+        caregiverAlias,
+      ).toBe(403);
+    }
+    await patientContext.dispose();
+  });
+
+  test("dos revocaciones HTTP concurrentes producen 201, 409 y un único evento", async () => {
+    const patientContext = await createPersistedAuthenticatedContext("patient");
+    const state = (await (
+      await patientContext.get("/api/demo/legal-records?subject=demo-patient")
+    ).json()) as { policies: { id: string; policyKey: string; scope: string }[] };
+    const caregiverPolicy = state.policies.find(
+      ({ policyKey }) => policyKey === "caregiver-appointments",
+    );
+    if (!caregiverPolicy) throw new Error("Expected synthetic caregiver policy");
+    const created = await patientContext.post("/api/demo/legal-records", {
+      data: {
+        action: "record",
+        subjectAlias: "demo-patient",
+        recordType: "CAREGIVER_AUTHORIZATION",
+        state: "ACTIVE",
+        policyVersionId: caregiverPolicy.id,
+        caregiverAlias: "demo-caregiver",
+        scope: "caregiver:appointments",
+      },
+    });
+    const { recordId } = (await created.json()) as { recordId: string };
+
+    const responses = await Promise.all([
+      patientContext.post("/api/demo/legal-records", {
+        data: {
+          action: "revoke",
+          targetType: "CAREGIVER_AUTHORIZATION",
+          targetRecordId: recordId,
+        },
+      }),
+      patientContext.post("/api/demo/legal-records", {
+        data: {
+          action: "revoke",
+          targetType: "CAREGIVER_AUTHORIZATION",
+          targetRecordId: recordId,
+        },
+      }),
+    ]);
+    expect(responses.map((response) => response.status()).sort()).toEqual([201, 409]);
+    const revocations = await prisma.revocationEvent.findMany({
+      where: { targetType: "CAREGIVER_AUTHORIZATION", targetRecordId: recordId },
+    });
+    expect(revocations).toHaveLength(1);
+    const revocation = revocations[0];
+    if (!revocation) throw new Error("Expected one synthetic revocation");
+    await expect(
+      prisma.auditEvent.count({
+        where: { action: "LEGAL_RECORD_REVOKED", resourceId: revocation.id },
+      }),
+    ).resolves.toBe(1);
+    await patientContext.dispose();
   });
 
   test("Origin extranjero o ausente bloquea mutaciones", async () => {

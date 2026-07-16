@@ -106,6 +106,56 @@ button {
   font: inherit;
 }
 
+.legal-panel {
+  margin: 2.5rem 0;
+}
+
+.legal-warning {
+  border-left: 0.3rem solid var(--warning);
+  background: #fff7ed;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
+}
+
+.legal-form {
+  max-width: 42rem;
+  margin-bottom: 1.5rem;
+}
+
+.policy-note {
+  margin: 0.5rem 0;
+  color: var(--muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #edf5ef;
+}
+
+.secondary-button {
+  min-height: 2rem;
+  background: #5d3d2b;
+  padding: 0.35rem 0.6rem;
+  white-space: nowrap;
+}
+
 select {
   border: 1px solid #7b8d84;
   background: #fff;

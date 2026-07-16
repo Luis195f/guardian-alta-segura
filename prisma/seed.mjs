@@ -4,6 +4,15 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+class CanonicalPolicyMismatchError extends Error {
+  constructor(policyKey, version) {
+    super("Canonical policy configuration does not match persisted append-only history");
+    this.name = "CanonicalPolicyMismatchError";
+    this.policyKey = policyKey;
+    this.version = version;
+  }
+}
+
 const syntheticUsers = [
   { alias: "demo-admin", role: "admin" },
   { alias: "demo-nurse", role: "nurse" },
@@ -12,6 +21,64 @@ const syntheticUsers = [
   { alias: "demo-caregiver", role: "caregiver" },
   { alias: "demo-support", role: "support" },
 ];
+
+const pendingPolicyVersions = [
+  { policyKey: "pilot-participation", recordType: "PARTICIPATION", scope: "pilot" },
+  { policyKey: "digital-participation", recordType: "DIGITAL_PARTICIPATION", scope: "check-ins" },
+  {
+    policyKey: "communication-permission-email-check-in",
+    recordType: "COMMUNICATION_PERMISSION",
+    scope: "communication:email:check-in",
+  },
+  {
+    policyKey: "communication-permission-sms-check-in",
+    recordType: "COMMUNICATION_PERMISSION",
+    scope: "communication:sms:check-in",
+  },
+  {
+    policyKey: "communication-permission-push-check-in",
+    recordType: "COMMUNICATION_PERMISSION",
+    scope: "communication:push:check-in",
+  },
+  {
+    policyKey: "caregiver-safety-plan-summary",
+    recordType: "CAREGIVER_AUTHORIZATION",
+    scope: "caregiver:safety-plan-summary",
+  },
+  {
+    policyKey: "caregiver-appointments",
+    recordType: "CAREGIVER_AUTHORIZATION",
+    scope: "caregiver:appointments",
+  },
+  {
+    policyKey: "processing-basis-care-treatment",
+    recordType: "PROCESSING_BASIS",
+    scope: "care-treatment",
+  },
+  {
+    policyKey: "processing-basis-email-check-in",
+    recordType: "PROCESSING_BASIS",
+    scope: "communication:email:check-in",
+  },
+  {
+    policyKey: "processing-basis-sms-check-in",
+    recordType: "PROCESSING_BASIS",
+    scope: "communication:sms:check-in",
+  },
+  {
+    policyKey: "processing-basis-push-check-in",
+    recordType: "PROCESSING_BASIS",
+    scope: "communication:push:check-in",
+  },
+];
+
+const canonicalPolicy = {
+  version: "pending-local-v1",
+  state: "PENDING",
+  origin: "INSTITUTIONAL_CONFIGURATION",
+  evidenceType: "INSTITUTIONAL_DECISION_REFERENCE",
+  evidenceRef: "DEC-003-OR-DEC-004-PENDING",
+};
 
 async function main() {
   const normalizedAt = new Date();
@@ -96,11 +163,73 @@ async function main() {
         });
       }
     }
+
+    for (const policy of pendingPolicyVersions) {
+      const existing = await transaction.policyVersion.findUnique({
+        where: {
+          policyKey_version: { policyKey: policy.policyKey, version: canonicalPolicy.version },
+        },
+        select: {
+          id: true,
+          recordType: true,
+          scope: true,
+          state: true,
+          origin: true,
+          evidenceType: true,
+          evidenceRef: true,
+        },
+      });
+      if (existing) {
+        const matchesCanonicalConfiguration =
+          existing.recordType === policy.recordType &&
+          existing.scope === policy.scope &&
+          existing.state === canonicalPolicy.state &&
+          existing.origin === canonicalPolicy.origin &&
+          existing.evidenceType === canonicalPolicy.evidenceType &&
+          existing.evidenceRef === canonicalPolicy.evidenceRef;
+        if (!matchesCanonicalConfiguration) {
+          throw new CanonicalPolicyMismatchError(policy.policyKey, canonicalPolicy.version);
+        }
+        continue;
+      }
+      const created = await transaction.policyVersion.create({
+        data: {
+          ...policy,
+          ...canonicalPolicy,
+          actorUserId: admin.id,
+          recordedAt: normalizedAt,
+        },
+        select: { id: true },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: admin.id,
+          actorRole: "admin",
+          action: "POLICY_VERSION_CREATED",
+          resourceType: "PolicyVersion",
+          resourceId: created.id,
+          outcome: "SUCCESS",
+          correlationId,
+          createdAt: normalizedAt,
+        },
+      });
+    }
   });
 }
 
 main()
-  .catch(() => {
+  .catch((error) => {
+    console.error(
+      JSON.stringify(
+        error instanceof CanonicalPolicyMismatchError
+          ? {
+              code: "CANONICAL_POLICY_MISMATCH",
+              policyKey: error.policyKey,
+              version: error.version,
+            }
+          : { code: "SYNTHETIC_SEED_FAILED" },
+      ),
+    );
     process.exitCode = 1;
   })
   .finally(async () => {
