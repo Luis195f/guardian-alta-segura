@@ -5,8 +5,18 @@ import { ROLES, type Role } from "@/domain/auth/role";
 
 const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
   admin: ["authenticated-session", "role-administration", "technical-support-metadata"],
-  nurse: ["authenticated-session", "simulated-clinical-record"],
-  clinician: ["authenticated-session", "simulated-clinical-record"],
+  nurse: [
+    "authenticated-session",
+    "simulated-clinical-record",
+    "discharge-episode-read",
+    "discharge-episode-write",
+  ],
+  clinician: [
+    "authenticated-session",
+    "simulated-clinical-record",
+    "discharge-episode-read",
+    "discharge-episode-write",
+  ],
   patient: ["authenticated-session", "simulated-own-record"],
   caregiver: ["authenticated-session", "simulated-caregiver-section"],
   support: ["authenticated-session", "technical-support-metadata"],
@@ -19,6 +29,8 @@ const allResources: readonly ProtectedResource[] = [
   "simulated-own-record",
   "simulated-caregiver-section",
   "technical-support-metadata",
+  "discharge-episode-read",
+  "discharge-episode-write",
 ];
 
 describe("server-side authorization matrix", () => {

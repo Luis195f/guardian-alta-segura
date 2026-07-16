@@ -11,6 +11,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Administrar cuentas y asignaciones de rol | Sí, sin autoasignarse acceso clínico | No | No | No | No | No |
 | Configurar parámetros técnicos | Sí, sujeto a aprobación/versionado | No | No | No | No | No |
 | Validar alta/identidad | No por rol administrativo | Sí, según protocolo | Sí, según protocolo | No | No | No |
+| Crear y transicionar episodio asignado | No | Sí, asignado | Sí, asignado | No | No | No |
 | Gestionar registros de participación y comunicaciones | No | No | Sí, según protocolo | Propio | No | No |
 | Ver episodio y contenido clínico | No por defecto | Sí, asignado | Sí, asignado | Propio | Autorizado | No |
 | Editar o activar Plan de Seguridad | No | Sí | No | No; aporta información por flujo autorizado | No | No |

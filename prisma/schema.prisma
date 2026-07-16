@@ -25,6 +25,21 @@ enum AuditAction {
   LEGAL_RECORD_CREATED
   LEGAL_RECORD_REVOKED
   POLICY_VERSION_CREATED
+  EPISODE_CREATED
+  EPISODE_TRANSITIONED
+}
+
+enum IdentityVerificationState {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DischargeEpisodeStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
 }
 
 enum LegalRecordState {
@@ -101,8 +116,104 @@ model User {
   processingBasisRecordsAuthored      ProcessingBasisRecord[]      @relation("ProcessingBasisActor")
   revocationEvents                    RevocationEvent[]            @relation("RevocationSubject")
   revocationEventsAuthored            RevocationEvent[]            @relation("RevocationActor")
+  identityPoliciesAuthored            IdentityVerificationPolicyVersion[] @relation("IdentityPolicyActor")
+  patientsCreated                     Patient[]                     @relation("PatientCreator")
+  patientsIdentityVerified            Patient[]                     @relation("PatientIdentityVerifier")
+  dischargeEpisodesCreated            DischargeEpisode[]            @relation("EpisodeCreator")
+  dischargeEpisodesAsNurse            DischargeEpisode[]            @relation("EpisodeResponsibleNurse")
+  dischargeEpisodesAsClinician        DischargeEpisode[]            @relation("EpisodeResponsibleClinician")
+  dischargeEpisodesClosed             DischargeEpisode[]            @relation("EpisodeCloser")
+  episodeTransitions                  EpisodeTransition[]           @relation("EpisodeTransitionActor")
 
   @@map("users")
+}
+
+model IdentityVerificationPolicyVersion {
+  id            String                    @id @default(cuid())
+  policyKey     String                    @map("policy_key") @db.VarChar(64)
+  version       String                    @db.VarChar(32)
+  state         PolicyState
+  acceptedState IdentityVerificationState @map("accepted_state")
+  processCode   String                    @map("process_code") @db.VarChar(64)
+  processVersion  String                   @map("process_version") @db.VarChar(32)
+  isSyntheticDemo Boolean                  @default(false) @map("is_synthetic_demo")
+  actorUserId   String                    @map("actor_user_id")
+  recordedAt    DateTime                  @default(now()) @map("recorded_at")
+  actor         User                      @relation("IdentityPolicyActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  patients      Patient[]
+
+  @@unique([policyKey, version])
+  @@index([policyKey, recordedAt])
+  @@map("identity_verification_policy_versions")
+}
+
+model Patient {
+  id                                  String                    @id @default(cuid())
+  externalPseudonymousId              String                    @unique @map("external_pseudonymous_id") @db.VarChar(64)
+  isSynthetic                         Boolean                   @default(false) @map("is_synthetic")
+  identityVerificationState           IdentityVerificationState @default(PENDING) @map("identity_verification_state")
+  identityVerificationPolicyVersionId String?                   @map("identity_verification_policy_version_id")
+  identityVerifiedAt                  DateTime?                 @map("identity_verified_at")
+  identityVerifiedById                String?                   @map("identity_verified_by_id")
+  createdById                         String                    @map("created_by_id")
+  createdAt                           DateTime                  @default(now()) @map("created_at")
+  updatedAt                           DateTime                  @updatedAt @map("updated_at")
+  identityVerificationPolicyVersion   IdentityVerificationPolicyVersion? @relation(fields: [identityVerificationPolicyVersionId], references: [id], onDelete: Restrict)
+  identityVerifiedBy                  User?                     @relation("PatientIdentityVerifier", fields: [identityVerifiedById], references: [id], onDelete: Restrict)
+  createdBy                           User                      @relation("PatientCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  dischargeEpisodes                  DischargeEpisode[]
+
+  @@index([identityVerificationState])
+  @@map("patients")
+}
+
+model DischargeEpisode {
+  id                       String                 @id @default(cuid())
+  patientId                String                 @map("patient_id")
+  dischargeDate            DateTime               @map("discharge_date") @db.Date
+  programLengthDays        Int                    @map("program_length_days")
+  responsibleNurseId       String                 @map("responsible_nurse_id")
+  responsibleClinicianId   String                 @map("responsible_clinician_id")
+  status                   DischargeEpisodeStatus @default(DRAFT)
+  createdById              String                 @map("created_by_id")
+  closedReason             String?                @map("closed_reason") @db.VarChar(500)
+  closedById               String?                @map("closed_by_id")
+  closedAt                 DateTime?              @map("closed_at")
+  createdAt                DateTime               @default(now()) @map("created_at")
+  updatedAt                DateTime               @updatedAt @map("updated_at")
+  version                  Int                    @default(1)
+  patient                  Patient                @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  responsibleNurse         User                   @relation("EpisodeResponsibleNurse", fields: [responsibleNurseId], references: [id], onDelete: Restrict)
+  responsibleClinician     User                   @relation("EpisodeResponsibleClinician", fields: [responsibleClinicianId], references: [id], onDelete: Restrict)
+  createdBy                User                   @relation("EpisodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  closedBy                 User?                  @relation("EpisodeCloser", fields: [closedById], references: [id], onDelete: Restrict)
+  transitions              EpisodeTransition[]
+
+  @@index([responsibleNurseId, status])
+  @@index([responsibleClinicianId, status])
+  @@index([patientId, createdAt])
+  @@map("discharge_episodes")
+}
+
+model EpisodeTransition {
+  id                 String                  @id @default(cuid())
+  episodeId          String                  @map("episode_id")
+  fromStatus         DischargeEpisodeStatus? @map("from_status")
+  toStatus           DischargeEpisodeStatus  @map("to_status")
+  actorUserId        String                  @map("actor_user_id")
+  actorRole          Role                    @map("actor_role")
+  reason             String?                 @db.VarChar(500)
+  idempotencyKey     String                  @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String                  @map("request_fingerprint") @db.Char(64)
+  resultingVersion   Int                     @map("resulting_version")
+  occurredAt         DateTime                @default(now()) @map("occurred_at")
+  episode            DischargeEpisode        @relation(fields: [episodeId], references: [id], onDelete: Restrict)
+  actor              User                    @relation("EpisodeTransitionActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([actorUserId, idempotencyKey])
+  @@unique([episodeId, resultingVersion])
+  @@index([episodeId, occurredAt])
+  @@map("episode_transitions")
 }
 
 model PolicyVersion {

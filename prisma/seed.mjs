@@ -214,6 +214,87 @@ async function main() {
         },
       });
     }
+
+    const nurse = users.get("demo-nurse");
+    if (!nurse) throw new Error("Synthetic nurse seed failed");
+    const identityPolicyKey = "synthetic-demo-identity-verification";
+    const identityPolicyVersion = "demo-v1";
+    let identityPolicy = await transaction.identityVerificationPolicyVersion.findUnique({
+      where: {
+        policyKey_version: { policyKey: identityPolicyKey, version: identityPolicyVersion },
+      },
+    });
+    if (!identityPolicy) {
+      identityPolicy = await transaction.identityVerificationPolicyVersion.create({
+        data: {
+          policyKey: identityPolicyKey,
+          version: identityPolicyVersion,
+          state: "APPROVED",
+          acceptedState: "VERIFIED",
+          processCode: "RECORDED_HUMAN_REVIEW",
+          processVersion: "demo-v1",
+          isSyntheticDemo: true,
+          actorUserId: admin.id,
+          recordedAt: normalizedAt,
+        },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: admin.id,
+          actorRole: "admin",
+          action: "POLICY_VERSION_CREATED",
+          resourceType: "IdentityVerificationPolicyVersion",
+          resourceId: identityPolicy.id,
+          outcome: "SUCCESS",
+          correlationId,
+          createdAt: normalizedAt,
+        },
+      });
+    } else if (
+      identityPolicy.state !== "APPROVED" ||
+      identityPolicy.acceptedState !== "VERIFIED" ||
+      identityPolicy.processCode !== "RECORDED_HUMAN_REVIEW" ||
+      identityPolicy.processVersion !== "demo-v1" ||
+      !identityPolicy.isSyntheticDemo
+    ) {
+      throw new CanonicalPolicyMismatchError(identityPolicyKey, identityPolicyVersion);
+    }
+
+    const syntheticPatientId = "SYNTH-PATIENT-001";
+    const existingPatient = await transaction.patient.findUnique({
+      where: { externalPseudonymousId: syntheticPatientId },
+    });
+    if (!existingPatient) {
+      const patient = await transaction.patient.create({
+        data: {
+          externalPseudonymousId: syntheticPatientId,
+          isSynthetic: true,
+          identityVerificationState: "VERIFIED",
+          identityVerificationPolicyVersionId: identityPolicy.id,
+          identityVerifiedAt: normalizedAt,
+          identityVerifiedById: nurse.id,
+          createdById: nurse.id,
+        },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: nurse.id,
+          actorRole: "nurse",
+          action: "CRITICAL_MUTATION",
+          resourceType: "Patient",
+          resourceId: patient.id,
+          outcome: "SUCCESS",
+          correlationId,
+          createdAt: normalizedAt,
+        },
+      });
+    } else if (
+      !existingPatient.isSynthetic ||
+      existingPatient.identityVerificationState !== "VERIFIED" ||
+      existingPatient.identityVerificationPolicyVersionId !== identityPolicy.id
+    ) {
+      throw new CanonicalPolicyMismatchError(identityPolicyKey, syntheticPatientId);
+    }
   });
 }
 

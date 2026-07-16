@@ -100,6 +100,7 @@ label {
 }
 
 select,
+input,
 button {
   min-height: 2.75rem;
   border-radius: 0.5rem;
@@ -162,6 +163,82 @@ select {
   padding: 0.55rem 0.7rem;
 }
 
+input {
+  border: 1px solid #7b8d84;
+  background: #fff;
+  padding: 0.55rem 0.7rem;
+}
+
+.episode-panel {
+  margin: 2.5rem 0;
+}
+
+.episode-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+}
+
+.episode-list,
+.timeline {
+  padding-left: 1.25rem;
+}
+
+.episode-link {
+  margin-bottom: 0.5rem;
+  background: transparent;
+  color: var(--accent);
+  padding: 0.25rem;
+  text-align: left;
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  padding: 1rem;
+}
+
+.episode-detail {
+  border-top: 1px solid var(--line);
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+}
+
+.episode-detail dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.episode-detail dl div,
+.timeline li {
+  border-left: 0.25rem solid var(--accent);
+  padding: 0.5rem 0.75rem;
+}
+
+.episode-detail dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.episode-detail dd {
+  margin: 0;
+}
+
+.episode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.timeline li {
+  display: grid;
+  margin-bottom: 0.75rem;
+}
+
 button {
   border: 0;
   background: var(--accent);
@@ -196,6 +273,11 @@ footer {
 
 @media (max-width: 46rem) {
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .episode-layout,
+  .episode-detail dl {
     grid-template-columns: 1fr;
   }
 }

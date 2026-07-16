@@ -10,6 +10,8 @@ El flujo organiza información y deja evidencia de revisión humana. No diagnost
 
 Una persona autorizada registra el alta estructurada. Antes de validar el episodio, verifica la identidad conforme al protocolo local y lo vincula a un ID seudonimizado. El sistema no inventa el método de identidad ni activa el episodio por inferencia.
 
+El episodio comienza en borrador y solo transita mediante la máquina explícita `draft → active`, `active ⇄ paused` y `active|paused → closed`. Cada transición conserva actor, rol, fecha, versión resultante y motivo cuando corresponda, y produce auditoría minimizada. La activación revalida dentro de la transacción la política versionada de identidad y los dos profesionales responsables; la idempotencia y la versión optimista evitan dobles activaciones y escrituras obsoletas.
+
 ### 2. Participación y base jurídica separadas
 
 Se registran de forma independiente y granular:
@@ -72,6 +74,8 @@ El censo de contingencia es opcional, está desactivado por defecto y solo puede
 ### 15. Cierre
 
 Una persona autorizada cierra el episodio con motivo y conforme al protocolo local. El sistema no cierra automáticamente por fecha, puntuación o ausencia de actividad. El cierre conserva el historial, las versiones, las autorizaciones y revocaciones y las evidencias de revisión sujetas a la política institucional pendiente.
+
+Hasta que exista el módulo de avisos, una interfaz de política de cierre permanece en denegación segura. No se presume que la ausencia del módulo equivalga a ausencia de avisos abiertos.
 
 ## Excepciones seguras
 
