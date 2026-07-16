@@ -8,6 +8,8 @@ export const PROTECTED_RESOURCES = [
   "simulated-own-record",
   "simulated-caregiver-section",
   "technical-support-metadata",
+  "discharge-episode-read",
+  "discharge-episode-write",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -19,6 +21,8 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "simulated-own-record": ["patient"],
   "simulated-caregiver-section": ["caregiver"],
   "technical-support-metadata": ["admin", "support"],
+  "discharge-episode-read": ["nurse", "clinician"],
+  "discharge-episode-write": ["nurse", "clinician"],
 };
 
 export interface AuthorizationDecision {

@@ -4,7 +4,7 @@ test("muestra límites sintéticos y el demo local no productivo", async ({ page
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1, name: "Guardián Alta Segura" })).toBeVisible();
-  await expect(page.getByText("SINTÉTICO / NO USO CLÍNICO", { exact: true })).toBeVisible();
+  await expect(page.getByText("SINTÉTICO / NO USO CLÍNICO", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Modo demo NO PRODUCTIVO" })).toBeVisible();
   await expect(
     page.getByText("Esta rama no contiene decisiones clínicas automatizadas."),

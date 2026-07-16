@@ -7,10 +7,10 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | ID | Ámbito | Decisión pendiente | Requisitos | Autoridad/propietario | Evidencia mínima esperada | Estado | Bloqueo mientras esté pendiente |
 |---|---|---|---|---|---|---|---|
 | DEC-001 | Protocolo local | Método de verificación de identidad y validación del alta | REQ-01 | Dirección Médica | Protocolo versionado y aprobado | Pendiente | Activación para uso real |
-| DEC-002 | Producto/protocolo | Criterio para asignar 30, 60 o 90 días y reglas de cierre | REQ-01 | Dirección Médica | Protocolo de episodio y cierre | Pendiente | Selección automática o valor por defecto clínico |
+| DEC-002 | Producto/protocolo | Criterio para asignar 30, 60 o 90 días, motivos admisibles y reglas de cierre, incluida la resolución de avisos abiertos | REQ-01 | Dirección Médica | Protocolo de episodio y cierre | Pendiente | Selección automática, valor por defecto clínico y cierre para uso real |
 | DEC-003 | Jurídico | Separación, textos, evidencias y base aplicable a piloto, participación digital, comunicaciones y tratamiento asistencial | REQ-02 | Responsable del Tratamiento | Evaluación jurídica y políticas versionadas | Pendiente | Comunicaciones y participación real |
 | DEC-004 | Jurídico | Alcance, representación, vigencia y revocación de autorización del cuidador | REQ-05, REQ-06 | Responsable del Tratamiento | Política jurídica y operativa aprobada | Pendiente | Acceso real de cuidadores |
-| DEC-005 | Jurídico/privacidad | Retención, archivo, eliminación, exportación y ejercicio de derechos por clase de datos | REQ-02, REQ-06, REQ-11, REQ-13 | Responsable del Tratamiento | Política de conservación y evaluación aplicable | Pendiente | Tratamiento de datos reales y retención definitiva |
+| DEC-005 | Jurídico/privacidad | Retención, archivo, eliminación, exportación y ejercicio de derechos por clase de datos | REQ-01, REQ-02, REQ-06, REQ-11, REQ-13 | Responsable del Tratamiento | Política de conservación y evaluación aplicable | Pendiente | Tratamiento de datos reales y retención definitiva |
 | DEC-006 | Protocolo local | Contenido, frecuencia, ventanas y gestión de no respuesta de check-ins | REQ-04 | Dirección Médica | Protocolo versionado | Pendiente | Cadencia clínica real |
 | DEC-007 | Validación clínica | Plantilla, disclaimer, acciones y revisión de Domicilio Seguro | REQ-07 | Dirección de Enfermería | Validación clínica local documentada | Pendiente | Uso clínico del módulo |
 | DEC-008 | Validación clínica | Reglas, inputs, umbrales deterministas, explicaciones y responsables de avisos | REQ-08 | Dirección Médica | Catálogo versionado, probado y aprobado | Pendiente | Ejecución de reglas en uso real |
@@ -32,3 +32,11 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 - `Sustituida`: existe una versión posterior; la anterior no se sobrescribe.
 
 No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validación clínica global ni aprobación hospitalaria más allá del alcance explícito de la evidencia.
+
+## Decisiones técnicas provisionales de feat/03
+
+- El seed registra una política `synthetic-demo-identity-verification/demo-v1` y un paciente inequívocamente sintético. Su estado `APPROVED` solo habilita pruebas locales; no resuelve DEC-001 ni representa protocolo institucional.
+- La duración debe elegirse explícitamente entre 30, 60 y 90. No se asigna por diagnóstico, eficacia o riesgo y no existe valor clínico automático.
+- El cierre exige actor y motivo. Mientras no exista el módulo de avisos, `AlertModuleUnavailableClosurePolicy` deniega el cierre; una implementación futura deberá consultar avisos abiertos de forma consistente con la transacción.
+- Episodios, pacientes, políticas de identidad y transiciones no se borran físicamente. La conservación definitiva continúa bloqueada por DEC-005.
+- `nurse` y `clinician` son roles técnicos provisionales; su correspondencia institucional continúa bloqueada por DEC-013.

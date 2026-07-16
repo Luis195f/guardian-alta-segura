@@ -1,4 +1,5 @@
 import { DemoLoginPanel } from "@/presentation/components/demo-login-panel";
+import { DischargeEpisodePanel } from "@/presentation/components/discharge-episode-panel";
 import { LegalStatePanel } from "@/presentation/components/legal-state-panel";
 
 export default function HomePage() {
@@ -31,6 +32,8 @@ export default function HomePage() {
       </div>
 
       <LegalStatePanel enabled={demoEnabled} />
+
+      <DischargeEpisodePanel enabled={demoEnabled} />
 
       <footer>
         No diagnostica, no prescribe, no predice riesgo y no sustituye el juicio profesional.

@@ -9,6 +9,8 @@ export const AUDIT_ACTIONS = [
   "LEGAL_RECORD_CREATED",
   "LEGAL_RECORD_REVOKED",
   "POLICY_VERSION_CREATED",
+  "EPISODE_CREATED",
+  "EPISODE_TRANSITIONED",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
