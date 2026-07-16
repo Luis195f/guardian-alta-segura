@@ -1,4 +1,5 @@
 import { DemoLoginPanel } from "@/presentation/components/demo-login-panel";
+import { LegalStatePanel } from "@/presentation/components/legal-state-panel";
 
 export default function HomePage() {
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
@@ -11,7 +12,7 @@ export default function HomePage() {
         <h1>Guardián Alta Segura</h1>
         <p className="lede">
           Base organizativa para continuidad postalta con revisión humana, autorización en servidor
-          y trazabilidad. Esta rama no contiene módulos clínicos.
+          y trazabilidad. Esta rama no contiene decisiones clínicas automatizadas.
         </p>
       </header>
 
@@ -28,6 +29,8 @@ export default function HomePage() {
           </ul>
         </section>
       </div>
+
+      <LegalStatePanel enabled={demoEnabled} />
 
       <footer>
         No diagnostica, no prescribe, no predice riesgo y no sustituye el juicio profesional.

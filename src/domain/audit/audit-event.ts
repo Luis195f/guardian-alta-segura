@@ -6,6 +6,9 @@ export const AUDIT_ACTIONS = [
   "ROLE_ASSIGNED",
   "ROLE_REVOKED",
   "CRITICAL_MUTATION",
+  "LEGAL_RECORD_CREATED",
+  "LEGAL_RECORD_REVOKED",
+  "POLICY_VERSION_CREATED",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
