@@ -4,7 +4,13 @@ import { authorize, type ProtectedResource } from "@/domain/auth/authorization";
 import { ROLES, type Role } from "@/domain/auth/role";
 
 const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
-  admin: ["authenticated-session", "role-administration", "technical-support-metadata"],
+  admin: [
+    "authenticated-session",
+    "role-administration",
+    "technical-support-metadata",
+    "check-in-protocol-read",
+    "check-in-protocol-write",
+  ],
   nurse: [
     "authenticated-session",
     "simulated-clinical-record",
@@ -12,6 +18,9 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "discharge-episode-write",
     "safety-plan-read",
     "safety-plan-write",
+    "check-in-protocol-read",
+    "check-in-assignment-write",
+    "check-in-read",
   ],
   clinician: [
     "authenticated-session",
@@ -20,8 +29,17 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "discharge-episode-write",
     "safety-plan-read",
     "safety-plan-write",
+    "check-in-protocol-read",
+    "check-in-assignment-write",
+    "check-in-read",
   ],
-  patient: ["authenticated-session", "simulated-own-record", "safety-plan-read"],
+  patient: [
+    "authenticated-session",
+    "simulated-own-record",
+    "safety-plan-read",
+    "check-in-read",
+    "check-in-response-write",
+  ],
   caregiver: ["authenticated-session", "simulated-caregiver-section"],
   support: ["authenticated-session", "technical-support-metadata"],
 };
@@ -37,6 +55,11 @@ const allResources: readonly ProtectedResource[] = [
   "discharge-episode-write",
   "safety-plan-read",
   "safety-plan-write",
+  "check-in-protocol-read",
+  "check-in-protocol-write",
+  "check-in-assignment-write",
+  "check-in-read",
+  "check-in-response-write",
 ];
 
 describe("server-side authorization matrix", () => {

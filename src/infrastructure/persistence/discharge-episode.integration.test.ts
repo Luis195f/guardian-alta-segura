@@ -50,12 +50,42 @@ async function arrangeVerifiedPatient() {
       createdById: nurse.id,
     },
   });
-  return { nurse, clinician, patient };
+  const checkInProtocol = await prisma.checkInProtocolVersion.create({
+    data: {
+      protocolKey: `synthetic-check-in-${randomUUID()}`,
+      versionNumber: 1,
+      title: "PLANTILLA SINTÉTICA / NO APROBADA",
+      state: "SYNTHETIC_DEMO",
+      isSyntheticFixture: true,
+      createdById: nurse.id,
+      schedule: {
+        create: {
+          intervalDays: 3,
+          firstDayOffset: 1,
+          localTime: "09:30",
+          timeZone: "Europe/Madrid",
+          responseWindowMinutes: 180,
+        },
+      },
+      questions: {
+        create: {
+          questionKey: "synthetic-mood",
+          position: 1,
+          type: "SCALE",
+          prompt: "Pregunta sintética no aprobada",
+          required: true,
+          scaleMinimum: 0,
+          scaleMaximum: 4,
+        },
+      },
+    },
+  });
+  return { nurse, clinician, patient, checkInProtocol };
 }
 
 describe.sequential("PostgreSQL discharge episode guarantees", () => {
   it("crea y activa de forma transaccional, idempotente y auditada", async () => {
-    const { nurse, clinician, patient } = await arrangeVerifiedPatient();
+    const { nurse, clinician, patient, checkInProtocol } = await arrangeVerifiedPatient();
     const actor = { userId: nurse.id, roles: ["nurse"] as const, sessionId: randomUUID() };
     const unitOfWork = new PrismaEpisodeUnitOfWork();
     const created = await new CreateDischargeEpisodeService(unitOfWork).execute({
@@ -65,6 +95,7 @@ describe.sequential("PostgreSQL discharge episode guarantees", () => {
       programLengthDays: 60,
       responsibleNurseId: nurse.id,
       responsibleClinicianId: clinician.id,
+      checkInProtocolVersionId: checkInProtocol.id,
       idempotencyKey: `create:${randomUUID()}`,
       correlationId: randomUUID(),
     });
@@ -103,7 +134,7 @@ describe.sequential("PostgreSQL discharge episode guarantees", () => {
   });
 
   it("impide hard-delete de episodio, paciente y timeline", async () => {
-    const { nurse, clinician, patient } = await arrangeVerifiedPatient();
+    const { nurse, clinician, patient, checkInProtocol } = await arrangeVerifiedPatient();
     const episode = await prisma.dischargeEpisode.create({
       data: {
         patientId: patient.id,
@@ -112,6 +143,7 @@ describe.sequential("PostgreSQL discharge episode guarantees", () => {
         responsibleNurseId: nurse.id,
         responsibleClinicianId: clinician.id,
         createdById: nurse.id,
+        checkInProtocolVersionId: checkInProtocol.id,
       },
     });
     const transition = await prisma.episodeTransition.create({

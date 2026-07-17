@@ -37,3 +37,23 @@ export async function requireDemoSafetyPlanPrincipal(
   if (!authorize(principal, `safety-plan-${operation}`).allowed) throw errors.forbidden();
   return { principal, applicationOrigin: environment.appBaseUrl.origin };
 }
+
+export async function requireDemoCheckInPrincipal(
+  request: NextRequest,
+  resource:
+    | "check-in-protocol-write"
+    | "check-in-protocol-read"
+    | "check-in-assignment-write"
+    | "check-in-read"
+    | "check-in-response-write",
+): Promise<{ readonly principal: AuthenticatedPrincipal; readonly applicationOrigin: string }> {
+  const environment = readServerEnvironment();
+  if (!environment.demoMode) throw errors.notFound();
+  assertLoopbackRequestHost(request);
+  const principal = await readAuthenticatedPrincipal(
+    request.cookies.get(SESSION_COOKIE_NAME)?.value,
+  );
+  if (!principal) throw errors.unauthenticated();
+  if (!authorize(principal, resource).allowed) throw errors.forbidden();
+  return { principal, applicationOrigin: environment.appBaseUrl.origin };
+}

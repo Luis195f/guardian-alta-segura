@@ -67,6 +67,10 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
     return externalPseudonymousId === "SYNTH-PATIENT-001" ? this.patient : null;
   }
 
+  async isSyntheticDemoCheckInProtocol(protocolVersionId: string) {
+    return protocolVersionId === "check-in-protocol-v1";
+  }
+
   async createEpisode(input: {
     patientId: string;
     dischargeDate: Date;
@@ -74,6 +78,7 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
     responsibleNurseId: string;
     responsibleClinicianId: string;
     createdById: string;
+    checkInProtocolVersionId: string;
   }): Promise<EpisodeRecord> {
     void input.createdById;
     this.episode = {
@@ -85,6 +90,7 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
       responsibleClinicianId: input.responsibleClinicianId,
       status: "DRAFT",
       version: 1,
+      checkInProtocolVersionId: input.checkInProtocolVersionId,
       identity: this.identityContext(),
     };
     return this.episode;
@@ -169,6 +175,7 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
       responsibleClinicianId: "clinician-1",
       status: "DRAFT",
       version: 1,
+      checkInProtocolVersionId: "check-in-protocol-v1",
       identity: this.identityContext(),
     };
   }
@@ -200,6 +207,7 @@ function createInput(store: MemoryEpisodeStore, actor = principal("nurse-1", ["n
     programLengthDays: 30,
     responsibleNurseId: "nurse-1",
     responsibleClinicianId: "clinician-1",
+    checkInProtocolVersionId: "check-in-protocol-v1",
     idempotencyKey: "create:episode-001",
     correlationId: randomUUID(),
   });

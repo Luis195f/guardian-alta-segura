@@ -80,6 +80,97 @@ const canonicalPolicy = {
   evidenceRef: "DEC-003-OR-DEC-004-PENDING",
 };
 
+const syntheticCheckInFixture = {
+  protocolKey: "synthetic-check-in-template",
+  versionNumber: 1,
+  title: "PLANTILLA SINTÉTICA / NO APROBADA",
+  state: "SYNTHETIC_DEMO",
+  isSyntheticFixture: true,
+  schedule: {
+    intervalDays: 3,
+    firstDayOffset: 1,
+    localTime: "09:30",
+    timeZone: "Europe/Madrid",
+    responseWindowMinutes: 180,
+  },
+  questions: [
+    {
+      questionKey: "sleep",
+      position: 1,
+      type: "SCALE",
+      prompt: "Ejemplo sintético: ¿cómo valorarías tu sueño reciente?",
+      required: true,
+      scaleMinimum: 0,
+      scaleMaximum: 4,
+      scaleMinimumLabel: "Muy difícil",
+      scaleMaximumLabel: "Muy reparador",
+    },
+    {
+      questionKey: "anxiety",
+      position: 2,
+      type: "SCALE",
+      prompt: "Ejemplo sintético: ¿qué intensidad de ansiedad has notado?",
+      required: true,
+      scaleMinimum: 0,
+      scaleMaximum: 4,
+      scaleMinimumLabel: "Ninguna",
+      scaleMaximumLabel: "Muy intensa",
+    },
+    {
+      questionKey: "mood",
+      position: 3,
+      type: "SCALE",
+      prompt: "Ejemplo sintético: ¿cómo describirías tu ánimo?",
+      required: true,
+      scaleMinimum: 0,
+      scaleMaximum: 4,
+      scaleMinimumLabel: "Muy bajo",
+      scaleMaximumLabel: "Muy bueno",
+    },
+    {
+      questionKey: "adherence",
+      position: 4,
+      type: "YES_NO",
+      prompt: "Ejemplo sintético: ¿has seguido el plan acordado con tu equipo?",
+      required: true,
+    },
+    {
+      questionKey: "substance-use",
+      position: 5,
+      type: "SINGLE_CHOICE",
+      prompt: "Ejemplo sintético: selecciona la opción que mejor describa consumo reciente.",
+      required: true,
+      options: ["Sin consumo", "Consumo registrado", "Prefiero no contestar"],
+    },
+    {
+      questionKey: "self-harm-ideation",
+      position: 6,
+      type: "YES_NO",
+      prompt: "Ejemplo sintético: ¿has tenido pensamientos de hacerte daño?",
+      required: true,
+    },
+    {
+      questionKey: "irritability",
+      position: 7,
+      type: "SCALE",
+      prompt: "Ejemplo sintético: ¿qué nivel de irritabilidad has notado?",
+      required: true,
+      scaleMinimum: 0,
+      scaleMaximum: 4,
+      scaleMinimumLabel: "Ninguno",
+      scaleMaximumLabel: "Muy alto",
+    },
+    {
+      questionKey: "family-conflict",
+      position: 8,
+      type: "RESTRICTED_SHORT_TEXT",
+      prompt: "Ejemplo sintético: si quieres, describe brevemente algún conflicto familiar.",
+      required: false,
+      maximumTextLength: 160,
+    },
+  ],
+};
+
 async function main() {
   const normalizedAt = new Date();
   const correlationId = randomUUID();
@@ -162,6 +253,54 @@ async function main() {
           },
         });
       }
+    }
+
+    const existingCheckInFixture = await transaction.checkInProtocolVersion.findUnique({
+      where: {
+        protocolKey_versionNumber: {
+          protocolKey: syntheticCheckInFixture.protocolKey,
+          versionNumber: syntheticCheckInFixture.versionNumber,
+        },
+      },
+      include: { schedule: true, questions: true },
+    });
+    if (!existingCheckInFixture) {
+      const created = await transaction.checkInProtocolVersion.create({
+        data: {
+          protocolKey: syntheticCheckInFixture.protocolKey,
+          versionNumber: syntheticCheckInFixture.versionNumber,
+          title: syntheticCheckInFixture.title,
+          state: syntheticCheckInFixture.state,
+          isSyntheticFixture: true,
+          createdById: admin.id,
+          schedule: { create: syntheticCheckInFixture.schedule },
+          questions: { create: syntheticCheckInFixture.questions },
+        },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: admin.id,
+          actorRole: "admin",
+          action: "CHECK_IN_PROTOCOL_VERSION_CREATED",
+          resourceType: "CheckInProtocolVersion",
+          resourceId: created.id,
+          outcome: "SUCCESS",
+          correlationId,
+          createdAt: normalizedAt,
+        },
+      });
+    } else if (
+      existingCheckInFixture.title !== syntheticCheckInFixture.title ||
+      existingCheckInFixture.state !== syntheticCheckInFixture.state ||
+      !existingCheckInFixture.isSyntheticFixture ||
+      existingCheckInFixture.questions.length !== syntheticCheckInFixture.questions.length ||
+      existingCheckInFixture.schedule?.intervalDays !==
+        syntheticCheckInFixture.schedule.intervalDays
+    ) {
+      throw new CanonicalPolicyMismatchError(
+        syntheticCheckInFixture.protocolKey,
+        String(syntheticCheckInFixture.versionNumber),
+      );
     }
 
     for (const policy of pendingPolicyVersions) {

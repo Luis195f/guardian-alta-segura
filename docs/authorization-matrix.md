@@ -17,6 +17,10 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Editar o activar Plan de Seguridad | No | Sí | No | No; aporta información por flujo autorizado | No | No |
 | Ver historial permitido del Plan | No por defecto | Sí, asignado | No | Propio | Autorizado por sección | No |
 | Responder check-ins | No | No | No | Propio | No | No |
+| Versionar protocolos y cadencia de check-in | Sí, solo configuración sintética demo; no implica aprobación | No | No | No | No | No |
+| Crear asignaciones desde la versión fijada al episodio | No | Sí, asignado y con participación digital vigente | Sí, asignado y con participación digital vigente | No | No | No |
+| Consultar histórico de check-ins | No | Sí, asignado | Sí, asignado | Propio | No | **No** |
+| Omitir un check-in como evento de no respuesta | No | No | No | Propio | No | No |
 | Revisar avisos explicables | No | Sí, asignado | No | No | No | No |
 | Crear/cerrar tareas tras revisión | No | Sí, asignado | Sí, asignado | Solo acciones propias si se habilitan | Solo tareas autorizadas | No |
 | Registrar/revisar Domicilio Seguro | No | Sí, revisión humana | No | No | Autorizado | No |

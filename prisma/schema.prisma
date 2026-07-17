@@ -30,6 +30,10 @@ enum AuditAction {
   SAFETY_PLAN_VERSION_CREATED
   SAFETY_PLAN_VERSION_ACTIVATED
   SAFETY_PLAN_VERSION_INVALIDATED
+  CHECK_IN_PROTOCOL_VERSION_CREATED
+  CHECK_IN_ASSIGNMENTS_CREATED
+  CHECK_IN_RESPONSE_RECORDED
+  CHECK_IN_NON_RESPONSE_RECORDED
 }
 
 enum IdentityVerificationState {
@@ -121,115 +125,325 @@ enum AuditOutcome {
   FAILURE
 }
 
+enum CheckInProtocolState {
+  DRAFT
+  SYNTHETIC_DEMO
+  RETIRED
+}
+
+enum CheckInQuestionType {
+  SCALE
+  YES_NO
+  SINGLE_CHOICE
+  RESTRICTED_SHORT_TEXT
+}
+
+enum CheckInNonResponseReason {
+  WINDOW_EXPIRED
+  PATIENT_OMITTED
+}
+
+enum CheckInOutcomeType {
+  RESPONDED
+  OMITTED
+  EXPIRED
+}
+
 model User {
-  id                                  String                       @id @default(cuid())
-  syntheticAlias                      String                       @unique @map("synthetic_alias") @db.VarChar(64)
-  displayLabel                        String                       @map("display_label") @db.VarChar(160)
-  isSynthetic                         Boolean                      @default(false) @map("is_synthetic")
-  isActive                            Boolean                      @default(true) @map("is_active")
-  createdAt                           DateTime                     @default(now()) @map("created_at")
-  roleAssignments                     RoleAssignment[]             @relation("UserRoleAssignments")
-  rolesAssigned                       RoleAssignment[]             @relation("RoleAssigner")
+  id                                  String                              @id @default(cuid())
+  syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
+  displayLabel                        String                              @map("display_label") @db.VarChar(160)
+  isSynthetic                         Boolean                             @default(false) @map("is_synthetic")
+  isActive                            Boolean                             @default(true) @map("is_active")
+  createdAt                           DateTime                            @default(now()) @map("created_at")
+  roleAssignments                     RoleAssignment[]                    @relation("UserRoleAssignments")
+  rolesAssigned                       RoleAssignment[]                    @relation("RoleAssigner")
   sessions                            SessionMetadata[]
-  auditEvents                         AuditEvent[]                 @relation("AuditActor")
-  policyVersions                      PolicyVersion[]              @relation("PolicyVersionActor")
-  participationRecords                ParticipationRecord[]        @relation("ParticipationSubject")
-  participationRecordsAuthored        ParticipationRecord[]        @relation("ParticipationActor")
-  digitalParticipationRecords         DigitalParticipationRecord[] @relation("DigitalParticipationSubject")
-  digitalParticipationRecordsAuthored DigitalParticipationRecord[] @relation("DigitalParticipationActor")
-  communicationPermissions            CommunicationPermission[]    @relation("CommunicationSubject")
-  communicationPermissionsAuthored    CommunicationPermission[]    @relation("CommunicationActor")
-  caregiverAuthorizations             CaregiverAuthorization[]     @relation("CaregiverAuthorizationSubject")
-  caregiverAccessAuthorizations       CaregiverAuthorization[]     @relation("CaregiverAuthorizationCaregiver")
-  caregiverAuthorizationsAuthored     CaregiverAuthorization[]     @relation("CaregiverAuthorizationActor")
-  processingBasisRecords              ProcessingBasisRecord[]      @relation("ProcessingBasisSubject")
-  processingBasisRecordsAuthored      ProcessingBasisRecord[]      @relation("ProcessingBasisActor")
-  revocationEvents                    RevocationEvent[]            @relation("RevocationSubject")
-  revocationEventsAuthored            RevocationEvent[]            @relation("RevocationActor")
+  auditEvents                         AuditEvent[]                        @relation("AuditActor")
+  policyVersions                      PolicyVersion[]                     @relation("PolicyVersionActor")
+  participationRecords                ParticipationRecord[]               @relation("ParticipationSubject")
+  participationRecordsAuthored        ParticipationRecord[]               @relation("ParticipationActor")
+  digitalParticipationRecords         DigitalParticipationRecord[]        @relation("DigitalParticipationSubject")
+  digitalParticipationRecordsAuthored DigitalParticipationRecord[]        @relation("DigitalParticipationActor")
+  communicationPermissions            CommunicationPermission[]           @relation("CommunicationSubject")
+  communicationPermissionsAuthored    CommunicationPermission[]           @relation("CommunicationActor")
+  caregiverAuthorizations             CaregiverAuthorization[]            @relation("CaregiverAuthorizationSubject")
+  caregiverAccessAuthorizations       CaregiverAuthorization[]            @relation("CaregiverAuthorizationCaregiver")
+  caregiverAuthorizationsAuthored     CaregiverAuthorization[]            @relation("CaregiverAuthorizationActor")
+  processingBasisRecords              ProcessingBasisRecord[]             @relation("ProcessingBasisSubject")
+  processingBasisRecordsAuthored      ProcessingBasisRecord[]             @relation("ProcessingBasisActor")
+  revocationEvents                    RevocationEvent[]                   @relation("RevocationSubject")
+  revocationEventsAuthored            RevocationEvent[]                   @relation("RevocationActor")
   identityPoliciesAuthored            IdentityVerificationPolicyVersion[] @relation("IdentityPolicyActor")
-  patientsCreated                     Patient[]                     @relation("PatientCreator")
-  patientsIdentityVerified            Patient[]                     @relation("PatientIdentityVerifier")
-  dischargeEpisodesCreated            DischargeEpisode[]            @relation("EpisodeCreator")
-  dischargeEpisodesAsNurse            DischargeEpisode[]            @relation("EpisodeResponsibleNurse")
-  dischargeEpisodesAsClinician        DischargeEpisode[]            @relation("EpisodeResponsibleClinician")
-  dischargeEpisodesClosed             DischargeEpisode[]            @relation("EpisodeCloser")
-  episodeTransitions                  EpisodeTransition[]           @relation("EpisodeTransitionActor")
-  patientPortalProfile                Patient?                      @relation("PatientPortalUser")
-  safetyPlansCreated                  SafetyPlan[]                   @relation("SafetyPlanCreator")
-  safetyPlanVersionsCreated           SafetyPlanVersion[]            @relation("SafetyPlanVersionCreator")
-  safetyPlanStateChanges              SafetyPlanVersionStateChange[] @relation("SafetyPlanStateActor")
+  patientsCreated                     Patient[]                           @relation("PatientCreator")
+  patientsIdentityVerified            Patient[]                           @relation("PatientIdentityVerifier")
+  dischargeEpisodesCreated            DischargeEpisode[]                  @relation("EpisodeCreator")
+  dischargeEpisodesAsNurse            DischargeEpisode[]                  @relation("EpisodeResponsibleNurse")
+  dischargeEpisodesAsClinician        DischargeEpisode[]                  @relation("EpisodeResponsibleClinician")
+  dischargeEpisodesClosed             DischargeEpisode[]                  @relation("EpisodeCloser")
+  episodeTransitions                  EpisodeTransition[]                 @relation("EpisodeTransitionActor")
+  patientPortalProfile                Patient?                            @relation("PatientPortalUser")
+  safetyPlansCreated                  SafetyPlan[]                        @relation("SafetyPlanCreator")
+  safetyPlanVersionsCreated           SafetyPlanVersion[]                 @relation("SafetyPlanVersionCreator")
+  safetyPlanStateChanges              SafetyPlanVersionStateChange[]      @relation("SafetyPlanStateActor")
+  checkInProtocolsCreated             CheckInProtocolVersion[]            @relation("CheckInProtocolCreator")
+  checkInAssignmentBatchesCreated     CheckInAssignmentBatch[]            @relation("CheckInAssignmentBatchCreator")
+  checkInAssignmentsCreated           CheckInAssignment[]                 @relation("CheckInAssignmentCreator")
+  checkInOutcomesRecorded             CheckInOutcome[]                    @relation("CheckInOutcomeActor")
+  checkInResponsesSubmitted           CheckInResponse[]                   @relation("CheckInResponseSubmitter")
+  checkInNonResponsesRecorded         NonResponseEvent[]                  @relation("CheckInNonResponseActor")
 
   @@map("users")
 }
 
 model IdentityVerificationPolicyVersion {
-  id            String                    @id @default(cuid())
-  policyKey     String                    @map("policy_key") @db.VarChar(64)
-  version       String                    @db.VarChar(32)
-  state         PolicyState
-  acceptedState IdentityVerificationState @map("accepted_state")
-  processCode   String                    @map("process_code") @db.VarChar(64)
-  processVersion  String                   @map("process_version") @db.VarChar(32)
-  isSyntheticDemo Boolean                  @default(false) @map("is_synthetic_demo")
-  actorUserId   String                    @map("actor_user_id")
-  recordedAt    DateTime                  @default(now()) @map("recorded_at")
-  actor         User                      @relation("IdentityPolicyActor", fields: [actorUserId], references: [id], onDelete: Restrict)
-  patients      Patient[]
+  id              String                    @id @default(cuid())
+  policyKey       String                    @map("policy_key") @db.VarChar(64)
+  version         String                    @db.VarChar(32)
+  state           PolicyState
+  acceptedState   IdentityVerificationState @map("accepted_state")
+  processCode     String                    @map("process_code") @db.VarChar(64)
+  processVersion  String                    @map("process_version") @db.VarChar(32)
+  isSyntheticDemo Boolean                   @default(false) @map("is_synthetic_demo")
+  actorUserId     String                    @map("actor_user_id")
+  recordedAt      DateTime                  @default(now()) @map("recorded_at")
+  actor           User                      @relation("IdentityPolicyActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  patients        Patient[]
 
   @@unique([policyKey, version])
-  @@index([policyKey, recordedAt])
+  @@index([policyKey, recordedAt], map: "identity_verification_policy_versions_policy_key_recorded_at_id")
   @@map("identity_verification_policy_versions")
 }
 
 model Patient {
-  id                                  String                    @id @default(cuid())
-  externalPseudonymousId              String                    @unique @map("external_pseudonymous_id") @db.VarChar(64)
-  isSynthetic                         Boolean                   @default(false) @map("is_synthetic")
-  identityVerificationState           IdentityVerificationState @default(PENDING) @map("identity_verification_state")
-  identityVerificationPolicyVersionId String?                   @map("identity_verification_policy_version_id")
-  identityVerifiedAt                  DateTime?                 @map("identity_verified_at")
-  identityVerifiedById                String?                   @map("identity_verified_by_id")
-  createdById                         String                    @map("created_by_id")
-  portalUserId                        String?                   @unique @map("portal_user_id")
-  createdAt                           DateTime                  @default(now()) @map("created_at")
-  updatedAt                           DateTime                  @updatedAt @map("updated_at")
+  id                                  String                             @id @default(cuid())
+  externalPseudonymousId              String                             @unique @map("external_pseudonymous_id") @db.VarChar(64)
+  isSynthetic                         Boolean                            @default(false) @map("is_synthetic")
+  identityVerificationState           IdentityVerificationState          @default(PENDING) @map("identity_verification_state")
+  identityVerificationPolicyVersionId String?                            @map("identity_verification_policy_version_id")
+  identityVerifiedAt                  DateTime?                          @map("identity_verified_at")
+  identityVerifiedById                String?                            @map("identity_verified_by_id")
+  createdById                         String                             @map("created_by_id")
+  portalUserId                        String?                            @unique @map("portal_user_id")
+  createdAt                           DateTime                           @default(now()) @map("created_at")
+  updatedAt                           DateTime                           @updatedAt @map("updated_at")
   identityVerificationPolicyVersion   IdentityVerificationPolicyVersion? @relation(fields: [identityVerificationPolicyVersionId], references: [id], onDelete: Restrict)
-  identityVerifiedBy                  User?                     @relation("PatientIdentityVerifier", fields: [identityVerifiedById], references: [id], onDelete: Restrict)
-  createdBy                           User                      @relation("PatientCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  portalUser                          User?                     @relation("PatientPortalUser", fields: [portalUserId], references: [id], onDelete: Restrict)
-  dischargeEpisodes                  DischargeEpisode[]
+  identityVerifiedBy                  User?                              @relation("PatientIdentityVerifier", fields: [identityVerifiedById], references: [id], onDelete: Restrict)
+  createdBy                           User                               @relation("PatientCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  portalUser                          User?                              @relation("PatientPortalUser", fields: [portalUserId], references: [id], onDelete: Restrict)
+  dischargeEpisodes                   DischargeEpisode[]
 
   @@index([identityVerificationState])
   @@map("patients")
 }
 
 model DischargeEpisode {
-  id                       String                 @id @default(cuid())
-  patientId                String                 @map("patient_id")
-  dischargeDate            DateTime               @map("discharge_date") @db.Date
-  programLengthDays        Int                    @map("program_length_days")
-  responsibleNurseId       String                 @map("responsible_nurse_id")
-  responsibleClinicianId   String                 @map("responsible_clinician_id")
-  status                   DischargeEpisodeStatus @default(DRAFT)
-  createdById              String                 @map("created_by_id")
-  closedReason             String?                @map("closed_reason") @db.VarChar(500)
-  closedById               String?                @map("closed_by_id")
-  closedAt                 DateTime?              @map("closed_at")
-  createdAt                DateTime               @default(now()) @map("created_at")
-  updatedAt                DateTime               @updatedAt @map("updated_at")
-  version                  Int                    @default(1)
-  patient                  Patient                @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  responsibleNurse         User                   @relation("EpisodeResponsibleNurse", fields: [responsibleNurseId], references: [id], onDelete: Restrict)
-  responsibleClinician     User                   @relation("EpisodeResponsibleClinician", fields: [responsibleClinicianId], references: [id], onDelete: Restrict)
-  createdBy                User                   @relation("EpisodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  closedBy                 User?                  @relation("EpisodeCloser", fields: [closedById], references: [id], onDelete: Restrict)
+  id                       String                   @id @default(cuid())
+  patientId                String                   @map("patient_id")
+  dischargeDate            DateTime                 @map("discharge_date") @db.Date
+  programLengthDays        Int                      @map("program_length_days")
+  responsibleNurseId       String                   @map("responsible_nurse_id")
+  responsibleClinicianId   String                   @map("responsible_clinician_id")
+  status                   DischargeEpisodeStatus   @default(DRAFT)
+  createdById              String                   @map("created_by_id")
+  closedReason             String?                  @map("closed_reason") @db.VarChar(500)
+  closedById               String?                  @map("closed_by_id")
+  closedAt                 DateTime?                @map("closed_at")
+  createdAt                DateTime                 @default(now()) @map("created_at")
+  updatedAt                DateTime                 @updatedAt @map("updated_at")
+  version                  Int                      @default(1)
+  patient                  Patient                  @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  responsibleNurse         User                     @relation("EpisodeResponsibleNurse", fields: [responsibleNurseId], references: [id], onDelete: Restrict)
+  responsibleClinician     User                     @relation("EpisodeResponsibleClinician", fields: [responsibleClinicianId], references: [id], onDelete: Restrict)
+  createdBy                User                     @relation("EpisodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  closedBy                 User?                    @relation("EpisodeCloser", fields: [closedById], references: [id], onDelete: Restrict)
   transitions              EpisodeTransition[]
   safetyPlan               SafetyPlan?
+  checkInProtocolVersionId String                   @map("check_in_protocol_version_id")
+  checkInProtocolVersion   CheckInProtocolVersion   @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "discharge_episodes_check_in_protocol_fkey")
+  checkInAssignmentBatches CheckInAssignmentBatch[] @relation("EpisodeCheckInAssignmentBatches")
+  checkInAssignments       CheckInAssignment[]      @relation("EpisodeCheckInAssignments")
 
+  @@unique([id, checkInProtocolVersionId], map: "discharge_episodes_id_check_in_protocol_version_id_key")
   @@index([responsibleNurseId, status])
   @@index([responsibleClinicianId, status])
   @@index([patientId, createdAt])
   @@map("discharge_episodes")
+}
+
+model CheckInProtocolVersion {
+  id                 String                   @id @default(cuid())
+  protocolKey        String                   @map("protocol_key") @db.VarChar(64)
+  versionNumber      Int                      @map("version_number")
+  title              String                   @db.VarChar(160)
+  state              CheckInProtocolState
+  basedOnVersionId   String?                  @map("based_on_version_id")
+  isSyntheticFixture Boolean                  @default(false) @map("is_synthetic_fixture")
+  createdById        String?                  @map("created_by_id")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  basedOnVersion     CheckInProtocolVersion?  @relation("CheckInProtocolLineage", fields: [basedOnVersionId], references: [id], onDelete: Restrict, map: "check_in_protocol_versions_base_fkey")
+  derivedVersions    CheckInProtocolVersion[] @relation("CheckInProtocolLineage")
+  createdBy          User?                    @relation("CheckInProtocolCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "check_in_protocol_versions_creator_fkey")
+  questions          QuestionDefinition[]
+  schedule           ScheduleConfiguration?
+  episodes           DischargeEpisode[]
+  assignmentBatches  CheckInAssignmentBatch[]
+
+  @@unique([protocolKey, versionNumber], map: "check_in_protocol_versions_key_version_key")
+  @@index([protocolKey, createdAt], map: "check_in_protocol_versions_key_created_idx")
+  @@map("check_in_protocol_versions")
+}
+
+model QuestionDefinition {
+  id                       String                 @id @default(cuid())
+  checkInProtocolVersionId String                 @map("check_in_protocol_version_id")
+  questionKey              String                 @map("question_key") @db.VarChar(64)
+  position                 Int
+  type                     CheckInQuestionType
+  prompt                   String                 @db.VarChar(240)
+  required                 Boolean                @default(true)
+  scaleMinimum             Int?                   @map("scale_minimum")
+  scaleMaximum             Int?                   @map("scale_maximum")
+  scaleMinimumLabel        String?                @map("scale_minimum_label") @db.VarChar(80)
+  scaleMaximumLabel        String?                @map("scale_maximum_label") @db.VarChar(80)
+  options                  Json?
+  maximumTextLength        Int?                   @map("maximum_text_length")
+  checkInProtocolVersion   CheckInProtocolVersion @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "question_definitions_protocol_fkey")
+  answers                  CheckInAnswer[]
+
+  @@unique([id, checkInProtocolVersionId], map: "question_definitions_id_protocol_key")
+  @@unique([checkInProtocolVersionId, questionKey], map: "question_definitions_protocol_question_key")
+  @@unique([checkInProtocolVersionId, position], map: "question_definitions_protocol_position_key")
+  @@map("question_definitions")
+}
+
+model ScheduleConfiguration {
+  id                       String                 @id @default(cuid())
+  checkInProtocolVersionId String                 @map("check_in_protocol_version_id")
+  intervalDays             Int                    @map("interval_days")
+  firstDayOffset           Int                    @map("first_day_offset")
+  localTime                String                 @map("local_time") @db.VarChar(5)
+  timeZone                 String                 @map("time_zone") @db.VarChar(64)
+  responseWindowMinutes    Int                    @map("response_window_minutes")
+  checkInProtocolVersion   CheckInProtocolVersion @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "schedule_configurations_protocol_fkey")
+
+  @@unique([checkInProtocolVersionId], map: "schedule_configurations_protocol_key")
+  @@map("schedule_configurations")
+}
+
+model CheckInAssignmentBatch {
+  id                       String                 @id @default(cuid())
+  episodeId                String                 @unique(map: "check_in_assignment_batches_episode_key") @map("episode_id")
+  checkInProtocolVersionId String                 @map("check_in_protocol_version_id")
+  createdById              String                 @map("created_by_id")
+  idempotencyKey           String                 @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint       String                 @map("request_fingerprint") @db.Char(64)
+  createdAt                DateTime               @default(now()) @map("created_at")
+  episode                  DischargeEpisode       @relation("EpisodeCheckInAssignmentBatches", fields: [episodeId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "check_in_assignment_batches_episode_protocol_fkey")
+  checkInProtocolVersion   CheckInProtocolVersion @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "check_in_assignment_batches_protocol_fkey")
+  createdBy                User                   @relation("CheckInAssignmentBatchCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "check_in_assignment_batches_creator_fkey")
+  assignments              CheckInAssignment[]
+
+  @@unique([createdById, idempotencyKey], map: "check_in_assignment_batches_creator_idempotency_key")
+  @@map("check_in_assignment_batches")
+}
+
+model CheckInAssignment {
+  id                       String                 @id @default(cuid())
+  batchId                  String                 @map("batch_id")
+  episodeId                String                 @map("episode_id")
+  checkInProtocolVersionId String                 @map("check_in_protocol_version_id")
+  sequence                 Int
+  scheduledFor             DateTime               @map("scheduled_for")
+  windowStartsAt           DateTime               @map("window_starts_at")
+  windowEndsAt             DateTime               @map("window_ends_at")
+  createdById              String                 @map("created_by_id")
+  createdAt                DateTime               @default(now()) @map("created_at")
+  batch                    CheckInAssignmentBatch @relation(fields: [batchId], references: [id], onDelete: Restrict, map: "check_in_assignments_batch_fkey")
+  episode                  DischargeEpisode       @relation("EpisodeCheckInAssignments", fields: [episodeId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "check_in_assignments_episode_protocol_fkey")
+  createdBy                User                   @relation("CheckInAssignmentCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "check_in_assignments_creator_fkey")
+  outcome                  CheckInOutcome?        @relation("AssignmentOutcome")
+  response                 CheckInResponse?       @relation("AssignmentResponse")
+  nonResponseEvent         NonResponseEvent?      @relation("AssignmentNonResponse")
+
+  @@unique([id, checkInProtocolVersionId], map: "check_in_assignments_id_protocol_key")
+  @@unique([episodeId, sequence], map: "check_in_assignments_episode_sequence_key")
+  @@unique([episodeId, scheduledFor], map: "check_in_assignments_episode_scheduled_key")
+  @@index([episodeId, scheduledFor], map: "check_in_assignments_episode_scheduled_idx")
+  @@map("check_in_assignments")
+}
+
+model CheckInOutcome {
+  id                       String             @id @default(cuid())
+  assignmentId             String             @unique(map: "check_in_outcomes_assignment_key") @map("assignment_id")
+  checkInProtocolVersionId String             @map("check_in_protocol_version_id")
+  type                     CheckInOutcomeType
+  recordedById             String             @map("recorded_by_id")
+  idempotencyKey           String             @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint       String             @map("request_fingerprint") @db.Char(64)
+  recordedAt               DateTime           @default(now()) @map("recorded_at")
+  assignment               CheckInAssignment  @relation("AssignmentOutcome", fields: [assignmentId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "check_in_outcomes_assignment_protocol_fkey")
+  recordedBy               User               @relation("CheckInOutcomeActor", fields: [recordedById], references: [id], onDelete: Restrict, map: "check_in_outcomes_actor_fkey")
+  response                 CheckInResponse?   @relation("OutcomeResponse")
+  nonResponseEvent         NonResponseEvent?  @relation("OutcomeNonResponse")
+
+  @@unique([assignmentId, checkInProtocolVersionId], map: "check_in_outcomes_assignment_protocol_key")
+  @@unique([id, assignmentId, type], map: "check_in_outcomes_id_assignment_type_key")
+  @@unique([recordedById, idempotencyKey], map: "check_in_outcomes_actor_idempotency_key")
+  @@map("check_in_outcomes")
+}
+
+model CheckInResponse {
+  id                       String             @id @default(cuid())
+  outcomeId                String             @unique(map: "check_in_responses_outcome_key") @map("outcome_id")
+  assignmentId             String             @unique(map: "check_in_responses_assignment_key") @map("assignment_id")
+  checkInProtocolVersionId String             @map("check_in_protocol_version_id")
+  outcomeType              CheckInOutcomeType @default(RESPONDED) @map("outcome_type")
+  submittedById            String             @map("submitted_by_id")
+  submittedAt              DateTime           @default(now()) @map("submitted_at")
+  assignment               CheckInAssignment  @relation("AssignmentResponse", fields: [assignmentId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "check_in_responses_assignment_protocol_fkey")
+  outcome                  CheckInOutcome     @relation("OutcomeResponse", fields: [outcomeId, assignmentId, outcomeType], references: [id, assignmentId, type], onDelete: Restrict, map: "check_in_responses_outcome_assignment_type_fkey")
+  submittedBy              User               @relation("CheckInResponseSubmitter", fields: [submittedById], references: [id], onDelete: Restrict, map: "check_in_responses_submitter_fkey")
+  answers                  CheckInAnswer[]
+
+  @@unique([assignmentId, checkInProtocolVersionId], map: "check_in_responses_assignment_protocol_key")
+  @@unique([outcomeId, assignmentId, outcomeType], map: "check_in_responses_outcome_assignment_type_key")
+  @@unique([id, checkInProtocolVersionId], map: "check_in_responses_id_protocol_key")
+  @@map("check_in_responses")
+}
+
+model CheckInAnswer {
+  id                       String             @id @default(cuid())
+  checkInResponseId        String             @map("check_in_response_id")
+  questionDefinitionId     String             @map("question_definition_id")
+  checkInProtocolVersionId String             @map("check_in_protocol_version_id")
+  scaleValue               Int?               @map("scale_value")
+  yesNoValue               Boolean?           @map("yes_no_value")
+  selectedOption           String?            @map("selected_option") @db.VarChar(120)
+  shortTextValue           String?            @map("short_text_value") @db.VarChar(280)
+  checkInResponse          CheckInResponse    @relation(fields: [checkInResponseId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "check_in_answers_response_protocol_fkey")
+  questionDefinition       QuestionDefinition @relation(fields: [questionDefinitionId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "check_in_answers_question_protocol_fkey")
+
+  @@unique([checkInResponseId, questionDefinitionId], map: "check_in_answers_response_question_key")
+  @@map("check_in_answers")
+}
+
+model NonResponseEvent {
+  id                       String                   @id @default(cuid())
+  outcomeId                String                   @unique(map: "non_response_events_outcome_key") @map("outcome_id")
+  assignmentId             String                   @unique(map: "non_response_events_assignment_key") @map("assignment_id")
+  checkInProtocolVersionId String                   @map("check_in_protocol_version_id")
+  outcomeType              CheckInOutcomeType       @map("outcome_type")
+  reason                   CheckInNonResponseReason
+  recordedById             String                   @map("recorded_by_id")
+  recordedAt               DateTime                 @default(now()) @map("recorded_at")
+  assignment               CheckInAssignment        @relation("AssignmentNonResponse", fields: [assignmentId, checkInProtocolVersionId], references: [id, checkInProtocolVersionId], onDelete: Restrict, map: "non_response_events_assignment_protocol_fkey")
+  outcome                  CheckInOutcome           @relation("OutcomeNonResponse", fields: [outcomeId, assignmentId, outcomeType], references: [id, assignmentId, type], onDelete: Restrict, map: "non_response_events_outcome_assignment_type_fkey")
+  recordedBy               User                     @relation("CheckInNonResponseActor", fields: [recordedById], references: [id], onDelete: Restrict, map: "non_response_events_actor_fkey")
+
+  @@unique([assignmentId, checkInProtocolVersionId], map: "non_response_events_assignment_protocol_key")
+  @@unique([outcomeId, assignmentId, outcomeType], map: "non_response_events_outcome_assignment_type_key")
+  @@map("non_response_events")
 }
 
 model SafetyPlan {
@@ -249,16 +463,16 @@ model SafetyPlan {
 }
 
 model SafetyPlanVersion {
-  id                 String                         @id @default(cuid())
-  safetyPlanId       String                         @map("safety_plan_id")
-  versionNumber      Int                            @map("version_number")
-  basedOnVersion     Int?                           @map("based_on_version")
-  createdById        String                         @map("created_by_id")
-  createdAt          DateTime                       @default(now()) @map("created_at")
-  safetyPlan         SafetyPlan                     @relation(fields: [safetyPlanId], references: [id], onDelete: Restrict)
-  createdBy          User                           @relation("SafetyPlanVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  sections           SafetyPlanSection[]
-  stateChanges       SafetyPlanVersionStateChange[]
+  id             String                         @id @default(cuid())
+  safetyPlanId   String                         @map("safety_plan_id")
+  versionNumber  Int                            @map("version_number")
+  basedOnVersion Int?                           @map("based_on_version")
+  createdById    String                         @map("created_by_id")
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  safetyPlan     SafetyPlan                     @relation(fields: [safetyPlanId], references: [id], onDelete: Restrict)
+  createdBy      User                           @relation("SafetyPlanVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  sections       SafetyPlanSection[]
+  stateChanges   SafetyPlanVersionStateChange[]
 
   @@unique([safetyPlanId, versionNumber])
   @@index([safetyPlanId, createdAt])
@@ -271,7 +485,7 @@ model SafetyPlanSection {
   step                SafetyPlanStep
   content             String                        @db.Text
   provenance          SafetyPlanProvenance
-  safetyPlanVersion   SafetyPlanVersion             @relation(fields: [safetyPlanVersionId], references: [id], onDelete: Restrict)
+  safetyPlanVersion   SafetyPlanVersion             @relation(fields: [safetyPlanVersionId], references: [id], onDelete: Restrict, map: "safety_plan_sections_version_id_fkey")
   permissions         SafetyPlanSectionPermission[]
 
   @@unique([safetyPlanVersionId, step])
@@ -283,9 +497,9 @@ model SafetyPlanSectionPermission {
   safetyPlanSectionId String             @map("safety_plan_section_id")
   audience            SafetyPlanAudience
   canView             Boolean            @map("can_view")
-  safetyPlanSection   SafetyPlanSection  @relation(fields: [safetyPlanSectionId], references: [id], onDelete: Restrict)
+  safetyPlanSection   SafetyPlanSection  @relation(fields: [safetyPlanSectionId], references: [id], onDelete: Restrict, map: "safety_plan_section_permissions_section_id_fkey")
 
-  @@unique([safetyPlanSectionId, audience])
+  @@unique([safetyPlanSectionId, audience], map: "safety_plan_section_permissions_section_audience_key")
   @@map("safety_plan_section_permissions")
 }
 
@@ -297,11 +511,11 @@ model SafetyPlanVersionStateChange {
   reason              String?                @db.VarChar(500)
   actorUserId         String                 @map("actor_user_id")
   occurredAt          DateTime               @default(now()) @map("occurred_at")
-  safetyPlanVersion   SafetyPlanVersion      @relation(fields: [safetyPlanVersionId], references: [id], onDelete: Restrict)
-  actor               User                   @relation("SafetyPlanStateActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  safetyPlanVersion   SafetyPlanVersion      @relation(fields: [safetyPlanVersionId], references: [id], onDelete: Restrict, map: "safety_plan_state_changes_version_id_fkey")
+  actor               User                   @relation("SafetyPlanStateActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "safety_plan_state_changes_actor_user_id_fkey")
 
-  @@unique([safetyPlanVersionId, sequence])
-  @@index([safetyPlanVersionId, occurredAt])
+  @@unique([safetyPlanVersionId, sequence], map: "safety_plan_state_changes_version_sequence_key")
+  @@index([safetyPlanVersionId, occurredAt], map: "safety_plan_state_changes_version_occurred_at_idx")
   @@map("safety_plan_version_state_changes")
 }
 
@@ -367,7 +581,7 @@ model ParticipationRecord {
   actor           User             @relation("ParticipationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
   policyVersion   PolicyVersion    @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
 
-  @@index([subjectUserId, scope, recordedAt])
+  @@index([subjectUserId, scope, recordedAt], map: "participation_records_subject_user_id_scope_recorded_at_idx")
   @@map("participation_records")
 }
 
@@ -387,7 +601,7 @@ model DigitalParticipationRecord {
   actor           User             @relation("DigitalParticipationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
   policyVersion   PolicyVersion    @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
 
-  @@index([subjectUserId, scope, recordedAt])
+  @@index([subjectUserId, scope, recordedAt], map: "digital_participation_records_subject_user_id_scope_recorded_at")
   @@map("digital_participation_records")
 }
 
@@ -409,7 +623,7 @@ model CommunicationPermission {
   actor           User                 @relation("CommunicationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
   policyVersion   PolicyVersion        @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
 
-  @@index([subjectUserId, channel, purpose, recordedAt])
+  @@index([subjectUserId, channel, purpose, recordedAt], map: "communication_permissions_subject_channel_purpose_recorded_idx")
   @@map("communication_permissions")
 }
 
@@ -431,7 +645,7 @@ model CaregiverAuthorization {
   actor           User             @relation("CaregiverAuthorizationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
   policyVersion   PolicyVersion    @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
 
-  @@index([subjectUserId, caregiverUserId, scope, recordedAt])
+  @@index([subjectUserId, caregiverUserId, scope, recordedAt], map: "caregiver_authorizations_subject_caregiver_scope_recorded_idx")
   @@map("caregiver_authorizations")
 }
 

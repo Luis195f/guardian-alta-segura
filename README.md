@@ -1,6 +1,6 @@
 # Guardián Alta Segura
 
-MVP técnico de continuidad postalta en salud mental. Esta rama contiene infraestructura, identidad demo sintética, autorización, auditoría, episodio postalta y Plan de Seguridad versionado; no es apta para uso asistencial real.
+MVP técnico de continuidad postalta en salud mental. Esta rama contiene infraestructura, identidad demo sintética, autorización, auditoría, episodio postalta, Plan de Seguridad y check-ins configurables/versionados; no es apta para uso asistencial real.
 
 > **SINTÉTICO / NO USO CLÍNICO.** No diagnostica, prescribe ni predice riesgo. No sustituye decisiones profesionales ni acredita validación clínica, jurídica, institucional, RGPD o MDR.
 
@@ -59,12 +59,14 @@ CI ejecuta instalación congelada, generación de Prisma, despliegue/estado de m
 ## Arquitectura
 
 - `src/domain`: roles, principal, recursos protegidos y política de denegación por defecto.
-- `src/application`: casos de uso de identidad, episodio y Plan de Seguridad; dependen de ports.
+- `src/application`: casos de uso de identidad, episodio, Plan de Seguridad y check-ins; dependen de ports.
 - `src/infrastructure`: Prisma, `DemoIdentityProvider`, sesiones, entorno, CSRF, rate limit, correlation ID y errores sanitizados.
 - `src/presentation` y `src/app`: UI accesible y adaptadores HTTP de Next.js; no contienen reglas de autorización.
 - `prisma`: modelos, migraciones versionadas, controles append-only y seed exclusivamente sintético.
 
 El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial y vista paciente filtrada por sección. No hay portal de cuidador, PDF, firma automática, scoring ni recurso de crisis definitivo en esta rama.
+
+Cada episodio nuevo referencia una versión exacta de protocolo de check-in. Claves compuestas impiden cruzar versiones y un outcome terminal único excluye respuesta, omisión y vencimiento entre sí. Preguntas, cadencia, zona, ventanas, asignaciones, outcomes, respuestas y eventos de no respuesta conservan historial append-only. El seed incluye ocho temas exclusivamente sintéticos y rotulados como no aprobados. No existe interpretación automática, alertas, comunicaciones reales ni scheduler; DEC-006 mantiene bloqueado el uso clínico de cualquier contenido o frecuencia.
 
 Las rutas protegidas vuelven a comprobar sesión y autorización en servidor. `admin` no hereda acceso clínico y `support` queda denegado ante el recurso clínico simulado de las pruebas.
 
