@@ -27,6 +27,9 @@ enum AuditAction {
   POLICY_VERSION_CREATED
   EPISODE_CREATED
   EPISODE_TRANSITIONED
+  SAFETY_PLAN_VERSION_CREATED
+  SAFETY_PLAN_VERSION_ACTIVATED
+  SAFETY_PLAN_VERSION_INVALIDATED
 }
 
 enum IdentityVerificationState {
@@ -40,6 +43,33 @@ enum DischargeEpisodeStatus {
   ACTIVE
   PAUSED
   CLOSED
+}
+
+enum SafetyPlanVersionState {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  INVALIDATED
+}
+
+enum SafetyPlanStep {
+  WARNING_SIGNS
+  INTERNAL_COPING
+  DISTRACTION_CONTACTS
+  SUPPORT_CONTACTS
+  PROFESSIONAL_RESOURCES
+  MEANS_REDUCTION
+}
+
+enum SafetyPlanProvenance {
+  PATIENT
+  NURSE
+  CLINICIAN
+}
+
+enum SafetyPlanAudience {
+  PATIENT
+  CAREGIVER
 }
 
 enum LegalRecordState {
@@ -124,6 +154,10 @@ model User {
   dischargeEpisodesAsClinician        DischargeEpisode[]            @relation("EpisodeResponsibleClinician")
   dischargeEpisodesClosed             DischargeEpisode[]            @relation("EpisodeCloser")
   episodeTransitions                  EpisodeTransition[]           @relation("EpisodeTransitionActor")
+  patientPortalProfile                Patient?                      @relation("PatientPortalUser")
+  safetyPlansCreated                  SafetyPlan[]                   @relation("SafetyPlanCreator")
+  safetyPlanVersionsCreated           SafetyPlanVersion[]            @relation("SafetyPlanVersionCreator")
+  safetyPlanStateChanges              SafetyPlanVersionStateChange[] @relation("SafetyPlanStateActor")
 
   @@map("users")
 }
@@ -156,11 +190,13 @@ model Patient {
   identityVerifiedAt                  DateTime?                 @map("identity_verified_at")
   identityVerifiedById                String?                   @map("identity_verified_by_id")
   createdById                         String                    @map("created_by_id")
+  portalUserId                        String?                   @unique @map("portal_user_id")
   createdAt                           DateTime                  @default(now()) @map("created_at")
   updatedAt                           DateTime                  @updatedAt @map("updated_at")
   identityVerificationPolicyVersion   IdentityVerificationPolicyVersion? @relation(fields: [identityVerificationPolicyVersionId], references: [id], onDelete: Restrict)
   identityVerifiedBy                  User?                     @relation("PatientIdentityVerifier", fields: [identityVerifiedById], references: [id], onDelete: Restrict)
   createdBy                           User                      @relation("PatientCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  portalUser                          User?                     @relation("PatientPortalUser", fields: [portalUserId], references: [id], onDelete: Restrict)
   dischargeEpisodes                  DischargeEpisode[]
 
   @@index([identityVerificationState])
@@ -188,11 +224,85 @@ model DischargeEpisode {
   createdBy                User                   @relation("EpisodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
   closedBy                 User?                  @relation("EpisodeCloser", fields: [closedById], references: [id], onDelete: Restrict)
   transitions              EpisodeTransition[]
+  safetyPlan               SafetyPlan?
 
   @@index([responsibleNurseId, status])
   @@index([responsibleClinicianId, status])
   @@index([patientId, createdAt])
   @@map("discharge_episodes")
+}
+
+model SafetyPlan {
+  id                  String              @id @default(cuid())
+  dischargeEpisodeId  String              @unique @map("discharge_episode_id")
+  revision            Int                 @default(0)
+  currentVersion      Int                 @default(0) @map("current_version")
+  activeVersionNumber Int?                @map("active_version_number")
+  createdById         String              @map("created_by_id")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  dischargeEpisode    DischargeEpisode    @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict)
+  createdBy           User                @relation("SafetyPlanCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  versions            SafetyPlanVersion[]
+
+  @@map("safety_plans")
+}
+
+model SafetyPlanVersion {
+  id                 String                         @id @default(cuid())
+  safetyPlanId       String                         @map("safety_plan_id")
+  versionNumber      Int                            @map("version_number")
+  basedOnVersion     Int?                           @map("based_on_version")
+  createdById        String                         @map("created_by_id")
+  createdAt          DateTime                       @default(now()) @map("created_at")
+  safetyPlan         SafetyPlan                     @relation(fields: [safetyPlanId], references: [id], onDelete: Restrict)
+  createdBy          User                           @relation("SafetyPlanVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  sections           SafetyPlanSection[]
+  stateChanges       SafetyPlanVersionStateChange[]
+
+  @@unique([safetyPlanId, versionNumber])
+  @@index([safetyPlanId, createdAt])
+  @@map("safety_plan_versions")
+}
+
+model SafetyPlanSection {
+  id                  String                        @id @default(cuid())
+  safetyPlanVersionId String                        @map("safety_plan_version_id")
+  step                SafetyPlanStep
+  content             String                        @db.Text
+  provenance          SafetyPlanProvenance
+  safetyPlanVersion   SafetyPlanVersion             @relation(fields: [safetyPlanVersionId], references: [id], onDelete: Restrict)
+  permissions         SafetyPlanSectionPermission[]
+
+  @@unique([safetyPlanVersionId, step])
+  @@map("safety_plan_sections")
+}
+
+model SafetyPlanSectionPermission {
+  id                  String             @id @default(cuid())
+  safetyPlanSectionId String             @map("safety_plan_section_id")
+  audience            SafetyPlanAudience
+  canView             Boolean            @map("can_view")
+  safetyPlanSection   SafetyPlanSection  @relation(fields: [safetyPlanSectionId], references: [id], onDelete: Restrict)
+
+  @@unique([safetyPlanSectionId, audience])
+  @@map("safety_plan_section_permissions")
+}
+
+model SafetyPlanVersionStateChange {
+  id                  String                 @id @default(cuid())
+  safetyPlanVersionId String                 @map("safety_plan_version_id")
+  sequence            Int
+  resultingState      SafetyPlanVersionState @map("resulting_state")
+  reason              String?                @db.VarChar(500)
+  actorUserId         String                 @map("actor_user_id")
+  occurredAt          DateTime               @default(now()) @map("occurred_at")
+  safetyPlanVersion   SafetyPlanVersion      @relation(fields: [safetyPlanVersionId], references: [id], onDelete: Restrict)
+  actor               User                   @relation("SafetyPlanStateActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([safetyPlanVersionId, sequence])
+  @@index([safetyPlanVersionId, occurredAt])
+  @@map("safety_plan_version_state_changes")
 }
 
 model EpisodeTransition {

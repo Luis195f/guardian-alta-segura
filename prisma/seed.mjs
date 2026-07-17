@@ -217,6 +217,8 @@ async function main() {
 
     const nurse = users.get("demo-nurse");
     if (!nurse) throw new Error("Synthetic nurse seed failed");
+    const portalPatient = users.get("demo-patient");
+    if (!portalPatient) throw new Error("Synthetic patient portal seed failed");
     const identityPolicyKey = "synthetic-demo-identity-verification";
     const identityPolicyVersion = "demo-v1";
     let identityPolicy = await transaction.identityVerificationPolicyVersion.findUnique({
@@ -274,6 +276,7 @@ async function main() {
           identityVerifiedAt: normalizedAt,
           identityVerifiedById: nurse.id,
           createdById: nurse.id,
+          portalUserId: portalPatient.id,
         },
       });
       await transaction.auditEvent.create({
@@ -288,12 +291,21 @@ async function main() {
           createdAt: normalizedAt,
         },
       });
-    } else if (
-      !existingPatient.isSynthetic ||
-      existingPatient.identityVerificationState !== "VERIFIED" ||
-      existingPatient.identityVerificationPolicyVersionId !== identityPolicy.id
-    ) {
-      throw new CanonicalPolicyMismatchError(identityPolicyKey, syntheticPatientId);
+    } else {
+      if (
+        !existingPatient.isSynthetic ||
+        existingPatient.identityVerificationState !== "VERIFIED" ||
+        existingPatient.identityVerificationPolicyVersionId !== identityPolicy.id ||
+        (existingPatient.portalUserId !== null && existingPatient.portalUserId !== portalPatient.id)
+      ) {
+        throw new CanonicalPolicyMismatchError(identityPolicyKey, syntheticPatientId);
+      }
+      if (existingPatient.portalUserId === null) {
+        await transaction.patient.update({
+          where: { id: existingPatient.id },
+          data: { portalUserId: portalPatient.id },
+        });
+      }
     }
   });
 }

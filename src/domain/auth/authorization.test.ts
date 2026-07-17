@@ -10,14 +10,18 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "simulated-clinical-record",
     "discharge-episode-read",
     "discharge-episode-write",
+    "safety-plan-read",
+    "safety-plan-write",
   ],
   clinician: [
     "authenticated-session",
     "simulated-clinical-record",
     "discharge-episode-read",
     "discharge-episode-write",
+    "safety-plan-read",
+    "safety-plan-write",
   ],
-  patient: ["authenticated-session", "simulated-own-record"],
+  patient: ["authenticated-session", "simulated-own-record", "safety-plan-read"],
   caregiver: ["authenticated-session", "simulated-caregiver-section"],
   support: ["authenticated-session", "technical-support-metadata"],
 };
@@ -31,6 +35,8 @@ const allResources: readonly ProtectedResource[] = [
   "technical-support-metadata",
   "discharge-episode-read",
   "discharge-episode-write",
+  "safety-plan-read",
+  "safety-plan-write",
 ];
 
 describe("server-side authorization matrix", () => {

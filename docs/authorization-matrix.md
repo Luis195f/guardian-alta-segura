@@ -29,6 +29,9 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Consultar auditoría | Metadatos autorizados | Solo trazabilidad necesaria | Solo trazabilidad necesaria | No | No | Técnico, sin texto clínico |
 | Gestionar incidente técnico | No | No | No | No | No | Técnico |
 | Acceder a notas clínicas en texto plano | No por defecto | Sí, asignado y necesario | Sí, asignado y necesario | Solo contenido propio permitido | No salvo sección autorizada explícita | **No** |
+| Crear una versión del Plan de Seguridad | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
+| Activar o invalidar una versión del Plan de Seguridad | No | Sí, episodio asignado y revisión humana | Sí, episodio asignado y revisión humana | No | No | No |
+| Consultar Plan de Seguridad | No | Todas las versiones del episodio asignado | Todas las versiones del episodio asignado | Activa e historial sustituido, solo secciones permitidas | Portal no disponible; política por sección preparada y denegada por defecto | **No** |
 | Activar contingencia o acceder al censo | No | Solo con alcance verificado de Enfermería Gestora | No | No | No | No |
 
 ## Controles obligatorios

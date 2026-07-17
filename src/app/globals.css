@@ -101,6 +101,7 @@ label {
 
 select,
 input,
+textarea,
 button {
   min-height: 2.75rem;
   border-radius: 0.5rem;
@@ -169,8 +170,34 @@ input {
   padding: 0.55rem 0.7rem;
 }
 
+textarea {
+  min-height: 7rem;
+  resize: vertical;
+  border: 1px solid #7b8d84;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.65rem;
+  font: inherit;
+}
+
 .episode-panel {
   margin: 2.5rem 0;
+}
+
+.patient-plan-panel {
+  margin: 2.5rem 0;
+}
+
+.patient-plan-history {
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+}
+
+.patient-plan-history details {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
 }
 
 .episode-layout {
@@ -214,6 +241,72 @@ input {
 .timeline li {
   border-left: 0.25rem solid var(--accent);
   padding: 0.5rem 0.75rem;
+}
+
+.safety-plan {
+  border-top: 1px solid var(--line);
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
+.inline-action {
+  margin-left: 0.65rem;
+}
+
+.safety-plan-editor {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.safety-plan-editor fieldset {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.safety-plan-editor legend {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.check-label input {
+  min-height: auto;
+}
+
+.review-card,
+.version-comparison {
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.review-card button {
+  margin-right: 0.65rem;
+}
+
+.compare-selectors {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.version-comparison {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.version-comparison div {
+  border-bottom: 1px solid var(--line);
 }
 
 .episode-detail dt {
