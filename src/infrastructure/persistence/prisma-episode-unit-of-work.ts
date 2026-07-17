@@ -34,6 +34,7 @@ function toEpisodeRecord(episode: EpisodeWithIdentity): EpisodeRecord {
     responsibleClinicianId: episode.responsibleClinicianId,
     status: episode.status as EpisodeStatus,
     version: episode.version,
+    checkInProtocolVersionId: episode.checkInProtocolVersionId ?? "",
     identity: {
       patientIsSynthetic: episode.patient.isSynthetic,
       patientState: episode.patient.identityVerificationState,
@@ -70,6 +71,18 @@ class PrismaEpisodeTransaction implements EpisodeTransaction {
     });
   }
 
+  async isSyntheticDemoCheckInProtocol(protocolVersionId: string): Promise<boolean> {
+    return (
+      (await this.transaction.checkInProtocolVersion.count({
+        where: {
+          id: protocolVersionId,
+          state: "SYNTHETIC_DEMO",
+          isSyntheticFixture: true,
+        },
+      })) === 1
+    );
+  }
+
   async createEpisode(input: {
     readonly patientId: string;
     readonly dischargeDate: Date;
@@ -77,6 +90,7 @@ class PrismaEpisodeTransaction implements EpisodeTransaction {
     readonly responsibleNurseId: string;
     readonly responsibleClinicianId: string;
     readonly createdById: string;
+    readonly checkInProtocolVersionId: string;
   }): Promise<EpisodeRecord> {
     const episode = await this.transaction.dischargeEpisode.create({
       data: input,

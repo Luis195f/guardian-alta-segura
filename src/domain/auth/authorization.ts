@@ -12,6 +12,11 @@ export const PROTECTED_RESOURCES = [
   "discharge-episode-write",
   "safety-plan-read",
   "safety-plan-write",
+  "check-in-protocol-write",
+  "check-in-protocol-read",
+  "check-in-assignment-write",
+  "check-in-read",
+  "check-in-response-write",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -27,6 +32,11 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "discharge-episode-write": ["nurse", "clinician"],
   "safety-plan-read": ["nurse", "clinician", "patient"],
   "safety-plan-write": ["nurse", "clinician"],
+  "check-in-protocol-write": ["admin"],
+  "check-in-protocol-read": ["admin", "nurse", "clinician"],
+  "check-in-assignment-write": ["nurse", "clinician"],
+  "check-in-read": ["nurse", "clinician", "patient"],
+  "check-in-response-write": ["patient"],
 };
 
 export interface AuthorizationDecision {

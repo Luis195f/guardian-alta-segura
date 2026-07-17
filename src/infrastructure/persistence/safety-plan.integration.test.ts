@@ -34,6 +34,34 @@ async function arrangeEpisode() {
       createdById: nurse.id,
     },
   });
+  const checkInProtocol = await prisma.checkInProtocolVersion.create({
+    data: {
+      protocolKey: `safety-test-check-in-${randomUUID()}`,
+      versionNumber: 1,
+      title: "PLANTILLA SINTÉTICA / NO APROBADA",
+      state: "SYNTHETIC_DEMO",
+      isSyntheticFixture: true,
+      createdById: nurse.id,
+      schedule: {
+        create: {
+          intervalDays: 3,
+          firstDayOffset: 1,
+          localTime: "09:30",
+          timeZone: "Europe/Madrid",
+          responseWindowMinutes: 180,
+        },
+      },
+      questions: {
+        create: {
+          questionKey: "synthetic-test",
+          position: 1,
+          type: "YES_NO",
+          prompt: "Pregunta sintética no aprobada",
+          required: true,
+        },
+      },
+    },
+  });
   const episode = await prisma.dischargeEpisode.create({
     data: {
       patientId: patient.id,
@@ -42,6 +70,7 @@ async function arrangeEpisode() {
       responsibleNurseId: nurse.id,
       responsibleClinicianId: clinician.id,
       createdById: nurse.id,
+      checkInProtocolVersionId: checkInProtocol.id,
     },
   });
   return {

@@ -16,6 +16,7 @@ export interface EpisodeRecord {
   readonly responsibleClinicianId: string;
   readonly status: EpisodeStatus;
   readonly version: number;
+  readonly checkInProtocolVersionId: string;
   readonly identity: IdentityActivationContext;
 }
 
@@ -32,6 +33,7 @@ export interface EpisodeTransaction {
     readonly id: string;
     readonly isSynthetic: boolean;
   } | null>;
+  isSyntheticDemoCheckInProtocol(protocolVersionId: string): Promise<boolean>;
   createEpisode(input: {
     readonly patientId: string;
     readonly dischargeDate: Date;
@@ -39,6 +41,7 @@ export interface EpisodeTransaction {
     readonly responsibleNurseId: string;
     readonly responsibleClinicianId: string;
     readonly createdById: string;
+    readonly checkInProtocolVersionId: string;
   }): Promise<EpisodeRecord>;
   getEpisodeForTransition(episodeId: string): Promise<EpisodeRecord | null>;
   findIdempotentTransition(

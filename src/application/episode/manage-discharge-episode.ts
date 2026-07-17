@@ -83,6 +83,7 @@ export class CreateDischargeEpisodeService {
     readonly programLengthDays: number;
     readonly responsibleNurseId: string;
     readonly responsibleClinicianId: string;
+    readonly checkInProtocolVersionId: string;
     readonly idempotencyKey: string;
     readonly correlationId: string;
     readonly now?: Date;
@@ -101,6 +102,9 @@ export class CreateDischargeEpisodeService {
     }
     const programLengthDays: ProgramLengthDays = input.programLengthDays;
     const dischargeDate = validateDate(input.dischargeDate);
+    if (!input.checkInProtocolVersionId.trim()) {
+      throw new EpisodeInvalidError("A check-in protocol version is required");
+    }
     const idempotencyKey = validateIdempotencyKey(input.idempotencyKey);
     const requestFingerprint = fingerprint({
       operation: "create",
@@ -109,6 +113,7 @@ export class CreateDischargeEpisodeService {
       programLengthDays,
       responsibleNurseId: input.responsibleNurseId,
       responsibleClinicianId: input.responsibleClinicianId,
+      checkInProtocolVersionId: input.checkInProtocolVersionId,
     });
     const occurredAt = input.now ?? new Date();
 
@@ -134,6 +139,9 @@ export class CreateDischargeEpisodeService {
         input.responsibleNurseId,
         input.responsibleClinicianId,
       );
+      if (!(await transaction.isSyntheticDemoCheckInProtocol(input.checkInProtocolVersionId))) {
+        throw new EpisodeInvalidError("Synthetic check-in protocol version not found");
+      }
       const patient = await transaction.findPatientByExternalId(externalPseudonymousId);
       if (!patient?.isSynthetic) throw new EpisodeNotFoundError("Synthetic patient not found");
       const episode = await transaction.createEpisode({
@@ -143,6 +151,7 @@ export class CreateDischargeEpisodeService {
         responsibleNurseId: input.responsibleNurseId,
         responsibleClinicianId: input.responsibleClinicianId,
         createdById: input.actor.userId,
+        checkInProtocolVersionId: input.checkInProtocolVersionId,
       });
       const transition = await transaction.createTransition({
         episodeId: episode.id,

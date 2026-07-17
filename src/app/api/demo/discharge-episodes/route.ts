@@ -62,11 +62,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       typeof body.responsibleNurseAlias === "string" ? body.responsibleNurseAlias : "";
     const clinicianAlias =
       typeof body.responsibleClinicianAlias === "string" ? body.responsibleClinicianAlias : "";
-    const [nurse, clinician] = await Promise.all([
+    const [nurse, clinician, checkInProtocol] = await Promise.all([
       prisma.user.findUnique({ where: { syntheticAlias: nurseAlias }, select: { id: true } }),
       prisma.user.findUnique({ where: { syntheticAlias: clinicianAlias }, select: { id: true } }),
+      prisma.checkInProtocolVersion.findFirst({
+        where: {
+          protocolKey: "synthetic-check-in-template",
+          state: "SYNTHETIC_DEMO",
+          isSyntheticFixture: true,
+        },
+        orderBy: { versionNumber: "desc" },
+        select: { id: true },
+      }),
     ]);
-    if (!nurse || !clinician) throw errors.badRequest();
+    if (!nurse || !clinician || !checkInProtocol) throw errors.badRequest();
     let result;
     try {
       result = await new CreateDischargeEpisodeService(new PrismaEpisodeUnitOfWork()).execute({
@@ -77,6 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         programLengthDays: body.programLengthDays as number,
         responsibleNurseId: nurse.id,
         responsibleClinicianId: clinician.id,
+        checkInProtocolVersionId: checkInProtocol.id,
         idempotencyKey,
         correlationId,
       });

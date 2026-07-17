@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { SafetyPlanPanel } from "@/presentation/components/safety-plan-panel";
+import { CheckInAssignmentPanel } from "@/presentation/components/check-in-assignment-panel";
 
 interface EpisodeListItem {
   readonly id: string;
@@ -15,6 +16,7 @@ interface EpisodeListItem {
 }
 
 interface EpisodeDetail extends EpisodeListItem {
+  readonly checkInProtocolVersionId: string;
   readonly transitions: readonly {
     readonly id: string;
     readonly fromStatus: EpisodeListItem["status"] | null;
@@ -300,6 +302,11 @@ export function DischargeEpisodePanel({ enabled }: { readonly enabled: boolean }
             ))}
           </ol>
           <SafetyPlanPanel episodeId={detail.id} enabled={enabled} />
+          <CheckInAssignmentPanel
+            episodeId={detail.id}
+            protocolVersionId={detail.checkInProtocolVersionId}
+            enabled={enabled}
+          />
         </section>
       )}
       <p className="status" role="status" aria-live="polite">
