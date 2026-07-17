@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { SafetyPlanPanel } from "@/presentation/components/safety-plan-panel";
 
 interface EpisodeListItem {
   readonly id: string;
@@ -298,6 +299,7 @@ export function DischargeEpisodePanel({ enabled }: { readonly enabled: boolean }
               </li>
             ))}
           </ol>
+          <SafetyPlanPanel episodeId={detail.id} enabled={enabled} />
         </section>
       )}
       <p className="status" role="status" aria-live="polite">

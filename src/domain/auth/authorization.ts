@@ -10,6 +10,8 @@ export const PROTECTED_RESOURCES = [
   "technical-support-metadata",
   "discharge-episode-read",
   "discharge-episode-write",
+  "safety-plan-read",
+  "safety-plan-write",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -23,6 +25,8 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "technical-support-metadata": ["admin", "support"],
   "discharge-episode-read": ["nurse", "clinician"],
   "discharge-episode-write": ["nurse", "clinician"],
+  "safety-plan-read": ["nurse", "clinician", "patient"],
+  "safety-plan-write": ["nurse", "clinician"],
 };
 
 export interface AuthorizationDecision {

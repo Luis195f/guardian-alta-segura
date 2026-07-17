@@ -33,7 +33,9 @@ La retirada de participación digital detiene futuras interacciones digitales se
 
 ### 5. Plan de Seguridad versionado
 
-El Plan de Seguridad Stanley-Brown se mantiene por versiones. Una edición crea `v.N+1`; `v.N` continúa disponible según autorización e historial. Solo una persona autorizada puede revisar o activar una versión. El sistema no sobrescribe, firma ni completa automáticamente contenido ausente.
+El Plan de Seguridad Stanley-Brown contiene seis secciones: señales de alarma, estrategias internas, distracción, red de apoyo, profesionales/recursos y reducción de acceso a medios. Una edición profesional crea `v.N+1`; `v.N` continúa disponible según autorización e historial. El guardado crea un borrador y una revisión humana posterior lo activa. Activar, sustituir o invalidar añade un evento append-only; invalidar exige motivo. El sistema no sobrescribe, firma, puntúa ni completa automáticamente contenido ausente.
+
+Cada sección conserva procedencia (`patient`, `nurse` o `clinician`) y permisos separados para paciente y cuidador. El paciente vinculado ve la versión activa y el historial sustituido permitido. La política de cuidador está desacoplada, pero no existe portal ni acceso de cuidador en esta fase. La revisión optimista impide que dos editores sobrescriban silenciosamente una base desactualizada.
 
 ### 6. Domicilio Seguro informativo
 
@@ -57,7 +59,7 @@ Después de la revisión humana, la interfaz puede permitir crear una tarea vinc
 
 ### 11. Botón de crisis
 
-El botón abre el marcador nativo únicamente cuando existe un recurso oficial aprobado localmente y verificado por TI. Dirección Médica es la autoridad final única sobre el destino. Si falta una configuración aprobada, se muestra un estado bloqueado seguro; no se inventa teléfono, destino ni consejo.
+El botón abre el marcador nativo únicamente cuando existe un recurso oficial aprobado localmente y verificado por TI. Dirección Médica es la autoridad final única sobre el destino. El paso 5 del Plan de Seguridad no es una fuente de configuración: mientras DEC-010 y DEC-011 sigan pendientes, rechaza URI `tel:` y secuencias con apariencia de teléfono. No se inventa teléfono, destino ni consejo.
 
 ### 12. SBAR y exportación PDF
 

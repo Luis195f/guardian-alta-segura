@@ -1,6 +1,7 @@
 import { DemoLoginPanel } from "@/presentation/components/demo-login-panel";
 import { DischargeEpisodePanel } from "@/presentation/components/discharge-episode-panel";
 import { LegalStatePanel } from "@/presentation/components/legal-state-panel";
+import { PatientSafetyPlanPanel } from "@/presentation/components/patient-safety-plan-panel";
 
 export default function HomePage() {
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
@@ -34,6 +35,8 @@ export default function HomePage() {
       <LegalStatePanel enabled={demoEnabled} />
 
       <DischargeEpisodePanel enabled={demoEnabled} />
+
+      <PatientSafetyPlanPanel enabled={demoEnabled} />
 
       <footer>
         No diagnostica, no prescribe, no predice riesgo y no sustituye el juicio profesional.

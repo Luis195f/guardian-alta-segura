@@ -1,6 +1,6 @@
 # Guardián Alta Segura
 
-Fundación técnica del MVP de continuidad postalta en salud mental. Esta rama contiene infraestructura, identidad demo sintética, autorización, auditoría y pruebas; **no contiene módulos clínicos** y no es apta para uso asistencial real.
+MVP técnico de continuidad postalta en salud mental. Esta rama contiene infraestructura, identidad demo sintética, autorización, auditoría, episodio postalta y Plan de Seguridad versionado; no es apta para uso asistencial real.
 
 > **SINTÉTICO / NO USO CLÍNICO.** No diagnostica, prescribe ni predice riesgo. No sustituye decisiones profesionales ni acredita validación clínica, jurídica, institucional, RGPD o MDR.
 
@@ -14,7 +14,7 @@ No se usan contraseñas propias, OAuth, SSO o MFA simulados. El proveedor instit
 
 ## Puesta en marcha local
 
-Desde un clon limpio y en la rama `feat/01-platform-foundation`:
+Desde un clon limpio del repositorio y con `main` actualizado:
 
 ```powershell
 Copy-Item .env.example .env
@@ -59,10 +59,12 @@ CI ejecuta instalación congelada, generación de Prisma, despliegue/estado de m
 ## Arquitectura
 
 - `src/domain`: roles, principal, recursos protegidos y política de denegación por defecto.
-- `src/application`: casos de uso de login/logout y asignación de rol; dependen de ports.
+- `src/application`: casos de uso de identidad, episodio y Plan de Seguridad; dependen de ports.
 - `src/infrastructure`: Prisma, `DemoIdentityProvider`, sesiones, entorno, CSRF, rate limit, correlation ID y errores sanitizados.
 - `src/presentation` y `src/app`: UI accesible y adaptadores HTTP de Next.js; no contienen reglas de autorización.
-- `prisma`: modelos, migración append-only de auditoría y seed sintético.
+- `prisma`: modelos, migraciones versionadas, controles append-only y seed exclusivamente sintético.
+
+El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial y vista paciente filtrada por sección. No hay portal de cuidador, PDF, firma automática, scoring ni recurso de crisis definitivo en esta rama.
 
 Las rutas protegidas vuelven a comprobar sesión y autorización en servidor. `admin` no hereda acceso clínico y `support` queda denegado ante el recurso clínico simulado de las pruebas.
 
