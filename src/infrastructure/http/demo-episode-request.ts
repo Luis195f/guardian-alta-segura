@@ -87,3 +87,18 @@ export async function requireDemoExplainableAlertPrincipal(
     explainableTrafficLight: environment.explainableTrafficLight,
   };
 }
+
+export async function requireDemoNursingWorkQueuePrincipal(
+  request: NextRequest,
+  resource: "nursing-workqueue-read" | "task-write",
+): Promise<{ readonly principal: AuthenticatedPrincipal; readonly applicationOrigin: string }> {
+  const environment = readServerEnvironment();
+  if (!environment.demoMode) throw errors.notFound();
+  assertLoopbackRequestHost(request);
+  const principal = await readAuthenticatedPrincipal(
+    request.cookies.get(SESSION_COOKIE_NAME)?.value,
+  );
+  if (!principal) throw errors.unauthenticated();
+  if (!authorize(principal, resource).allowed) throw errors.forbidden();
+  return { principal, applicationOrigin: environment.appBaseUrl.origin };
+}

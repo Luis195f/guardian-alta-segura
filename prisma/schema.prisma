@@ -43,6 +43,12 @@ enum AuditAction {
   ALERT_ACTION_RECORDED
   ALERT_RESOLVED
   ALERT_DISMISSED
+  TASK_CREATED
+  TASK_ASSIGNED
+  TASK_REASSIGNED
+  TASK_CONTACT_ATTEMPT_RECORDED
+  TASK_NOTE_RECORDED
+  TASK_RESOLVED
 }
 
 enum IdentityVerificationState {
@@ -189,6 +195,26 @@ enum RuleReviewOwner {
   CLINICIAN @map("clinician")
 }
 
+enum TaskState {
+  OPEN     @map("open")
+  RESOLVED @map("resolved")
+}
+
+enum TaskEventType {
+  CREATED         @map("created")
+  ASSIGNED        @map("assigned")
+  REASSIGNED      @map("reassigned")
+  CONTACT_ATTEMPT @map("contact-attempt")
+  NOTE_RECORDED   @map("note-recorded")
+  RESOLVED        @map("resolved")
+}
+
+enum ContactAttemptOutcome {
+  REACHED   @map("reached")
+  NO_ANSWER @map("no-answer")
+  OTHER     @map("other")
+}
+
 model User {
   id                                  String                              @id @default(cuid())
   syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
@@ -237,6 +263,12 @@ model User {
   ruleApprovalsRecorded               RuleApproval[]                      @relation("RuleApprovalActor")
   ruleEvaluationsRecorded             RuleEvaluation[]                    @relation("RuleEvaluationActor")
   alertReviewsRecorded                AlertReview[]                       @relation("AlertReviewActor")
+  tasksCreated                        Task[]                              @relation("TaskCreator")
+  tasksAssigned                       Task[]                              @relation("TaskAssignee")
+  tasksResolved                       Task[]                              @relation("TaskResolver")
+  taskEventsRecorded                  TaskEvent[]                         @relation("TaskEventActor")
+  taskEventsAssignedFrom              TaskEvent[]                         @relation("TaskEventAssigneeFrom")
+  taskEventsAssignedTo                TaskEvent[]                         @relation("TaskEventAssigneeTo")
 
   @@map("users")
 }
@@ -310,6 +342,7 @@ model DischargeEpisode {
   checkInAssignments       CheckInAssignment[]      @relation("EpisodeCheckInAssignments")
   ruleEvaluations          RuleEvaluation[]
   alerts                   Alert[]
+  tasks                    Task[]
 
   @@unique([id, checkInProtocolVersionId], map: "discharge_episodes_id_check_in_protocol_version_id_key")
   @@index([responsibleNurseId, status])
@@ -596,8 +629,10 @@ model Alert {
   evaluation             RuleEvaluation         @relation(fields: [evaluationId, ruleVersionId, episodeId], references: [id, ruleVersionId, episodeId], onDelete: Restrict, map: "alerts_evaluation_version_episode_fkey")
   episode                DischargeEpisode       @relation(fields: [episodeId], references: [id], onDelete: Restrict, map: "alerts_episode_fkey")
   reviews                AlertReview[]
+  tasks                  Task[]
 
   @@unique([evaluationId, ruleVersionId, episodeId], map: "alerts_evaluation_version_episode_key")
+  @@unique([id, episodeId], map: "alerts_id_episode_key")
   @@index([episodeId, currentState, triggeredAt], map: "alerts_episode_state_time_idx")
   @@index([reviewOwner, currentState, triggeredAt], map: "alerts_owner_state_time_idx")
   @@map("alerts")
@@ -616,6 +651,64 @@ model AlertReview {
 
   @@index([alertId, reviewedAt], map: "alert_reviews_alert_time_idx")
   @@map("alert_reviews")
+}
+
+model Task {
+  id                     String           @id @default(cuid())
+  episodeId              String           @map("episode_id")
+  alertId                String?          @map("alert_id")
+  summary                String           @db.VarChar(160)
+  currentState           TaskState        @default(OPEN) @map("current_state")
+  assignedToId           String?          @map("assigned_to_id")
+  createdById            String           @map("created_by_id")
+  creationIdempotencyKey String           @map("creation_idempotency_key") @db.VarChar(112)
+  creationFingerprint    String           @map("creation_fingerprint") @db.Char(64)
+  revision               Int              @default(1)
+  resolvedById           String?          @map("resolved_by_id")
+  resolvedAt             DateTime?        @map("resolved_at")
+  resolutionReason       String?          @map("resolution_reason") @db.VarChar(500)
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+  episode                DischargeEpisode @relation(fields: [episodeId], references: [id], onDelete: Restrict, map: "tasks_episode_fkey")
+  alert                  Alert?           @relation(fields: [alertId, episodeId], references: [id, episodeId], onDelete: Restrict, map: "tasks_alert_episode_fkey")
+  assignedTo             User?            @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Restrict, map: "tasks_assignee_fkey")
+  createdBy              User             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "tasks_creator_fkey")
+  resolvedBy             User?            @relation("TaskResolver", fields: [resolvedById], references: [id], onDelete: Restrict, map: "tasks_resolver_fkey")
+  events                 TaskEvent[]
+
+  @@unique([createdById, creationIdempotencyKey], map: "tasks_creator_idempotency_key")
+  @@unique([id, revision], map: "tasks_id_revision_key")
+  @@index([episodeId, currentState, createdAt], map: "tasks_episode_state_created_idx")
+  @@index([assignedToId, currentState, createdAt], map: "tasks_assignee_state_created_idx")
+  @@map("tasks")
+}
+
+model TaskEvent {
+  id                 String                 @id @default(cuid())
+  taskId             String                 @map("task_id")
+  type               TaskEventType
+  fromState          TaskState?             @map("from_state")
+  toState            TaskState              @map("to_state")
+  fromAssignedToId   String?                @map("from_assigned_to_id")
+  toAssignedToId     String?                @map("to_assigned_to_id")
+  note               String?                @db.VarChar(280)
+  contactOutcome     ContactAttemptOutcome? @map("contact_outcome")
+  resolutionReason   String?                @map("resolution_reason") @db.VarChar(500)
+  actorUserId        String                 @map("actor_user_id")
+  actorRole          Role                   @map("actor_role")
+  idempotencyKey     String                 @map("idempotency_key") @db.VarChar(112)
+  requestFingerprint String                 @map("request_fingerprint") @db.Char(64)
+  resultingRevision  Int                    @map("resulting_revision")
+  occurredAt         DateTime               @default(now()) @map("occurred_at")
+  task               Task                   @relation(fields: [taskId], references: [id], onDelete: Restrict, map: "task_events_task_fkey")
+  actor              User                   @relation("TaskEventActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "task_events_actor_fkey")
+  fromAssignedTo     User?                  @relation("TaskEventAssigneeFrom", fields: [fromAssignedToId], references: [id], onDelete: Restrict, map: "task_events_assignee_from_fkey")
+  toAssignedTo       User?                  @relation("TaskEventAssigneeTo", fields: [toAssignedToId], references: [id], onDelete: Restrict, map: "task_events_assignee_to_fkey")
+
+  @@unique([actorUserId, idempotencyKey], map: "task_events_actor_idempotency_key")
+  @@unique([taskId, resultingRevision], map: "task_events_task_revision_key")
+  @@index([taskId, occurredAt], map: "task_events_task_time_idx")
+  @@map("task_events")
 }
 
 model SafetyPlan {

@@ -173,6 +173,16 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
   };
   expect(evaluated).toMatchObject({ outcome: "matched", idempotent: false });
 
+  const taskBeforeReview = await nurse.post("/api/demo/tasks", {
+    headers: { "Idempotency-Key": `task-alert-open:${randomUUID()}` },
+    data: {
+      episodeId,
+      alertId: evaluated.alertId,
+      summary: "No debe asociarse antes de revisión",
+    },
+  });
+  expect(taskBeforeReview.status()).toBe(409);
+
   const retryResponse = await nurse.post(`/api/demo/rules/${created.ruleVersionId}/evaluate`, {
     headers: { "Idempotency-Key": idempotencyKey },
     data: evaluationPayload,
@@ -222,6 +232,15 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
     data: { nextState: "reviewed" },
   });
   expect(review.status()).toBe(201);
+  const taskAfterReview = await nurse.post("/api/demo/tasks", {
+    headers: { "Idempotency-Key": `task-alert-reviewed:${randomUUID()}` },
+    data: {
+      episodeId,
+      alertId: evaluated.alertId,
+      summary: "Tarea explícita tras revisión humana",
+    },
+  });
+  expect(taskAfterReview.status()).toBe(201);
   await expect(prisma.alertReview.count({ where: { alertId: evaluated.alertId } })).resolves.toBe(
     1,
   );
@@ -262,7 +281,7 @@ test("UI prioriza texto/estado con semáforo apagado y sin acción automática",
   await expect(page.getByTestId("traffic-light-status")).toHaveText(
     "Semáforo visual: desactivado.",
   );
-  await expect(page.getByRole("status").last()).toContainText(
+  await expect(page.locator("section.explainable-alerts").getByRole("status")).toContainText(
     /No hay avisos|aviso\(s\), ordenados por estado y texto/,
   );
 });

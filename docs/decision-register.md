@@ -22,6 +22,7 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | DEC-014 | Operación | Taxonomía, segregación, escalado y gestión de incidentes sin datos clínicos | REQ-13 | Dirección TI | Procedimiento y pruebas de sanitización | Pendiente | Operación productiva de soporte |
 | DEC-015 | Protocolo local | Activación, acceso, contenido, restablecimiento, RTO/RPO y retención de contingencia | REQ-14 | Dirección de Enfermería | Plan local de continuidad aprobado y probado | Pendiente | Contingencia desactivada |
 | DEC-016 | Gobierno institucional | Alcance, población, entorno, periodo, formación, soporte, rollback y continuidad de negocio del piloto | REQ-01 a REQ-14 | Gerencia del Hospital como Responsable del Tratamiento | Expediente de gate de Piloto Clínico completo | Pendiente | NO-GO para pacientes y datos reales |
+| DEC-017 | Protocolo/operación | Taxonomía, prioridades administrativas, SLA, tiempos objetivo, resultados de contacto y reglas de asignación de tareas | REQ-09 | Dirección de Enfermería | Configuración versionada, explicable y validada localmente | Pendiente | Prioridades, SLA y valores operativos definitivos no se codifican |
 
 ## Estados permitidos
 
@@ -33,7 +34,7 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 
 No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validación clínica global ni aprobación hospitalaria más allá del alcance explícito de la evidencia.
 
-## Decisiones técnicas provisionales de feat/03
+## Decisiones técnicas provisionales de REQ-02
 
 - El seed registra una política `synthetic-demo-identity-verification/demo-v1` y un paciente inequívocamente sintético. Su estado `APPROVED` solo habilita pruebas locales; no resuelve DEC-001 ni representa protocolo institucional.
 - La duración debe elegirse explícitamente entre 30, 60 y 90. No se asigna por diagnóstico, eficacia o riesgo y no existe valor clínico automático.
@@ -41,7 +42,7 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 - Episodios, pacientes, políticas de identidad y transiciones no se borran físicamente. La conservación definitiva continúa bloqueada por DEC-005.
 - `nurse` y `clinician` son roles técnicos provisionales; su correspondencia institucional continúa bloqueada por DEC-013.
 
-## Decisiones técnicas provisionales de feat/06
+## Decisiones técnicas provisionales de REQ-08
 
 - El DSL `schemaVersion: 1` solo admite inputs explícitos de tipo número, booleano o enum cerrado, una ventana temporal y operadores deterministas `eq`, `lte` y `gte`; no admite texto libre, ML, LLM, scoring probabilístico ni clasificación diagnóstica.
 - `admin` crea versiones `draft` y activa una versión previamente aprobada; `clinician` registra la aprobación con referencia local. Esta separación técnica no resuelve el mapeo institucional pendiente de DEC-013 ni constituye validación clínica.
@@ -49,3 +50,11 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 - `EXPLAINABLE_TRAFFIC_LIGHT=false` es el valor predeterminado. DEC-009 sigue pendiente; cambiar el flag exige la decisión local correspondiente y no altera la lógica de evaluación.
 - Cada petición de evaluación exige clave idempotente por actor; el mismo payload devuelve la evaluación existente y otro payload con la misma clave se rechaza. Evaluación y creación de aviso conservan eventos de auditoría separados y minimizados.
 - Evaluar una regla es una operación profesional explícita. Un resultado coincidente crea un aviso `open`, pero nunca crea tareas, derivaciones, firmas, cierres ni otras acciones clínicas. Toda transición posterior exige `AlertReview` humano append-only.
+
+## Decisiones técnicas provisionales de REQ-09
+
+- La cola solo muestra episodios donde el actor es responsable de enfermería o clínico y revalida el rol activo tanto en lectura como en mutación. `admin`, `patient`, `caregiver` y `support` no reciben acceso clínico implícito.
+- Toda tarea tiene episodio; el aviso es opcional y, si existe, una clave compuesta impide vincularlo a otro episodio y un guard exige revisión humana previa. La tarea solo nace desde `CreateNursingTaskService`, invocado por un `POST` profesional explícito.
+- Los eventos de tarea son append-only. Cada mutación exige `expectedRevision` e `Idempotency-Key`; un índice por tarea/revisión hace que una carrera tenga un único ganador.
+- La cola solo publica métricas técnicas agregadas. No se implementan prioridad ni SLA mientras DEC-017 siga pendiente.
+- Revisar un aviso no crea tareas. Resolver una tarea no resuelve automáticamente el aviso, no cierra el episodio y no genera SBAR, comunicación, derivación o recomendación clínica.
