@@ -34,6 +34,15 @@ enum AuditAction {
   CHECK_IN_ASSIGNMENTS_CREATED
   CHECK_IN_RESPONSE_RECORDED
   CHECK_IN_NON_RESPONSE_RECORDED
+  RULE_VERSION_CREATED
+  RULE_VERSION_APPROVED
+  RULE_VERSION_ACTIVATED
+  RULE_EVALUATED
+  ALERT_CREATED
+  ALERT_REVIEWED
+  ALERT_ACTION_RECORDED
+  ALERT_RESOLVED
+  ALERT_DISMISSED
 }
 
 enum IdentityVerificationState {
@@ -149,6 +158,37 @@ enum CheckInOutcomeType {
   EXPIRED
 }
 
+enum RuleVersionState {
+  DRAFT    @map("draft")
+  APPROVED @map("approved")
+  ACTIVE   @map("active")
+  RETIRED  @map("retired")
+}
+
+enum RuleEvaluationOutcome {
+  MATCHED     @map("matched")
+  NOT_MATCHED @map("not-matched")
+  ABSTAINED   @map("abstained")
+}
+
+enum AlertState {
+  OPEN                  @map("open")
+  REVIEWED              @map("reviewed")
+  ACTIONED              @map("actioned")
+  RESOLVED              @map("resolved")
+  DISMISSED_WITH_REASON @map("dismissed-with-reason")
+}
+
+enum AdministrativeSeverity {
+  STANDARD @map("standard")
+  PRIORITY @map("priority")
+}
+
+enum RuleReviewOwner {
+  NURSE     @map("nurse")
+  CLINICIAN @map("clinician")
+}
+
 model User {
   id                                  String                              @id @default(cuid())
   syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
@@ -192,6 +232,11 @@ model User {
   checkInOutcomesRecorded             CheckInOutcome[]                    @relation("CheckInOutcomeActor")
   checkInResponsesSubmitted           CheckInResponse[]                   @relation("CheckInResponseSubmitter")
   checkInNonResponsesRecorded         NonResponseEvent[]                  @relation("CheckInNonResponseActor")
+  ruleDefinitionsCreated              RuleDefinition[]                    @relation("RuleDefinitionCreator")
+  ruleVersionsCreated                 RuleVersion[]                       @relation("RuleVersionCreator")
+  ruleApprovalsRecorded               RuleApproval[]                      @relation("RuleApprovalActor")
+  ruleEvaluationsRecorded             RuleEvaluation[]                    @relation("RuleEvaluationActor")
+  alertReviewsRecorded                AlertReview[]                       @relation("AlertReviewActor")
 
   @@map("users")
 }
@@ -263,6 +308,8 @@ model DischargeEpisode {
   checkInProtocolVersion   CheckInProtocolVersion   @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "discharge_episodes_check_in_protocol_fkey")
   checkInAssignmentBatches CheckInAssignmentBatch[] @relation("EpisodeCheckInAssignmentBatches")
   checkInAssignments       CheckInAssignment[]      @relation("EpisodeCheckInAssignments")
+  ruleEvaluations          RuleEvaluation[]
+  alerts                   Alert[]
 
   @@unique([id, checkInProtocolVersionId], map: "discharge_episodes_id_check_in_protocol_version_id_key")
   @@index([responsibleNurseId, status])
@@ -444,6 +491,131 @@ model NonResponseEvent {
   @@unique([assignmentId, checkInProtocolVersionId], map: "non_response_events_assignment_protocol_key")
   @@unique([outcomeId, assignmentId, outcomeType], map: "non_response_events_outcome_assignment_type_key")
   @@map("non_response_events")
+}
+
+model RuleDefinition {
+  id                 String           @id @default(cuid())
+  ruleKey            String           @unique(map: "rule_definitions_rule_key_key") @map("rule_key") @db.VarChar(64)
+  name               String           @db.VarChar(160)
+  isSyntheticFixture Boolean          @default(false) @map("is_synthetic_fixture")
+  createdById        String           @map("created_by_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  createdBy          User             @relation("RuleDefinitionCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "rule_definitions_creator_fkey")
+  versions           RuleVersion[]
+  evaluations        RuleEvaluation[]
+  alerts             Alert[]
+
+  @@map("rule_definitions")
+}
+
+model RuleVersion {
+  id                     String                 @id @default(cuid())
+  ruleDefinitionId       String                 @map("rule_definition_id")
+  versionNumber          Int                    @map("version_number")
+  state                  RuleVersionState       @default(DRAFT)
+  basedOnVersionId       String?                @map("based_on_version_id")
+  schemaVersion          Int                    @map("schema_version")
+  allowedInputs          Json                   @map("allowed_inputs")
+  temporalWindow         Json                   @map("temporal_window")
+  condition              Json
+  administrativeSeverity AdministrativeSeverity @map("administrative_severity")
+  explanation            String                 @db.VarChar(500)
+  reviewOwner            RuleReviewOwner        @map("review_owner")
+  createdById            String                 @map("created_by_id")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  definition             RuleDefinition         @relation(fields: [ruleDefinitionId], references: [id], onDelete: Restrict, map: "rule_versions_definition_fkey")
+  basedOnVersion         RuleVersion?           @relation("RuleVersionLineage", fields: [basedOnVersionId], references: [id], onDelete: Restrict, map: "rule_versions_base_fkey")
+  derivedVersions        RuleVersion[]          @relation("RuleVersionLineage")
+  createdBy              User                   @relation("RuleVersionCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "rule_versions_creator_fkey")
+  approval               RuleApproval?
+  evaluations            RuleEvaluation[]
+  alerts                 Alert[]
+
+  @@unique([ruleDefinitionId, versionNumber], map: "rule_versions_definition_version_key")
+  @@unique([id, ruleDefinitionId, versionNumber], map: "rule_versions_id_definition_version_key")
+  @@index([ruleDefinitionId, state, versionNumber], map: "rule_versions_definition_state_version_idx")
+  @@map("rule_versions")
+}
+
+model RuleApproval {
+  id                String      @id @default(cuid())
+  ruleVersionId     String      @unique(map: "rule_approvals_rule_version_key") @map("rule_version_id")
+  approvedById      String      @map("approved_by_id")
+  approvalReference String      @map("approval_reference") @db.VarChar(128)
+  approvedAt        DateTime    @default(now()) @map("approved_at")
+  ruleVersion       RuleVersion @relation(fields: [ruleVersionId], references: [id], onDelete: Restrict, map: "rule_approvals_version_fkey")
+  approvedBy        User        @relation("RuleApprovalActor", fields: [approvedById], references: [id], onDelete: Restrict, map: "rule_approvals_actor_fkey")
+
+  @@index([approvedById, approvedAt], map: "rule_approvals_actor_time_idx")
+  @@map("rule_approvals")
+}
+
+model RuleEvaluation {
+  id                 String                @id @default(cuid())
+  ruleDefinitionId   String                @map("rule_definition_id")
+  ruleVersionId      String                @map("rule_version_id")
+  ruleVersionNumber  Int                   @map("rule_version_number")
+  episodeId          String                @map("episode_id")
+  evaluatedById      String                @map("evaluated_by_id")
+  idempotencyKey     String                @map("idempotency_key") @db.VarChar(112)
+  requestFingerprint String                @map("request_fingerprint") @db.Char(64)
+  evaluatedAt        DateTime              @map("evaluated_at")
+  inputSnapshot      Json                  @map("input_snapshot")
+  inputHash          String                @map("input_hash") @db.Char(64)
+  outcome            RuleEvaluationOutcome
+  missingInputs      Json                  @map("missing_inputs")
+  definition         RuleDefinition        @relation(fields: [ruleDefinitionId], references: [id], onDelete: Restrict, map: "rule_evaluations_definition_fkey")
+  ruleVersion        RuleVersion           @relation(fields: [ruleVersionId, ruleDefinitionId, ruleVersionNumber], references: [id, ruleDefinitionId, versionNumber], onDelete: Restrict, map: "rule_evaluations_version_fkey")
+  episode            DischargeEpisode      @relation(fields: [episodeId], references: [id], onDelete: Restrict, map: "rule_evaluations_episode_fkey")
+  evaluatedBy        User                  @relation("RuleEvaluationActor", fields: [evaluatedById], references: [id], onDelete: Restrict, map: "rule_evaluations_actor_fkey")
+  alert              Alert?
+
+  @@unique([evaluatedById, idempotencyKey], map: "rule_evaluations_actor_idempotency_key")
+  @@unique([id, ruleVersionId, episodeId], map: "rule_evaluations_id_version_episode_key")
+  @@index([ruleVersionId, episodeId, inputHash], map: "rule_evaluations_reproducibility_idx")
+  @@index([episodeId, evaluatedAt], map: "rule_evaluations_episode_time_idx")
+  @@map("rule_evaluations")
+}
+
+model Alert {
+  id                     String                 @id @default(cuid())
+  ruleDefinitionId       String                 @map("rule_definition_id")
+  ruleVersionId          String                 @map("rule_version_id")
+  ruleVersionNumber      Int                    @map("rule_version_number")
+  evaluationId           String                 @unique(map: "alerts_evaluation_key") @map("evaluation_id")
+  episodeId              String                 @map("episode_id")
+  inputReferences        Json                   @map("input_references")
+  explanation            String                 @db.Text
+  administrativeSeverity AdministrativeSeverity @map("administrative_severity")
+  reviewOwner            RuleReviewOwner        @map("review_owner")
+  triggeredAt            DateTime               @map("triggered_at")
+  currentState           AlertState             @default(OPEN) @map("current_state")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  definition             RuleDefinition         @relation(fields: [ruleDefinitionId], references: [id], onDelete: Restrict, map: "alerts_definition_fkey")
+  ruleVersion            RuleVersion            @relation(fields: [ruleVersionId, ruleDefinitionId, ruleVersionNumber], references: [id, ruleDefinitionId, versionNumber], onDelete: Restrict, map: "alerts_version_fkey")
+  evaluation             RuleEvaluation         @relation(fields: [evaluationId, ruleVersionId, episodeId], references: [id, ruleVersionId, episodeId], onDelete: Restrict, map: "alerts_evaluation_version_episode_fkey")
+  episode                DischargeEpisode       @relation(fields: [episodeId], references: [id], onDelete: Restrict, map: "alerts_episode_fkey")
+  reviews                AlertReview[]
+
+  @@unique([evaluationId, ruleVersionId, episodeId], map: "alerts_evaluation_version_episode_key")
+  @@index([episodeId, currentState, triggeredAt], map: "alerts_episode_state_time_idx")
+  @@index([reviewOwner, currentState, triggeredAt], map: "alerts_owner_state_time_idx")
+  @@map("alerts")
+}
+
+model AlertReview {
+  id           String     @id @default(cuid())
+  alertId      String     @map("alert_id")
+  fromState    AlertState @map("from_state")
+  toState      AlertState @map("to_state")
+  reason       String?    @db.VarChar(500)
+  reviewedById String     @map("reviewed_by_id")
+  reviewedAt   DateTime   @default(now()) @map("reviewed_at")
+  alert        Alert      @relation(fields: [alertId], references: [id], onDelete: Restrict, map: "alert_reviews_alert_fkey")
+  reviewedBy   User       @relation("AlertReviewActor", fields: [reviewedById], references: [id], onDelete: Restrict, map: "alert_reviews_actor_fkey")
+
+  @@index([alertId, reviewedAt], map: "alert_reviews_alert_time_idx")
+  @@map("alert_reviews")
 }
 
 model SafetyPlan {

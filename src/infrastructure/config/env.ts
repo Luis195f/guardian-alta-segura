@@ -9,6 +9,7 @@ export interface ServerEnvironment {
   readonly demoMode: boolean;
   readonly demoSessionTtlHours: number;
   readonly sessionCookieSecure: boolean;
+  readonly explainableTrafficLight: boolean;
 }
 
 function parseBoolean(name: string, value: string | undefined, fallback: boolean): boolean {
@@ -67,6 +68,11 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
     source.SESSION_COOKIE_SECURE,
     nodeEnv === "production",
   );
+  const explainableTrafficLight = parseBoolean(
+    "EXPLAINABLE_TRAFFIC_LIGHT",
+    source.EXPLAINABLE_TRAFFIC_LIGHT,
+    false,
+  );
 
   if (nodeEnv === "production" && demoMode) {
     throw new Error("DEMO_MODE cannot be enabled in production");
@@ -88,5 +94,6 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
     demoMode,
     demoSessionTtlHours,
     sessionCookieSecure,
+    explainableTrafficLight,
   };
 }

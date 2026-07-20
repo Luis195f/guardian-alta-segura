@@ -601,6 +601,8 @@ test.describe.serial("HTTP demo authentication and authorization with PostgreSQL
       ).status(),
     ).toBe(403);
     expect((await foreignHost.get("/api/demo/resources/authenticated-session")).status()).toBe(403);
+    expect((await foreignHost.get("/api/demo/rules")).status()).toBe(403);
+    expect((await foreignHost.get("/api/demo/alerts")).status()).toBe(403);
     await foreignHost.dispose();
 
     const foreignForwardedHost = await apiRequest.newContext({
@@ -614,6 +616,8 @@ test.describe.serial("HTTP demo authentication and authorization with PostgreSQL
         })
       ).status(),
     ).toBe(403);
+    expect((await foreignForwardedHost.get("/api/demo/rules")).status()).toBe(403);
+    expect((await foreignForwardedHost.get("/api/demo/alerts")).status()).toBe(403);
     await foreignForwardedHost.dispose();
   });
 

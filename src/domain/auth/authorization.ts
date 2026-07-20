@@ -17,6 +17,13 @@ export const PROTECTED_RESOURCES = [
   "check-in-assignment-write",
   "check-in-read",
   "check-in-response-write",
+  "rule-definition-write",
+  "rule-approval-write",
+  "rule-activation-write",
+  "rule-catalog-read",
+  "alert-evaluation-write",
+  "alert-read",
+  "alert-review-write",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -37,6 +44,13 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "check-in-assignment-write": ["nurse", "clinician"],
   "check-in-read": ["nurse", "clinician", "patient"],
   "check-in-response-write": ["patient"],
+  "rule-definition-write": ["admin"],
+  "rule-approval-write": ["clinician"],
+  "rule-activation-write": ["admin"],
+  "rule-catalog-read": ["admin", "nurse", "clinician"],
+  "alert-evaluation-write": ["nurse", "clinician"],
+  "alert-read": ["nurse", "clinician"],
+  "alert-review-write": ["nurse", "clinician"],
 };
 
 export interface AuthorizationDecision {

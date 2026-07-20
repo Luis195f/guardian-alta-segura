@@ -1,8 +1,23 @@
 import { randomUUID } from "node:crypto";
 
 import { PrismaClient } from "@prisma/client";
+import syntheticRuleFixtures from "../src/domain/alerts/synthetic-rule-fixtures.json" with { type: "json" };
 
 const prisma = new PrismaClient();
+
+function stableJson(value) {
+  if (Array.isArray(value)) return value.map(stableJson);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, stableJson(value[key])]),
+  );
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(stableJson(left)) === JSON.stringify(stableJson(right));
+}
 
 class CanonicalPolicyMismatchError extends Error {
   constructor(policyKey, version) {
@@ -301,6 +316,76 @@ async function main() {
         syntheticCheckInFixture.protocolKey,
         String(syntheticCheckInFixture.versionNumber),
       );
+    }
+
+    for (const fixture of syntheticRuleFixtures) {
+      const existingDefinition = await transaction.ruleDefinition.findUnique({
+        where: { ruleKey: fixture.ruleKey },
+        include: {
+          versions: {
+            where: { versionNumber: 1 },
+            include: { approval: true },
+          },
+        },
+      });
+      if (!existingDefinition) {
+        const definition = await transaction.ruleDefinition.create({
+          data: {
+            ruleKey: fixture.ruleKey,
+            name: fixture.name,
+            isSyntheticFixture: true,
+            createdById: admin.id,
+            createdAt: normalizedAt,
+            versions: {
+              create: {
+                versionNumber: 1,
+                state: "DRAFT",
+                schemaVersion: fixture.dsl.schemaVersion,
+                allowedInputs: fixture.dsl.allowedInputs,
+                temporalWindow: fixture.dsl.window,
+                condition: fixture.dsl.condition,
+                administrativeSeverity: fixture.dsl.administrativeSeverity.toUpperCase(),
+                explanation: fixture.dsl.explanation,
+                reviewOwner: fixture.dsl.reviewOwner.toUpperCase(),
+                createdById: admin.id,
+                createdAt: normalizedAt,
+              },
+            },
+          },
+          include: { versions: true },
+        });
+        await transaction.auditEvent.create({
+          data: {
+            actorUserId: admin.id,
+            actorRole: "admin",
+            action: "RULE_VERSION_CREATED",
+            resourceType: "RuleVersion",
+            resourceId: definition.versions[0].id,
+            outcome: "SUCCESS",
+            correlationId,
+            createdAt: normalizedAt,
+          },
+        });
+        continue;
+      }
+
+      const version = existingDefinition.versions[0];
+      if (
+        existingDefinition.name !== fixture.name ||
+        !existingDefinition.isSyntheticFixture ||
+        !version ||
+        version.state !== "DRAFT" ||
+        version.approval ||
+        version.schemaVersion !== fixture.dsl.schemaVersion ||
+        !sameJson(version.allowedInputs, fixture.dsl.allowedInputs) ||
+        !sameJson(version.temporalWindow, fixture.dsl.window) ||
+        !sameJson(version.condition, fixture.dsl.condition) ||
+        version.administrativeSeverity.toLowerCase() !== fixture.dsl.administrativeSeverity ||
+        version.explanation !== fixture.dsl.explanation ||
+        version.reviewOwner.toLowerCase() !== fixture.dsl.reviewOwner
+      ) {
+        throw new CanonicalPolicyMismatchError(fixture.ruleKey, "1");
+      }
     }
 
     for (const policy of pendingPolicyVersions) {

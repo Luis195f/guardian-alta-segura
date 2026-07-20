@@ -1,0 +1,104 @@
+[
+  {
+    "ruleKey": "synthetic-low-sleep-and-non-adherence",
+    "name": "Ejemplo técnico: sueño reducido y no adherencia",
+    "dsl": {
+      "schemaVersion": 1,
+      "allowedInputs": [
+        { "key": "sleep_hours", "type": "number", "required": true },
+        { "key": "medication_adherence", "type": "boolean", "required": true }
+      ],
+      "window": { "lookbackHours": 48 },
+      "condition": {
+        "combinator": "all",
+        "clauses": [
+          {
+            "input": "sleep_hours",
+            "operator": "lte",
+            "value": 4,
+            "minimumOccurrences": 2,
+            "minimumDistinctDays": 2
+          },
+          {
+            "input": "medication_adherence",
+            "operator": "eq",
+            "value": false
+          }
+        ]
+      },
+      "administrativeSeverity": "standard",
+      "explanation": "Revisión humana solicitada por coincidencia del ejemplo técnico de sueño y adherencia.",
+      "reviewOwner": "nurse"
+    }
+  },
+  {
+    "ruleKey": "synthetic-positive-self-harm-ideation",
+    "name": "Ejemplo técnico: ideación autolítica positiva",
+    "dsl": {
+      "schemaVersion": 1,
+      "allowedInputs": [
+        { "key": "self_harm_ideation_positive", "type": "boolean", "required": true }
+      ],
+      "window": { "lookbackHours": 24 },
+      "condition": {
+        "combinator": "all",
+        "clauses": [
+          {
+            "input": "self_harm_ideation_positive",
+            "operator": "eq",
+            "value": true
+          }
+        ]
+      },
+      "administrativeSeverity": "priority",
+      "explanation": "Revisión humana prioritaria solicitada por coincidencia del ejemplo técnico configurado.",
+      "reviewOwner": "clinician"
+    }
+  },
+  {
+    "ruleKey": "synthetic-no-response-48-hours",
+    "name": "Ejemplo técnico: ausencia de respuesta durante 48 horas",
+    "dsl": {
+      "schemaVersion": 1,
+      "allowedInputs": [{ "key": "non_response_hours", "type": "number", "required": true }],
+      "window": { "lookbackHours": 72 },
+      "condition": {
+        "combinator": "all",
+        "clauses": [{ "input": "non_response_hours", "operator": "gte", "value": 48 }]
+      },
+      "administrativeSeverity": "standard",
+      "explanation": "Revisión humana solicitada por coincidencia del ejemplo técnico de no respuesta.",
+      "reviewOwner": "nurse"
+    }
+  },
+  {
+    "ruleKey": "synthetic-repeated-severe-family-conflict",
+    "name": "Ejemplo técnico: conflicto familiar severo repetido",
+    "dsl": {
+      "schemaVersion": 1,
+      "allowedInputs": [
+        {
+          "key": "family_conflict_severity",
+          "type": "enum",
+          "required": true,
+          "allowedValues": ["none", "mild", "moderate", "severe"]
+        }
+      ],
+      "window": { "lookbackHours": 168 },
+      "condition": {
+        "combinator": "all",
+        "clauses": [
+          {
+            "input": "family_conflict_severity",
+            "operator": "eq",
+            "value": "severe",
+            "minimumOccurrences": 2
+          }
+        ]
+      },
+      "administrativeSeverity": "standard",
+      "explanation": "Revisión humana solicitada por repetición del ejemplo técnico de conflicto familiar.",
+      "reviewOwner": "nurse"
+    }
+  }
+]

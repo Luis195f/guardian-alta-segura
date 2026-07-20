@@ -9,6 +9,7 @@ const baseEnvironment: NodeJS.ProcessEnv = {
   DEMO_MODE: "true",
   DEMO_SESSION_TTL_HOURS: "8",
   SESSION_COOKIE_SECURE: "false",
+  EXPLAINABLE_TRAFFIC_LIGHT: "false",
 };
 
 describe("server environment validation", () => {
@@ -18,6 +19,7 @@ describe("server environment validation", () => {
       demoMode: true,
       demoSessionTtlHours: 8,
       sessionCookieSecure: false,
+      explainableTrafficLight: false,
     });
   });
 
@@ -72,6 +74,18 @@ describe("server environment validation", () => {
     expect(() =>
       readServerEnvironment({ ...baseEnvironment, DATABASE_URL: "file:./synthetic.db" }),
     ).toThrow("DATABASE_URL must use PostgreSQL");
+  });
+
+  it("mantiene el semáforo de avisos explicables apagado por defecto", () => {
+    const withoutTrafficLight = { ...baseEnvironment };
+    delete withoutTrafficLight.EXPLAINABLE_TRAFFIC_LIGHT;
+    expect(readServerEnvironment(withoutTrafficLight).explainableTrafficLight).toBe(false);
+  });
+
+  it("rechaza valores ambiguos para el feature flag del semáforo", () => {
+    expect(() =>
+      readServerEnvironment({ ...baseEnvironment, EXPLAINABLE_TRAFFIC_LIGHT: "1" }),
+    ).toThrow('EXPLAINABLE_TRAFFIC_LIGHT must be exactly "true" or "false"');
   });
 
   it.each(["0", "13", "8.5", "not-a-number"])(

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { authorize, type ProtectedResource } from "@/domain/auth/authorization";
+import {
+  authorize,
+  PROTECTED_RESOURCES,
+  type ProtectedResource,
+} from "@/domain/auth/authorization";
 import { ROLES, type Role } from "@/domain/auth/role";
 
 const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
@@ -10,6 +14,9 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "technical-support-metadata",
     "check-in-protocol-read",
     "check-in-protocol-write",
+    "rule-definition-write",
+    "rule-activation-write",
+    "rule-catalog-read",
   ],
   nurse: [
     "authenticated-session",
@@ -21,6 +28,10 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "check-in-protocol-read",
     "check-in-assignment-write",
     "check-in-read",
+    "rule-catalog-read",
+    "alert-evaluation-write",
+    "alert-read",
+    "alert-review-write",
   ],
   clinician: [
     "authenticated-session",
@@ -32,6 +43,11 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "check-in-protocol-read",
     "check-in-assignment-write",
     "check-in-read",
+    "rule-approval-write",
+    "rule-catalog-read",
+    "alert-evaluation-write",
+    "alert-read",
+    "alert-review-write",
   ],
   patient: [
     "authenticated-session",
@@ -44,23 +60,7 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
   support: ["authenticated-session", "technical-support-metadata"],
 };
 
-const allResources: readonly ProtectedResource[] = [
-  "authenticated-session",
-  "role-administration",
-  "simulated-clinical-record",
-  "simulated-own-record",
-  "simulated-caregiver-section",
-  "technical-support-metadata",
-  "discharge-episode-read",
-  "discharge-episode-write",
-  "safety-plan-read",
-  "safety-plan-write",
-  "check-in-protocol-read",
-  "check-in-protocol-write",
-  "check-in-assignment-write",
-  "check-in-read",
-  "check-in-response-write",
-];
+const allResources: readonly ProtectedResource[] = PROTECTED_RESOURCES;
 
 describe("server-side authorization matrix", () => {
   for (const role of ROLES) {
