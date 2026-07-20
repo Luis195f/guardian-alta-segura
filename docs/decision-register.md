@@ -40,3 +40,12 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 - El cierre exige actor y motivo. Mientras no exista el módulo de avisos, `AlertModuleUnavailableClosurePolicy` deniega el cierre; una implementación futura deberá consultar avisos abiertos de forma consistente con la transacción.
 - Episodios, pacientes, políticas de identidad y transiciones no se borran físicamente. La conservación definitiva continúa bloqueada por DEC-005.
 - `nurse` y `clinician` son roles técnicos provisionales; su correspondencia institucional continúa bloqueada por DEC-013.
+
+## Decisiones técnicas provisionales de feat/06
+
+- El DSL `schemaVersion: 1` solo admite inputs explícitos de tipo número, booleano o enum cerrado, una ventana temporal y operadores deterministas `eq`, `lte` y `gte`; no admite texto libre, ML, LLM, scoring probabilístico ni clasificación diagnóstica.
+- `admin` crea versiones `draft` y activa una versión previamente aprobada; `clinician` registra la aprobación con referencia local. Esta separación técnica no resuelve el mapeo institucional pendiente de DEC-013 ni constituye validación clínica.
+- Las cuatro reglas sembradas son ejemplos técnicos sintéticos en estado `draft`, sin `RuleApproval`, rotulados como no aprobados. DEC-008 sigue pendiente y bloquea su activación para uso real.
+- `EXPLAINABLE_TRAFFIC_LIGHT=false` es el valor predeterminado. DEC-009 sigue pendiente; cambiar el flag exige la decisión local correspondiente y no altera la lógica de evaluación.
+- Cada petición de evaluación exige clave idempotente por actor; el mismo payload devuelve la evaluación existente y otro payload con la misma clave se rechaza. Evaluación y creación de aviso conservan eventos de auditoría separados y minimizados.
+- Evaluar una regla es una operación profesional explícita. Un resultado coincidente crea un aviso `open`, pero nunca crea tareas, derivaciones, firmas, cierres ni otras acciones clínicas. Toda transición posterior exige `AlertReview` humano append-only.

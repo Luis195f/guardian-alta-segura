@@ -57,3 +57,33 @@ export async function requireDemoCheckInPrincipal(
   if (!authorize(principal, resource).allowed) throw errors.forbidden();
   return { principal, applicationOrigin: environment.appBaseUrl.origin };
 }
+
+export async function requireDemoExplainableAlertPrincipal(
+  request: NextRequest,
+  resource:
+    | "rule-definition-write"
+    | "rule-approval-write"
+    | "rule-activation-write"
+    | "rule-catalog-read"
+    | "alert-evaluation-write"
+    | "alert-read"
+    | "alert-review-write",
+): Promise<{
+  readonly principal: AuthenticatedPrincipal;
+  readonly applicationOrigin: string;
+  readonly explainableTrafficLight: boolean;
+}> {
+  const environment = readServerEnvironment();
+  if (!environment.demoMode) throw errors.notFound();
+  assertLoopbackRequestHost(request);
+  const principal = await readAuthenticatedPrincipal(
+    request.cookies.get(SESSION_COOKIE_NAME)?.value,
+  );
+  if (!principal) throw errors.unauthenticated();
+  if (!authorize(principal, resource).allowed) throw errors.forbidden();
+  return {
+    principal,
+    applicationOrigin: environment.appBaseUrl.origin,
+    explainableTrafficLight: environment.explainableTrafficLight,
+  };
+}

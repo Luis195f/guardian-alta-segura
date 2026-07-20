@@ -21,7 +21,10 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Crear asignaciones desde la versión fijada al episodio | No | Sí, asignado y con participación digital vigente | Sí, asignado y con participación digital vigente | No | No | No |
 | Consultar histórico de check-ins | No | Sí, asignado | Sí, asignado | Propio | No | **No** |
 | Omitir un check-in como evento de no respuesta | No | No | No | Propio | No | No |
-| Revisar avisos explicables | No | Sí, asignado | No | No | No | No |
+| Versionar reglas explicables | Sí, solo catálogo sintético demo; siempre crea `draft` | No | No | No | No | No |
+| Aprobar una versión de regla | No | No | Sí, referencia local explícita | No | No | No |
+| Activar una versión aprobada | Sí, sin acceso al contenido del episodio | No | No | No | No | No |
+| Evaluar reglas activas y revisar avisos | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
 | Crear/cerrar tareas tras revisión | No | Sí, asignado | Sí, asignado | Solo acciones propias si se habilitan | Solo tareas autorizadas | No |
 | Registrar/revisar Domicilio Seguro | No | Sí, revisión humana | No | No | Autorizado | No |
 | Gestionar autorización de cuidador | No | No | No | Propio dentro del protocolo | No | No |
@@ -47,6 +50,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 - `patient` no puede aprobar reglas, firmar cierres profesionales ni ampliar permisos fuera del protocolo.
 - `Todos` en REQ-12 significa que cada categoría necesita autenticación; no concede a ningún rol todas las capacidades de la matriz.
 - Solo una revisión humana autorizada puede originar una tarea o decisión asistencial.
+- Aprobar y activar una regla son capacidades separadas; ninguna de ellas crea avisos ni actuaciones por sí sola.
 - Los cambios de rol, permisos, scopes, sesiones y accesos críticos producen auditoría inmutable y minimizada.
 
 ## Pendientes de verificación y aprobación

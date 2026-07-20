@@ -1,0 +1,275 @@
+import { randomUUID } from "node:crypto";
+
+import { describe, expect, it } from "vitest";
+
+import {
+  ActivateRuleVersionService,
+  ApproveRuleVersionService,
+  CreateRuleVersionService,
+  EvaluateRuleService,
+  ExplainableAlertConflictError,
+  ReviewAlertService,
+} from "@/application/alerts/manage-explainable-alerts";
+import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
+import { SYNTHETIC_RULE_FIXTURES } from "@/domain/alerts/synthetic-rule-fixtures";
+import { prisma } from "@/infrastructure/persistence/prisma";
+import { PrismaExplainableAlertsUnitOfWork } from "@/infrastructure/persistence/prisma-explainable-alerts-unit-of-work";
+
+function actor(userId: string, role: "admin" | "nurse" | "clinician"): AuthenticatedPrincipal {
+  return { userId, roles: [role], sessionId: randomUUID() };
+}
+
+async function createUser(role: "admin" | "nurse" | "clinician") {
+  return prisma.user.create({
+    data: {
+      syntheticAlias: `alert-${role}-${randomUUID()}`,
+      displayLabel: `SINTÉTICO / NO USO CLÍNICO — ${role}`,
+      isSynthetic: true,
+      roleAssignments: { create: { role } },
+    },
+  });
+}
+
+async function setupEpisode() {
+  const [admin, nurse, clinician] = await Promise.all([
+    createUser("admin"),
+    createUser("nurse"),
+    createUser("clinician"),
+  ]);
+  const patient = await prisma.patient.create({
+    data: {
+      externalPseudonymousId: `SYNTH-ALERT-${randomUUID()}`,
+      isSynthetic: true,
+      createdById: nurse.id,
+    },
+  });
+  const protocol = await prisma.checkInProtocolVersion.create({
+    data: {
+      protocolKey: `synthetic-alert-protocol-${randomUUID()}`,
+      versionNumber: 1,
+      title: "PLANTILLA SINTÉTICA / NO APROBADA",
+      state: "DRAFT",
+      isSyntheticFixture: true,
+      createdById: admin.id,
+    },
+  });
+  const episode = await prisma.dischargeEpisode.create({
+    data: {
+      patientId: patient.id,
+      dischargeDate: new Date("2026-07-01T00:00:00.000Z"),
+      programLengthDays: 30,
+      responsibleNurseId: nurse.id,
+      responsibleClinicianId: clinician.id,
+      status: "ACTIVE",
+      createdById: nurse.id,
+      checkInProtocolVersionId: protocol.id,
+    },
+  });
+  return { admin, nurse, clinician, episode };
+}
+
+describe.sequential("PostgreSQL explainable alert guarantees", () => {
+  it("conserva versión, aprobación, evaluación y revisión como historia auditable", async () => {
+    const fixture = SYNTHETIC_RULE_FIXTURES[2]!;
+    const users = await setupEpisode();
+    const unitOfWork = new PrismaExplainableAlertsUnitOfWork();
+    const correlationId = randomUUID();
+    const created = await new CreateRuleVersionService(unitOfWork).execute({
+      actor: actor(users.admin.id, "admin"),
+      ruleKey: `test-${randomUUID()}`,
+      name: fixture.name,
+      dsl: fixture.dsl,
+      correlationId,
+    });
+    await new ApproveRuleVersionService(unitOfWork).execute({
+      actor: actor(users.clinician.id, "clinician"),
+      ruleVersionId: created.ruleVersionId,
+      approvalReference: "SYNTHETIC-INTEGRATION-APPROVAL",
+      correlationId,
+    });
+    await new ActivateRuleVersionService(unitOfWork).execute({
+      actor: actor(users.admin.id, "admin"),
+      ruleVersionId: created.ruleVersionId,
+      correlationId,
+    });
+    const evaluationService = new EvaluateRuleService(unitOfWork);
+    const idempotencyKey = `alert-evaluation:${randomUUID()}`;
+    const evaluationInput = {
+      actor: actor(users.nurse.id, "nurse"),
+      ruleVersionId: created.ruleVersionId,
+      episodeId: users.episode.id,
+      inputs: [
+        {
+          inputKey: "non_response_hours",
+          value: 49,
+          observedAt: "2026-07-17T08:00:00.000Z",
+          source: {
+            resourceType: "NonResponseEvent",
+            resourceId: "synthetic-integration-source",
+            field: "elapsedHours",
+          },
+        },
+      ],
+      idempotencyKey,
+      correlationId,
+    } as const;
+    const evaluated = await evaluationService.execute({
+      ...evaluationInput,
+      evaluatedAt: new Date("2026-07-17T12:00:00.000Z"),
+    });
+    expect(evaluated).toMatchObject({ outcome: "matched", idempotent: false });
+    expect(evaluated.alertId).not.toBeNull();
+    const retry = await evaluationService.execute({
+      ...evaluationInput,
+      evaluatedAt: new Date("2026-07-17T12:05:00.000Z"),
+    });
+    expect(retry).toEqual({ ...evaluated, idempotent: true });
+    await expect(
+      evaluationService.execute({
+        ...evaluationInput,
+        inputs: [{ ...evaluationInput.inputs[0], value: 50 }],
+      }),
+    ).rejects.toBeInstanceOf(ExplainableAlertConflictError);
+    await expect(
+      prisma.alertReview.count({ where: { alertId: evaluated.alertId! } }),
+    ).resolves.toBe(0);
+
+    await new ReviewAlertService(unitOfWork).execute({
+      actor: actor(users.nurse.id, "nurse"),
+      alertId: evaluated.alertId!,
+      nextState: "reviewed",
+      correlationId,
+    });
+
+    const [version, evaluation, alert, reviews, audits] = await Promise.all([
+      prisma.ruleVersion.findUniqueOrThrow({
+        where: { id: created.ruleVersionId },
+        include: { approval: true },
+      }),
+      prisma.ruleEvaluation.findUniqueOrThrow({ where: { id: evaluated.evaluationId } }),
+      prisma.alert.findUniqueOrThrow({ where: { id: evaluated.alertId! } }),
+      prisma.alertReview.findMany({ where: { alertId: evaluated.alertId! } }),
+      prisma.auditEvent.findMany({ where: { correlationId } }),
+    ]);
+    expect(version).toMatchObject({ versionNumber: 1, state: "ACTIVE" });
+    expect(version.approval?.approvedById).toBe(users.clinician.id);
+    expect(evaluation).toMatchObject({
+      ruleVersionNumber: 1,
+      outcome: "MATCHED",
+      idempotencyKey,
+      inputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(alert).toMatchObject({
+      evaluationId: evaluated.evaluationId,
+      ruleVersionId: created.ruleVersionId,
+      ruleVersionNumber: 1,
+      currentState: "REVIEWED",
+      explanation: expect.stringContaining("synthetic-integration-source"),
+    });
+    expect(reviews).toHaveLength(1);
+    expect(audits.map(({ action }) => action)).toEqual(
+      expect.arrayContaining([
+        "RULE_VERSION_CREATED",
+        "RULE_VERSION_APPROVED",
+        "RULE_VERSION_ACTIVATED",
+        "RULE_EVALUATED",
+        "ALERT_CREATED",
+        "ALERT_REVIEWED",
+      ]),
+    );
+    await expect(
+      prisma.ruleEvaluation.count({
+        where: { evaluatedById: users.nurse.id, idempotencyKey },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.auditEvent.count({
+        where: {
+          correlationId,
+          action: { in: ["RULE_EVALUATED", "ALERT_CREATED"] },
+        },
+      }),
+    ).resolves.toBe(2);
+    const concurrentKey = `alert-evaluation-concurrent:${randomUUID()}`;
+    const concurrentCorrelationId = randomUUID();
+    const concurrentInput = {
+      ...evaluationInput,
+      idempotencyKey: concurrentKey,
+      correlationId: concurrentCorrelationId,
+      inputs: [
+        {
+          ...evaluationInput.inputs[0],
+          source: {
+            ...evaluationInput.inputs[0].source,
+            resourceId: "synthetic-concurrent-source",
+          },
+        },
+      ],
+      evaluatedAt: new Date("2026-07-17T13:00:00.000Z"),
+    } as const;
+    const concurrentResults = await Promise.all([
+      evaluationService.execute(concurrentInput),
+      evaluationService.execute(concurrentInput),
+    ]);
+    expect(concurrentResults.map(({ idempotent }) => idempotent).sort()).toEqual([false, true]);
+    expect(concurrentResults[0]?.evaluationId).toBe(concurrentResults[1]?.evaluationId);
+    expect(concurrentResults[0]?.alertId).toBe(concurrentResults[1]?.alertId);
+    await expect(
+      prisma.ruleEvaluation.count({
+        where: { evaluatedById: users.nurse.id, idempotencyKey: concurrentKey },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.auditEvent.count({
+        where: {
+          correlationId: concurrentCorrelationId,
+          action: { in: ["RULE_EVALUATED", "ALERT_CREATED"] },
+        },
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      prisma.alertReview.create({
+        data: {
+          alertId: evaluated.alertId!,
+          fromState: "OPEN",
+          toState: "DISMISSED_WITH_REASON",
+          reason: "Revisión obsoleta sintética",
+          reviewedById: users.nurse.id,
+        },
+      }),
+    ).rejects.toThrow("alert review must start from the current alert state");
+    await expect(
+      prisma.ruleVersion.create({
+        data: {
+          ruleDefinitionId: version.ruleDefinitionId,
+          versionNumber: 2,
+          state: "DRAFT",
+          basedOnVersionId: null,
+          schemaVersion: fixture.dsl.schemaVersion,
+          allowedInputs: JSON.parse(JSON.stringify(fixture.dsl.allowedInputs)),
+          temporalWindow: JSON.parse(JSON.stringify(fixture.dsl.window)),
+          condition: JSON.parse(JSON.stringify(fixture.dsl.condition)),
+          administrativeSeverity: fixture.dsl.administrativeSeverity.toUpperCase() as
+            "STANDARD" | "PRIORITY",
+          explanation: fixture.dsl.explanation,
+          reviewOwner: fixture.dsl.reviewOwner.toUpperCase() as "NURSE" | "CLINICIAN",
+          createdById: users.admin.id,
+        },
+      }),
+    ).rejects.toThrow("rule version must derive from the previous version of the same definition");
+
+    await expect(
+      prisma.ruleVersion.update({
+        where: { id: created.ruleVersionId },
+        data: { explanation: "No debe sobrescribir la definición histórica." },
+      }),
+    ).rejects.toThrow("rule version definitions are immutable");
+    await expect(
+      prisma.ruleEvaluation.update({
+        where: { id: evaluated.evaluationId },
+        data: { outcome: "NOT_MATCHED" },
+      }),
+    ).rejects.toThrow("explainable alert history is append-only");
+  }, 20_000);
+});
