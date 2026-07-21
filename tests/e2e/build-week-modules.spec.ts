@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ userAgent: "guardian-build-week-e2e/1.0" });
+
 test("muestra crisis fail-closed y permite Domicilio Seguro y SBAR sintéticos", async ({
   page,
 }) => {
