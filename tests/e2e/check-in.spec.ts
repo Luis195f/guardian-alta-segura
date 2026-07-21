@@ -3,6 +3,9 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { OmitCheckInAssignmentService } from "@/application/check-in/manage-check-ins";
+import { PrismaCheckInUnitOfWork } from "@/infrastructure/persistence/prisma-check-in-unit-of-work";
+
 const prisma = new PrismaClient();
 type HttpAnswer =
   | { readonly questionDefinitionId: string; readonly scaleValue: number }
@@ -68,6 +71,26 @@ test.beforeAll(async () => {
       evidenceRef: "SYNTHETIC-ONLY",
     },
   });
+  const now = new Date();
+  const staleOpenAssignments = await prisma.checkInAssignment.findMany({
+    where: {
+      episode: { patient: { portalUserId: patientUser.id } },
+      outcome: null,
+      windowStartsAt: { lte: now },
+      windowEndsAt: { gt: now },
+    },
+    select: { id: true },
+  });
+  const omitStaleAssignment = new OmitCheckInAssignmentService(new PrismaCheckInUnitOfWork());
+  for (const assignment of staleOpenAssignments) {
+    await omitStaleAssignment.execute({
+      actor: { userId: patientUser.id, roles: ["patient"], sessionId: randomUUID() },
+      assignmentId: assignment.id,
+      idempotencyKey: `e2e-check-in-cleanup:${randomUUID()}`,
+      correlationId: randomUUID(),
+      now,
+    });
+  }
   const episode = await prisma.dischargeEpisode.create({
     data: {
       patientId: patient.id,
@@ -89,7 +112,7 @@ test.beforeAll(async () => {
       requestFingerprint: "a".repeat(64),
     },
   });
-  const now = Date.now();
+  const currentTime = Date.now();
   const [open, future] = await prisma.$transaction([
     prisma.checkInAssignment.create({
       data: {
@@ -97,9 +120,9 @@ test.beforeAll(async () => {
         episodeId: episode.id,
         checkInProtocolVersionId: protocol.id,
         sequence: 1,
-        scheduledFor: new Date(now - 60_000),
-        windowStartsAt: new Date(now - 120_000),
-        windowEndsAt: new Date(now + 30 * 60_000),
+        scheduledFor: new Date(currentTime - 60_000),
+        windowStartsAt: new Date(currentTime - 120_000),
+        windowEndsAt: new Date(currentTime + 30 * 60_000),
         createdById: nurse.id,
       },
     }),
@@ -109,9 +132,9 @@ test.beforeAll(async () => {
         episodeId: episode.id,
         checkInProtocolVersionId: protocol.id,
         sequence: 2,
-        scheduledFor: new Date(now + 24 * 60 * 60_000),
-        windowStartsAt: new Date(now + 24 * 60 * 60_000),
-        windowEndsAt: new Date(now + 25 * 60 * 60_000),
+        scheduledFor: new Date(currentTime + 24 * 60 * 60_000),
+        windowStartsAt: new Date(currentTime + 24 * 60 * 60_000),
+        windowEndsAt: new Date(currentTime + 25 * 60 * 60_000),
         createdById: nurse.id,
       },
     }),

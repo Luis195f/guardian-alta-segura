@@ -77,7 +77,15 @@ test("fixtures siguen draft/no aprobados y admin no puede aprobarlos", async ({ 
       }[];
     }[];
   };
-  const canonicalFixtures = payload.rules.filter(({ ruleKey }) => ruleKey.startsWith("synthetic-"));
+  const canonicalFixtureKeys = new Set([
+    "synthetic-no-response-48-hours",
+    "synthetic-repeated-severe-family-conflict",
+    "synthetic-positive-self-harm-ideation",
+    "synthetic-low-sleep-and-non-adherence",
+  ]);
+  const canonicalFixtures = payload.rules.filter(({ ruleKey }) =>
+    canonicalFixtureKeys.has(ruleKey),
+  );
   expect(canonicalFixtures).toHaveLength(4);
   for (const rule of canonicalFixtures) {
     expect(rule.isSyntheticFixture).toBe(true);

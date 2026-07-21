@@ -117,3 +117,18 @@ export async function requireDemoCaregiverAccessPrincipal(
   if (!authorize(principal, resource).allowed) throw errors.forbidden();
   return { principal, applicationOrigin: environment.appBaseUrl.origin };
 }
+
+export async function requireDemoBuildWeekPrincipal(
+  request: NextRequest,
+  resource: "home-safety-read" | "home-safety-write" | "sbar-preview-generate",
+): Promise<{ readonly principal: AuthenticatedPrincipal; readonly applicationOrigin: string }> {
+  const environment = readServerEnvironment();
+  if (!environment.demoMode) throw errors.notFound();
+  assertLoopbackRequestHost(request);
+  const principal = await readAuthenticatedPrincipal(
+    request.cookies.get(SESSION_COOKIE_NAME)?.value,
+  );
+  if (!principal) throw errors.unauthenticated();
+  if (!authorize(principal, resource).allowed) throw errors.forbidden();
+  return { principal, applicationOrigin: environment.appBaseUrl.origin };
+}

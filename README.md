@@ -64,7 +64,7 @@ CI ejecuta instalación congelada, generación de Prisma, despliegue/estado de m
 - `src/presentation` y `src/app`: UI accesible y adaptadores HTTP de Next.js; no contienen reglas de autorización.
 - `prisma`: modelos, migraciones versionadas, controles append-only y seed exclusivamente sintético.
 
-El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial, vista paciente filtrada por sección y vista cuidador de la versión activa con doble filtro de scope y permiso documental. No hay PDF, firma automática, scoring ni recurso de crisis definitivo en esta rama.
+El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial, vista paciente filtrada por sección y vista cuidador de la versión activa con doble filtro de scope y permiso documental. No hay firma automática, scoring ni recurso de crisis definitivo; la vista imprimible SBAR es determinista y no equivale a un PDF institucional aprobado.
 
 El portal de cuidador usa `CaregiverProfile` seudonimizado, invitaciones locales de un solo uso, scopes append-only versionados por autorización + episodio y una cookie HttpOnly independiente. Cada petición revalida identidad, política, vigencia, última versión del scope del episodio y revocación. PostgreSQL impide vínculos cruzados entre autorización, perfil, episodio, invitación, sesión y observación. Revocar serializa contra accesos, invalida todas las sesiones concurrentes y conserva historia; logout invalida la sesión persistida antes de expirar la cookie. Los TTL predeterminados son configuración técnica de demo, no política institucional. Las observaciones requieren revisión humana y nunca crean avisos o tareas automáticamente. La política demo `caregiver:portal` está `PENDING`; no habilita uso real ni presume capacidad o representación legal.
 
@@ -72,7 +72,7 @@ Cada episodio nuevo referencia una versión exacta de protocolo de check-in. Cla
 
 El motor de avisos usa un DSL JSON v1 validado con inputs permitidos explícitos, ventanas temporales y operadores deterministas. Cada evaluación conserva versión, timestamp, snapshot estructurado, hash reproducible y resultado `matched`, `not-matched` o `abstained`; si falta un input requerido se abstiene. `Idempotency-Key` evita duplicar una evaluación o aviso por reintento y rechaza reutilizar la clave con otro payload. Un aviso coincidente conserva evaluación, regla, versión, referencias de origen y explicación visible, pero permanece `open` hasta una revisión humana. Las revisiones son append-only y no crean tareas ni acciones clínicas. El seed incluye cuatro reglas `draft` sintéticas y no aprobadas; DEC-008 mantiene pendiente su validación clínica local.
 
-La cola profesional filtra episodios visibles por estado, fecha, responsable y elementos pendientes. Muestra solo el último check-in sin respuestas, los avisos no cerrados con versión/origen y las tareas del episodio. Una tarea siempre pertenece a un episodio y puede referenciar un aviso del mismo episodio; solo se crea mediante una petición profesional explícita. Asignación, reasignación, intento de contacto, nota breve y resolución generan historia; resolver exige motivo, actor y timestamp. `expectedRevision`, idempotencia e índices únicos evitan dobles procesamientos silenciosos. No hay prioridad ni SLA definitivo, comunicaciones reales, derivación, recomendación, SBAR o cierre automático.
+La cola profesional filtra episodios visibles por estado, fecha, responsable y elementos pendientes. Muestra solo el último check-in sin respuestas, los avisos no cerrados con versión/origen y las tareas del episodio. Una tarea siempre pertenece a un episodio y puede referenciar un aviso del mismo episodio; solo se crea mediante una petición profesional explícita. Asignación, reasignación, intento de contacto, nota breve y resolución generan historia; resolver exige motivo, actor y timestamp. `expectedRevision`, idempotencia e índices únicos evitan dobles procesamientos silenciosos. No hay prioridad ni SLA definitivo, comunicaciones reales, derivación, recomendación, SBAR automático o cierre automático.
 
 Las rutas protegidas vuelven a comprobar sesión y autorización en servidor. `admin` no hereda acceso clínico y `support` queda denegado ante el recurso clínico simulado de las pruebas.
 
@@ -93,3 +93,47 @@ Las rutas protegidas vuelven a comprobar sesión y autorización en servidor. `a
 - PostgreSQL de Docker publica únicamente `127.0.0.1:5432`; no debe cambiarse a una interfaz LAN para ejecutar el demo.
 
 Véanse [docs/platform-foundation-security.md](docs/platform-foundation-security.md) y [ADR-0003](docs/adr/0003-demo-identity-vs-institutional-sso.md).
+
+## OpenAI Build Week 2026
+
+### Problem
+
+Post-discharge continuity work is fragmented across plans, check-ins, reviews and follow-up tasks. Guardián Alta Segura explores how to make that organizational chain visible and traceable without automating clinical judgment.
+
+### Solution and current technical status
+
+This repository is a **technical pre-pilot MVP** using **synthetic data only**. It is **not for clinical use**. The demonstrable flow is: synthetic patient → structured check-in → deterministic explainable notice → human review → manually created human task → traceable follow-up. It does not diagnose, predict suicide, recommend treatment or take autonomous clinical action.
+
+### What was built during Build Week
+
+Repository history dated 2026-07-20/21 shows deterministic explainable alerts, human alert review, the nursing workqueue, traceable human tasks and granular caregiver access. This closing branch adds an informational/versioned Home Safety checklist, a deterministic minimized SBAR preview, a fail-closed crisis-resource state, a reproducible synthetic demo dataset, release documentation and focused tests. The exact commit timeline and the limits of attribution are in [BUILD_WEEK_CHANGELOG](docs/build-week/BUILD_WEEK_CHANGELOG.md).
+
+### How Codex was used
+
+Codex inspected code and history, implemented bounded modules, wrote tests, reconciled traceability, checked safety claims and prepared the release artifacts. Product framing, clinical constraints, local protocols, institutional approval and professional responsibility remain human decisions. See [AI_COLLABORATION](docs/build-week/AI_COLLABORATION.md).
+
+### Safety-by-design
+
+- Human-in-the-loop before every downstream action.
+- Deterministic, versioned and explainable notices; `EXPLAINABLE_TRAFFIC_LIGHT=false` by default.
+- Append-only clinical history and minimized technical audit events.
+- Deny-by-default RBAC, loopback-only demo and synthetic identities/data.
+- Crisis action disabled pending DEC-010/011; no telephone number is invented.
+- No diagnosis, suicide prediction, scoring, generative clinical recommendation or automatic signature.
+
+### How to run locally
+
+```powershell
+pnpm demo:prepare
+pnpm dev
+```
+
+Open `http://127.0.0.1:3000`. Do not bind the demo to `0.0.0.0`. Exact prerequisites and recovery-safe steps are in [DEMO_RUNBOOK](docs/build-week/DEMO_RUNBOOK.md).
+
+### Demo flow
+
+Log in with synthetic aliases and show: active episode → versioned Safety Plan → patient check-in → explicit deterministic rule evaluation → visible explanation → human alert review → manual task creation/assignment/contact note/resolution → minimized audit/history. Optional moments: authorized caregiver scope/revocation, informational Home Safety and deterministic SBAR preview.
+
+### Limitations
+
+No clinical, legal, regulatory or institutional validation is claimed. There is no production identity provider, real communication, hospital integration, validated crisis destination, institutional SBAR export profile, contingency mode or real-patient workflow. Local decisions in `docs/decision-register.md` remain blocking.

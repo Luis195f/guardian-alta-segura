@@ -2,7 +2,18 @@ import { existsSync } from "node:fs";
 
 import { defineConfig, devices } from "@playwright/test";
 
-if (existsSync(".env")) process.loadEnvFile(".env");
+if (existsSync(".env")) {
+  for (const name of [
+    "DATABASE_URL",
+    "APP_BASE_URL",
+    "DEMO_MODE",
+    "DEMO_SESSION_TTL_HOURS",
+    "SESSION_COOKIE_SECURE",
+  ]) {
+    delete process.env[name];
+  }
+  process.loadEnvFile(".env");
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required for Playwright e2e");

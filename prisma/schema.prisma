@@ -55,6 +55,8 @@ enum AuditAction {
   CAREGIVER_ACCESS_REVOKED
   CAREGIVER_OBSERVATION_RECORDED
   CAREGIVER_SESSION_LOGGED_OUT
+  HOME_SAFETY_VERSION_CREATED
+  SBAR_PREVIEW_GENERATED
 }
 
 enum IdentityVerificationState {
@@ -241,6 +243,20 @@ enum CaregiverAccessAction {
   SESSION_LOGGED_OUT
 }
 
+enum HomeSafetyItemState {
+  NOT_REVIEWED
+  INFORMATION_RECORDED
+  FOLLOW_UP_PENDING
+  NOT_APPLICABLE
+}
+
+enum HomeSafetyProvenance {
+  PATIENT
+  CAREGIVER
+  NURSE
+  CLINICIAN
+}
+
 model User {
   id                                  String                              @id @default(cuid())
   syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
@@ -299,6 +315,7 @@ model User {
   caregiverInvitationsCreated         CaregiverInvitation[]               @relation("CaregiverInvitationCreator")
   caregiverScopesCreated              CaregiverAuthorizationScope[]       @relation("CaregiverScopeActor")
   caregiverAccessAuditsAuthored       CaregiverAccessAudit[]              @relation("CaregiverAccessAuditActor")
+  homeSafetyVersionsRecorded          HomeSafetyReviewVersion[]           @relation("HomeSafetyReviewActor")
 
   @@map("users")
 }
@@ -377,6 +394,7 @@ model DischargeEpisode {
   caregiverScopes          CaregiverAuthorizationScope[]
   caregiverSessions        CaregiverSession[]
   caregiverObservations    CaregiverObservation[]
+  homeSafetyVersions       HomeSafetyReviewVersion[]
 
   @@unique([id, checkInProtocolVersionId], map: "discharge_episodes_id_check_in_protocol_version_id_key")
   @@index([responsibleNurseId, status])
@@ -1067,6 +1085,37 @@ model CaregiverAccessAudit {
   @@index([caregiverAuthorizationId, createdAt], map: "caregiver_access_audits_authorization_time_idx")
   @@index([correlationId], map: "caregiver_access_audits_correlation_idx")
   @@map("caregiver_access_audits")
+}
+
+model HomeSafetyReviewVersion {
+  id                                 String                 @id @default(cuid())
+  dischargeEpisodeId                 String                 @map("discharge_episode_id")
+  versionNumber                      Int                    @map("version_number")
+  templateKey                        String                 @map("template_key") @db.VarChar(64)
+  templateVersion                    String                 @map("template_version") @db.VarChar(32)
+  informationalPurposeAcknowledged   Boolean                @map("informational_purpose_acknowledged")
+  humanReviewed                      Boolean                @map("human_reviewed")
+  actorUserId                        String                 @map("actor_user_id")
+  recordedAt                         DateTime               @default(now()) @map("recorded_at")
+  dischargeEpisode                   DischargeEpisode       @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "home_safety_versions_episode_fkey")
+  actor                              User                   @relation("HomeSafetyReviewActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "home_safety_versions_actor_fkey")
+  items                              HomeSafetyItem[]
+
+  @@unique([dischargeEpisodeId, versionNumber], map: "home_safety_versions_episode_version_key")
+  @@index([dischargeEpisodeId, recordedAt], map: "home_safety_versions_episode_time_idx")
+  @@map("home_safety_review_versions")
+}
+
+model HomeSafetyItem {
+  id                    String                  @id @default(cuid())
+  reviewVersionId       String                  @map("review_version_id")
+  itemKey               String                  @map("item_key") @db.VarChar(64)
+  state                 HomeSafetyItemState
+  provenance            HomeSafetyProvenance
+  reviewVersion         HomeSafetyReviewVersion @relation(fields: [reviewVersionId], references: [id], onDelete: Restrict, map: "home_safety_items_version_fkey")
+
+  @@unique([reviewVersionId, itemKey], map: "home_safety_items_version_item_key")
+  @@map("home_safety_items")
 }
 
 model ProcessingBasisRecord {

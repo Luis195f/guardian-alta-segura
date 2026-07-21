@@ -7,6 +7,7 @@ import { PatientCheckInPanel } from "@/presentation/components/patient-check-in-
 import { ExplainableAlertsPanel } from "@/presentation/components/explainable-alerts-panel";
 import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
 import { CaregiverAccessPanel } from "@/presentation/components/caregiver-access-panel";
+import { CrisisResourcePanel } from "@/presentation/components/crisis-resource-panel";
 
 export default function HomePage() {
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
@@ -22,6 +23,23 @@ export default function HomePage() {
           y trazabilidad. Esta rama no contiene decisiones clínicas automatizadas.
         </p>
       </header>
+
+      <nav className="demo-flow" aria-label="Flujo demostrable con revisión humana">
+        {[
+          "Paciente sintético",
+          "Check-in",
+          "Regla determinista",
+          "Aviso explicable",
+          "Revisión humana",
+          "Tarea humana",
+          "Seguimiento",
+        ].map((step, index) => (
+          <span key={step}>
+            {step}
+            {index < 6 && <span aria-hidden="true"> → </span>}
+          </span>
+        ))}
+      </nav>
 
       <div className="grid">
         <DemoLoginPanel enabled={demoEnabled} />
@@ -44,6 +62,8 @@ export default function HomePage() {
       <DischargeEpisodePanel enabled={demoEnabled} />
 
       <PatientSafetyPlanPanel enabled={demoEnabled} />
+
+      <CrisisResourcePanel />
 
       <CheckInProtocolAdminPanel enabled={demoEnabled} />
 

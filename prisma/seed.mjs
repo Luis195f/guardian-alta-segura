@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 
 import { PrismaClient } from "@prisma/client";
 import syntheticRuleFixtures from "../src/domain/alerts/synthetic-rule-fixtures.json" with { type: "json" };
+
+if (existsSync(".env")) {
+  delete process.env.DATABASE_URL;
+  process.loadEnvFile(".env");
+}
 
 const prisma = new PrismaClient();
 
@@ -536,6 +542,340 @@ async function main() {
         });
       }
     }
+
+    const syntheticPatient = await transaction.patient.findUniqueOrThrow({
+      where: { externalPseudonymousId: syntheticPatientId },
+    });
+    const demoProtocol = await transaction.checkInProtocolVersion.findUniqueOrThrow({
+      where: {
+        protocolKey_versionNumber: {
+          protocolKey: syntheticCheckInFixture.protocolKey,
+          versionNumber: syntheticCheckInFixture.versionNumber,
+        },
+      },
+      include: { questions: { orderBy: { position: "asc" } } },
+    });
+    const clinician = users.get("demo-clinician");
+    if (!clinician) throw new Error("Synthetic clinician seed failed");
+    const demoEpisodeId = "synthetic-demo-episode-buildweek";
+    const existingDemoEpisode = await transaction.dischargeEpisode.findUnique({
+      where: { id: demoEpisodeId },
+      select: {
+        patientId: true,
+        responsibleNurseId: true,
+        responsibleClinicianId: true,
+        status: true,
+        checkInProtocolVersionId: true,
+      },
+    });
+    if (!existingDemoEpisode) {
+      await transaction.dischargeEpisode.create({
+        data: {
+          id: demoEpisodeId,
+          patientId: syntheticPatient.id,
+          dischargeDate: new Date("2026-07-21T00:00:00.000Z"),
+          programLengthDays: 30,
+          responsibleNurseId: nurse.id,
+          responsibleClinicianId: clinician.id,
+          status: "ACTIVE",
+          createdById: nurse.id,
+          checkInProtocolVersionId: demoProtocol.id,
+          version: 2,
+          transitions: {
+            create: [
+              {
+                fromStatus: null,
+                toStatus: "DRAFT",
+                actorUserId: nurse.id,
+                actorRole: "nurse",
+                idempotencyKey: "synthetic-seed:episode-created:v1",
+                requestFingerprint: "1".repeat(64),
+                resultingVersion: 1,
+                occurredAt: new Date("2026-07-21T08:00:00.000Z"),
+              },
+              {
+                fromStatus: "DRAFT",
+                toStatus: "ACTIVE",
+                actorUserId: nurse.id,
+                actorRole: "nurse",
+                idempotencyKey: "synthetic-seed:episode-activated:v2",
+                requestFingerprint: "2".repeat(64),
+                resultingVersion: 2,
+                occurredAt: new Date("2026-07-21T08:05:00.000Z"),
+              },
+            ],
+          },
+        },
+      });
+    } else if (
+      existingDemoEpisode.patientId !== syntheticPatient.id ||
+      existingDemoEpisode.responsibleNurseId !== nurse.id ||
+      existingDemoEpisode.responsibleClinicianId !== clinician.id ||
+      existingDemoEpisode.status !== "ACTIVE" ||
+      existingDemoEpisode.checkInProtocolVersionId !== demoProtocol.id
+    ) {
+      throw new CanonicalPolicyMismatchError("synthetic-buildweek-episode", "demo-v1");
+    }
+
+    const safetyPlanId = "synthetic-demo-safety-plan-buildweek";
+    if (!(await transaction.safetyPlan.findUnique({ where: { id: safetyPlanId } }))) {
+      const steps = [
+        "WARNING_SIGNS",
+        "INTERNAL_COPING",
+        "DISTRACTION_CONTACTS",
+        "SUPPORT_CONTACTS",
+        "PROFESSIONAL_RESOURCES",
+        "MEANS_REDUCTION",
+      ];
+      await transaction.safetyPlan.create({
+        data: {
+          id: safetyPlanId,
+          dischargeEpisodeId: demoEpisodeId,
+          revision: 2,
+          currentVersion: 1,
+          activeVersionNumber: 1,
+          createdById: nurse.id,
+          versions: {
+            create: {
+              id: "synthetic-demo-safety-plan-version-1",
+              versionNumber: 1,
+              createdById: nurse.id,
+              createdAt: new Date("2026-07-21T08:10:00.000Z"),
+              sections: {
+                create: steps.map((step, index) => ({
+                  step,
+                  content: `SYNTHETIC DEMO — paso estructurado ${index + 1}; contenido no clínico para mostrar versionado.`,
+                  provenance: "PATIENT",
+                  permissions: {
+                    create: [
+                      { audience: "PATIENT", canView: true },
+                      { audience: "CAREGIVER", canView: index < 4 },
+                    ],
+                  },
+                })),
+              },
+              stateChanges: {
+                create: [
+                  {
+                    sequence: 1,
+                    resultingState: "DRAFT",
+                    actorUserId: nurse.id,
+                    occurredAt: new Date("2026-07-21T08:10:00.000Z"),
+                  },
+                  {
+                    sequence: 2,
+                    resultingState: "ACTIVE",
+                    actorUserId: nurse.id,
+                    occurredAt: new Date("2026-07-21T08:15:00.000Z"),
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+    }
+
+    const batchId = "synthetic-demo-checkin-batch-buildweek";
+    if (!(await transaction.checkInAssignmentBatch.findUnique({ where: { id: batchId } }))) {
+      await transaction.checkInAssignmentBatch.create({
+        data: {
+          id: batchId,
+          episodeId: demoEpisodeId,
+          checkInProtocolVersionId: demoProtocol.id,
+          createdById: nurse.id,
+          idempotencyKey: "synthetic-seed:checkin-batch",
+          requestFingerprint: "3".repeat(64),
+          assignments: {
+            create: {
+              id: "synthetic-demo-checkin-assignment-1",
+              episodeId: demoEpisodeId,
+              checkInProtocolVersionId: demoProtocol.id,
+              sequence: 1,
+              scheduledFor: new Date("2026-07-21T09:30:00.000Z"),
+              windowStartsAt: new Date("2026-07-21T09:00:00.000Z"),
+              windowEndsAt: new Date("2026-07-21T12:00:00.000Z"),
+              createdById: nurse.id,
+            },
+          },
+        },
+      });
+      const outcome = await transaction.checkInOutcome.create({
+        data: {
+          id: "synthetic-demo-checkin-outcome-1",
+          assignmentId: "synthetic-demo-checkin-assignment-1",
+          checkInProtocolVersionId: demoProtocol.id,
+          type: "RESPONDED",
+          recordedById: portalPatient.id,
+          idempotencyKey: "synthetic-seed:checkin-response",
+          requestFingerprint: "4".repeat(64),
+          recordedAt: new Date("2026-07-21T09:45:00.000Z"),
+        },
+      });
+      const response = await transaction.checkInResponse.create({
+        data: {
+          id: "synthetic-demo-checkin-response-1",
+          outcomeId: outcome.id,
+          assignmentId: "synthetic-demo-checkin-assignment-1",
+          checkInProtocolVersionId: demoProtocol.id,
+          outcomeType: "RESPONDED",
+          submittedById: portalPatient.id,
+          submittedAt: new Date("2026-07-21T09:45:00.000Z"),
+        },
+      });
+      await transaction.checkInAnswer.createMany({
+        data: demoProtocol.questions.map((question) => ({
+          checkInResponseId: response.id,
+          questionDefinitionId: question.id,
+          checkInProtocolVersionId: demoProtocol.id,
+          ...(question.type === "SCALE" ? { scaleValue: 2 } : {}),
+          ...(question.type === "YES_NO" ? { yesNoValue: false } : {}),
+          ...(question.type === "SINGLE_CHOICE" ? { selectedOption: "Prefiero no contestar" } : {}),
+          ...(question.type === "RESTRICTED_SHORT_TEXT"
+            ? { shortTextValue: "DEMO SYNTHETIC — sin contenido clínico." }
+            : {}),
+        })),
+      });
+    }
+
+    if (
+      !(await transaction.homeSafetyReviewVersion.findUnique({
+        where: { id: "synthetic-demo-home-safety-v1" },
+      }))
+    ) {
+      await transaction.homeSafetyReviewVersion.create({
+        data: {
+          id: "synthetic-demo-home-safety-v1",
+          dischargeEpisodeId: demoEpisodeId,
+          versionNumber: 1,
+          templateKey: "synthetic-home-safety-information",
+          templateVersion: "demo-v1",
+          informationalPurposeAcknowledged: true,
+          humanReviewed: false,
+          actorUserId: nurse.id,
+          recordedAt: new Date("2026-07-21T10:00:00.000Z"),
+          items: {
+            create: [
+              "environment-information",
+              "pending-elements",
+              "information-source",
+              "professional-follow-up",
+            ].map((itemKey) => ({ itemKey, state: "NOT_REVIEWED", provenance: "PATIENT" })),
+          },
+        },
+      });
+    }
+
+    const demoRuleKey = "synthetic-demo-flow-mechanics";
+    let demoRule = await transaction.ruleDefinition.findUnique({
+      where: { ruleKey: demoRuleKey },
+      include: { versions: { include: { approval: true } } },
+    });
+    if (!demoRule) {
+      demoRule = await transaction.ruleDefinition.create({
+        data: {
+          id: "synthetic-demo-flow-rule",
+          ruleKey: demoRuleKey,
+          name: "AVISO SINTÉTICO — validación clínica pendiente",
+          isSyntheticFixture: true,
+          createdById: admin.id,
+          versions: {
+            create: {
+              id: "synthetic-demo-flow-rule-v1",
+              versionNumber: 1,
+              state: "DRAFT",
+              schemaVersion: 1,
+              allowedInputs: [{ key: "synthetic_demo_signal", type: "boolean", required: true }],
+              temporalWindow: { lookbackHours: 24 },
+              condition: {
+                combinator: "all",
+                clauses: [{ input: "synthetic_demo_signal", operator: "eq", value: true }],
+              },
+              administrativeSeverity: "STANDARD",
+              explanation:
+                "Coincidencia de un fixture técnico sintético; requiere revisión humana y no constituye evaluación clínica.",
+              reviewOwner: "NURSE",
+              createdById: admin.id,
+            },
+          },
+        },
+        include: { versions: { include: { approval: true } } },
+      });
+    }
+    const demoRuleVersion = demoRule.versions[0];
+    if (!demoRuleVersion) throw new Error("Synthetic demo rule version missing");
+    if (!demoRuleVersion.approval) {
+      await transaction.ruleApproval.create({
+        data: {
+          ruleVersionId: demoRuleVersion.id,
+          approvedById: clinician.id,
+          approvalReference: "SYNTHETIC-DEMO-TECHNICAL-ONLY",
+          approvedAt: new Date("2026-07-21T10:10:00.000Z"),
+        },
+      });
+    }
+    if (demoRuleVersion.state === "DRAFT") {
+      await transaction.ruleVersion.update({
+        where: { id: demoRuleVersion.id },
+        data: { state: "APPROVED" },
+      });
+      await transaction.ruleVersion.update({
+        where: { id: demoRuleVersion.id },
+        data: { state: "ACTIVE" },
+      });
+    } else if (demoRuleVersion.state !== "ACTIVE") {
+      throw new CanonicalPolicyMismatchError(demoRuleKey, "1");
+    }
+
+    const demoEvaluationId = "synthetic-demo-flow-evaluation-1";
+    if (!(await transaction.ruleEvaluation.findUnique({ where: { id: demoEvaluationId } }))) {
+      const inputSnapshot = [
+        {
+          inputKey: "synthetic_demo_signal",
+          value: true,
+          observedAt: "2026-07-21T10:15:00.000Z",
+          source: {
+            resourceType: "CheckInResponse",
+            resourceId: "synthetic-demo-checkin-response-1",
+            field: "syntheticFixture",
+          },
+        },
+      ];
+      await transaction.ruleEvaluation.create({
+        data: {
+          id: demoEvaluationId,
+          ruleDefinitionId: demoRule.id,
+          ruleVersionId: demoRuleVersion.id,
+          ruleVersionNumber: 1,
+          episodeId: demoEpisodeId,
+          evaluatedById: nurse.id,
+          idempotencyKey: "synthetic-seed:demo-evaluation",
+          requestFingerprint: "5".repeat(64),
+          evaluatedAt: new Date("2026-07-21T10:15:00.000Z"),
+          inputSnapshot,
+          inputHash: "6".repeat(64),
+          outcome: "MATCHED",
+          missingInputs: [],
+        },
+      });
+      await transaction.alert.create({
+        data: {
+          id: "synthetic-demo-flow-alert-1",
+          ruleDefinitionId: demoRule.id,
+          ruleVersionId: demoRuleVersion.id,
+          ruleVersionNumber: 1,
+          evaluationId: demoEvaluationId,
+          episodeId: demoEpisodeId,
+          inputReferences: inputSnapshot.map(({ source }) => source),
+          explanation:
+            "Coincidencia de un fixture técnico sintético; requiere revisión humana y no constituye evaluación clínica.",
+          administrativeSeverity: "STANDARD",
+          reviewOwner: "NURSE",
+          triggeredAt: new Date("2026-07-21T10:15:00.000Z"),
+          currentState: "OPEN",
+        },
+      });
+    }
   });
 }
 
@@ -549,7 +889,24 @@ main()
               policyKey: error.policyKey,
               version: error.version,
             }
-          : { code: "SYNTHETIC_SEED_FAILED" },
+          : {
+              code: "SYNTHETIC_SEED_FAILED",
+              technicalCode:
+                error && typeof error === "object" && typeof error.code === "string"
+                  ? error.code
+                  : "UNCLASSIFIED",
+              technicalName:
+                error && typeof error === "object" && typeof error.name === "string"
+                  ? error.name
+                  : "UnknownError",
+              technicalDetail:
+                error && typeof error === "object" && typeof error.message === "string"
+                  ? error.message
+                      .split("\n")
+                      .filter((line) => /Argument|argument|Invalid value/.test(line))
+                      .slice(-2)
+                  : [],
+            },
       ),
     );
     process.exitCode = 1;

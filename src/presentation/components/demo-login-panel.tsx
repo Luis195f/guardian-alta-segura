@@ -29,7 +29,7 @@ export function DemoLoginPanel({ enabled }: { readonly enabled: boolean }) {
       });
       setMessage(
         response.ok
-          ? "Sesión demo sintética iniciada. La credencial permanece en una cookie HttpOnly."
+          ? `Sesión demo sintética iniciada — rol: ${alias.replace("demo-", "")}. La credencial permanece en una cookie HttpOnly.`
           : "No se pudo iniciar la sesión demo.",
       );
     } catch {
