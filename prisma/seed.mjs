@@ -66,6 +66,11 @@ const pendingPolicyVersions = [
     scope: "caregiver:appointments",
   },
   {
+    policyKey: "caregiver-portal",
+    recordType: "CAREGIVER_AUTHORIZATION",
+    scope: "caregiver:portal",
+  },
+  {
     policyKey: "processing-basis-care-treatment",
     recordType: "PROCESSING_BASIS",
     scope: "care-treatment",

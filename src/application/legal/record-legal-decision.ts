@@ -20,7 +20,11 @@ export class LegalRecordDeniedError extends Error {}
 export class LegalRecordInvalidError extends Error {}
 export class LegalRecordConflictError extends Error {}
 
-const caregiverScopes = ["caregiver:safety-plan-summary", "caregiver:appointments"] as const;
+const caregiverScopes = [
+  "caregiver:safety-plan-summary",
+  "caregiver:appointments",
+  "caregiver:portal",
+] as const;
 const processingScopes = [
   "care-treatment",
   "communication:email:check-in",
@@ -169,6 +173,19 @@ export class RecordLegalDecisionService {
           evidenceType: "RECORDED_INTERACTION",
           evidenceRef: "DEMO-SYNTHETIC-REVOCATION",
         });
+        if (target.recordType === "CAREGIVER_AUTHORIZATION") {
+          await transaction.revokeCaregiverSessions(target.id, recordedAt);
+          await transaction.appendCaregiverAccessAudit({
+            caregiverAuthorizationId: target.id,
+            actorUserId: input.actor.userId,
+            action: "ACCESS_REVOKED",
+            outcome: "SUCCESS",
+            resourceType: "CaregiverAuthorization",
+            resourceId: target.id,
+            correlationId: input.correlationId,
+            createdAt: recordedAt,
+          });
+        }
         await transaction.appendAuditEvent({
           actorUserId: input.actor.userId,
           actorRole: "patient",
@@ -179,6 +196,18 @@ export class RecordLegalDecisionService {
           correlationId: input.correlationId,
           createdAt: recordedAt,
         });
+        if (target.recordType === "CAREGIVER_AUTHORIZATION") {
+          await transaction.appendAuditEvent({
+            actorUserId: input.actor.userId,
+            actorRole: "patient",
+            action: "CAREGIVER_ACCESS_REVOKED",
+            resourceType: "CaregiverAuthorization",
+            resourceId: target.id,
+            outcome: "SUCCESS",
+            correlationId: input.correlationId,
+            createdAt: recordedAt,
+          });
+        }
         return { revocationId: revocation.id };
       });
     } catch (error) {

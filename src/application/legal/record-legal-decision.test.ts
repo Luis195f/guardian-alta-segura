@@ -23,6 +23,10 @@ class MemoryLegalUnitOfWork implements LegalRecordsUnitOfWork, LegalRecordsTrans
   readonly records: LegalRecordCreateInput[] = [];
   readonly revocations: Parameters<LegalRecordsTransaction["createRevocation"]>[0][] = [];
   readonly auditEvents: NewAuditEvent[] = [];
+  readonly caregiverAccessAudits: Parameters<
+    LegalRecordsTransaction["appendCaregiverAccessAudit"]
+  >[0][] = [];
+  revokedCaregiverSessionCount = 0;
   readonly episodes = ["synthetic-episode-1"];
   readonly plans = ["synthetic-plan-v1"];
   readonly observations = ["synthetic-observation-1"];
@@ -80,6 +84,15 @@ class MemoryLegalUnitOfWork implements LegalRecordsUnitOfWork, LegalRecordsTrans
         scope: "caregiver:appointments",
       },
     ],
+    [
+      "caregiver-portal-v1",
+      {
+        id: "caregiver-portal-v1",
+        recordType: "CAREGIVER_AUTHORIZATION" as const,
+        state: "APPROVED" as const,
+        scope: "caregiver:portal",
+      },
+    ],
   ]);
 
   async run<T>(operation: (transaction: LegalRecordsTransaction) => Promise<T>): Promise<T> {
@@ -119,6 +132,16 @@ class MemoryLegalUnitOfWork implements LegalRecordsUnitOfWork, LegalRecordsTrans
   async createRevocation(input: Parameters<LegalRecordsTransaction["createRevocation"]>[0]) {
     this.revocations.push(input);
     return { id: `revocation-${this.revocations.length}` };
+  }
+  async revokeCaregiverSessions() {
+    this.revokedCaregiverSessionCount += 1;
+    return 1;
+  }
+  async appendCaregiverAccessAudit(
+    input: Parameters<LegalRecordsTransaction["appendCaregiverAccessAudit"]>[0],
+  ) {
+    this.caregiverAccessAudits.push(input);
+    return { id: `caregiver-audit-${this.caregiverAccessAudits.length}` };
   }
   async appendAuditEvent(input: NewAuditEvent) {
     this.auditEvents.push(input);
@@ -281,6 +304,21 @@ describe("RecordLegalDecisionService", () => {
     expect(store.records).toHaveLength(0);
   });
 
+  it("admite el scope portal únicamente con la policy del mismo alcance", async () => {
+    const store = new MemoryLegalUnitOfWork();
+    await new RecordLegalDecisionService(store).record({
+      actor: patient,
+      subjectAlias: "demo-patient",
+      recordType: "CAREGIVER_AUTHORIZATION",
+      state: "ACTIVE",
+      policyVersionId: "caregiver-portal-v1",
+      caregiverAlias: "demo-caregiver",
+      scope: "caregiver:portal",
+      correlationId,
+    });
+    expect(store.records.at(-1)).toMatchObject({ scope: "caregiver:portal" });
+  });
+
   it("una revocación solo añade evento y conserva episodios, planes y registros previos", async () => {
     const store = new MemoryLegalUnitOfWork();
     const service = new RecordLegalDecisionService(store, () => new Date("2026-07-16T10:00:00Z"));
@@ -411,9 +449,26 @@ describe("RecordLegalDecisionService", () => {
     const serializedAudit = JSON.stringify(store.auditEvents);
     expect(serializedAudit).not.toContain("diagnóstico");
     expect(serializedAudit).not.toContain("DEMO-SYNTHETIC-ACK");
-    expect(store.auditEvents.at(-1)).toMatchObject({
-      action: "LEGAL_RECORD_REVOKED",
-      resourceType: "RevocationEvent",
-    });
+    expect(store.auditEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "LEGAL_RECORD_REVOKED",
+          resourceType: "RevocationEvent",
+        }),
+        expect.objectContaining({
+          action: "CAREGIVER_ACCESS_REVOKED",
+          resourceType: "CaregiverAuthorization",
+          resourceId: created.recordId,
+        }),
+      ]),
+    );
+    expect(store.revokedCaregiverSessionCount).toBe(1);
+    expect(store.caregiverAccessAudits).toEqual([
+      expect.objectContaining({
+        action: "ACCESS_REVOKED",
+        resourceType: "CaregiverAuthorization",
+        resourceId: created.recordId,
+      }),
+    ]);
   });
 });

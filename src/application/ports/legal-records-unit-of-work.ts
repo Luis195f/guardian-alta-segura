@@ -73,6 +73,17 @@ export interface LegalRecordsTransaction {
     readonly evidenceType: EvidenceType;
     readonly evidenceRef: string;
   }): Promise<{ readonly id: string }>;
+  revokeCaregiverSessions(caregiverAuthorizationId: string, revokedAt: Date): Promise<number>;
+  appendCaregiverAccessAudit(input: {
+    readonly caregiverAuthorizationId: string;
+    readonly actorUserId: string;
+    readonly action: "ACCESS_REVOKED";
+    readonly outcome: "SUCCESS";
+    readonly resourceType: "CaregiverAuthorization";
+    readonly resourceId: string;
+    readonly correlationId: string;
+    readonly createdAt: Date;
+  }): Promise<{ readonly id: string }>;
   appendAuditEvent(input: NewAuditEvent): Promise<{ readonly id: string }>;
 }
 

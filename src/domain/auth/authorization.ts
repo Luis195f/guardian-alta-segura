@@ -26,6 +26,8 @@ export const PROTECTED_RESOURCES = [
   "alert-review-write",
   "nursing-workqueue-read",
   "task-write",
+  "caregiver-access-manage",
+  "caregiver-invitation-accept",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -55,6 +57,8 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "alert-review-write": ["nurse", "clinician"],
   "nursing-workqueue-read": ["nurse", "clinician"],
   "task-write": ["nurse", "clinician"],
+  "caregiver-access-manage": ["patient"],
+  "caregiver-invitation-accept": ["caregiver"],
 };
 
 export interface AuthorizationDecision {

@@ -49,6 +49,12 @@ enum AuditAction {
   TASK_CONTACT_ATTEMPT_RECORDED
   TASK_NOTE_RECORDED
   TASK_RESOLVED
+  CAREGIVER_INVITATION_CREATED
+  CAREGIVER_INVITATION_ACCEPTED
+  CAREGIVER_SCOPE_CHANGED
+  CAREGIVER_ACCESS_REVOKED
+  CAREGIVER_OBSERVATION_RECORDED
+  CAREGIVER_SESSION_LOGGED_OUT
 }
 
 enum IdentityVerificationState {
@@ -215,6 +221,26 @@ enum ContactAttemptOutcome {
   OTHER     @map("other")
 }
 
+enum CaregiverCapability {
+  VIEW_PLAN_SECTIONS
+  VIEW_ASSIGNED_TASKS
+  SEND_OBSERVATIONS
+  VIEW_AUTHORIZED_RESOURCES
+}
+
+enum CaregiverAccessAction {
+  INVITATION_CREATED
+  INVITATION_ACCEPTED
+  INVITATION_DENIED
+  PORTAL_READ
+  OBSERVATION_SUBMITTED
+  OBSERVATION_DENIED
+  SCOPE_CHANGED
+  ACCESS_REVOKED
+  SESSION_DENIED
+  SESSION_LOGGED_OUT
+}
+
 model User {
   id                                  String                              @id @default(cuid())
   syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
@@ -269,6 +295,10 @@ model User {
   taskEventsRecorded                  TaskEvent[]                         @relation("TaskEventActor")
   taskEventsAssignedFrom              TaskEvent[]                         @relation("TaskEventAssigneeFrom")
   taskEventsAssignedTo                TaskEvent[]                         @relation("TaskEventAssigneeTo")
+  caregiverProfile                    CaregiverProfile?                   @relation("CaregiverProfileUser")
+  caregiverInvitationsCreated         CaregiverInvitation[]               @relation("CaregiverInvitationCreator")
+  caregiverScopesCreated              CaregiverAuthorizationScope[]       @relation("CaregiverScopeActor")
+  caregiverAccessAuditsAuthored       CaregiverAccessAudit[]              @relation("CaregiverAccessAuditActor")
 
   @@map("users")
 }
@@ -343,6 +373,10 @@ model DischargeEpisode {
   ruleEvaluations          RuleEvaluation[]
   alerts                   Alert[]
   tasks                    Task[]
+  caregiverInvitations     CaregiverInvitation[]
+  caregiverScopes          CaregiverAuthorizationScope[]
+  caregiverSessions        CaregiverSession[]
+  caregiverObservations    CaregiverObservation[]
 
   @@unique([id, checkInProtocolVersionId], map: "discharge_episodes_id_check_in_protocol_version_id_key")
   @@index([responsibleNurseId, status])
@@ -893,25 +927,146 @@ model CommunicationPermission {
 }
 
 model CaregiverAuthorization {
-  id              String           @id @default(cuid())
-  subjectUserId   String           @map("subject_user_id")
-  caregiverUserId String           @map("caregiver_user_id")
+  id              String                        @id @default(cuid())
+  subjectUserId   String                        @map("subject_user_id")
+  caregiverUserId String                        @map("caregiver_user_id")
   state           LegalRecordState
-  scope           String           @db.VarChar(128)
-  policyVersionId String           @map("policy_version_id")
-  actorUserId     String           @map("actor_user_id")
-  recordedAt      DateTime         @default(now()) @map("recorded_at")
-  expiresAt       DateTime?        @map("expires_at")
+  scope           String                        @db.VarChar(128)
+  policyVersionId String                        @map("policy_version_id")
+  actorUserId     String                        @map("actor_user_id")
+  recordedAt      DateTime                      @default(now()) @map("recorded_at")
+  expiresAt       DateTime?                     @map("expires_at")
   origin          RecordOrigin
-  evidenceType    EvidenceType     @map("evidence_type")
-  evidenceRef     String           @map("evidence_ref") @db.VarChar(128)
-  subject         User             @relation("CaregiverAuthorizationSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
-  caregiver       User             @relation("CaregiverAuthorizationCaregiver", fields: [caregiverUserId], references: [id], onDelete: Restrict)
-  actor           User             @relation("CaregiverAuthorizationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
-  policyVersion   PolicyVersion    @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  evidenceType    EvidenceType                  @map("evidence_type")
+  evidenceRef     String                        @map("evidence_ref") @db.VarChar(128)
+  subject         User                          @relation("CaregiverAuthorizationSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  caregiver       User                          @relation("CaregiverAuthorizationCaregiver", fields: [caregiverUserId], references: [id], onDelete: Restrict)
+  actor           User                          @relation("CaregiverAuthorizationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  policyVersion   PolicyVersion                 @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  scopes          CaregiverAuthorizationScope[]
+  invitations     CaregiverInvitation[]
+  sessions        CaregiverSession[]
+  observations    CaregiverObservation[]
+  accessAudits    CaregiverAccessAudit[]
 
   @@index([subjectUserId, caregiverUserId, scope, recordedAt], map: "caregiver_authorizations_subject_caregiver_scope_recorded_idx")
   @@map("caregiver_authorizations")
+}
+
+model CaregiverProfile {
+  id                     String                 @id @default(cuid())
+  caregiverUserId        String                 @unique @map("caregiver_user_id")
+  externalPseudonymousId String                 @unique @map("external_pseudonymous_id") @db.VarChar(64)
+  createdAt              DateTime               @default(now()) @map("created_at")
+  caregiverUser          User                   @relation("CaregiverProfileUser", fields: [caregiverUserId], references: [id], onDelete: Restrict, map: "caregiver_profiles_user_fkey")
+  invitations            CaregiverInvitation[]
+  sessions               CaregiverSession[]
+  observations           CaregiverObservation[]
+  accessAudits           CaregiverAccessAudit[]
+
+  @@map("caregiver_profiles")
+}
+
+model CaregiverAuthorizationScope {
+  id                       String                 @id @default(cuid())
+  caregiverAuthorizationId String                 @map("caregiver_authorization_id")
+  dischargeEpisodeId       String                 @map("discharge_episode_id")
+  version                  Int
+  capabilities             CaregiverCapability[]
+  allowedPlanSections      SafetyPlanStep[]       @map("allowed_plan_sections")
+  authorizedResourceKeys   String[]               @map("authorized_resource_keys")
+  actorUserId              String                 @map("actor_user_id")
+  recordedAt               DateTime               @default(now()) @map("recorded_at")
+  caregiverAuthorization   CaregiverAuthorization @relation(fields: [caregiverAuthorizationId], references: [id], onDelete: Restrict, map: "caregiver_scopes_authorization_fkey")
+  dischargeEpisode         DischargeEpisode       @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "caregiver_scopes_episode_fkey")
+  actor                    User                   @relation("CaregiverScopeActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "caregiver_scopes_actor_fkey")
+
+  @@unique([caregiverAuthorizationId, dischargeEpisodeId, version], map: "caregiver_scopes_authorization_episode_version_key")
+  @@index([caregiverAuthorizationId, dischargeEpisodeId, recordedAt], map: "caregiver_scopes_authorization_episode_time_idx")
+  @@map("caregiver_authorization_scopes")
+}
+
+model CaregiverInvitation {
+  id                       String                 @id @default(cuid())
+  caregiverAuthorizationId String                 @map("caregiver_authorization_id")
+  caregiverProfileId       String                 @map("caregiver_profile_id")
+  dischargeEpisodeId       String                 @map("discharge_episode_id")
+  invitationTokenHash      String                 @unique @map("invitation_token_hash") @db.Char(64)
+  createdById              String                 @map("created_by_id")
+  createdAt                DateTime               @default(now()) @map("created_at")
+  expiresAt                DateTime               @map("expires_at")
+  consumedAt               DateTime?              @map("consumed_at")
+  caregiverAuthorization   CaregiverAuthorization @relation(fields: [caregiverAuthorizationId], references: [id], onDelete: Restrict, map: "caregiver_invitations_authorization_fkey")
+  caregiverProfile         CaregiverProfile       @relation(fields: [caregiverProfileId], references: [id], onDelete: Restrict, map: "caregiver_invitations_profile_fkey")
+  dischargeEpisode         DischargeEpisode       @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "caregiver_invitations_episode_fkey")
+  createdBy                User                   @relation("CaregiverInvitationCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "caregiver_invitations_creator_fkey")
+  session                  CaregiverSession?
+
+  @@unique([id, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], map: "caregiver_invitations_identity_key")
+  @@index([caregiverAuthorizationId, expiresAt], map: "caregiver_invitations_authorization_expiry_idx")
+  @@map("caregiver_invitations")
+}
+
+model CaregiverSession {
+  id                       String                 @id @default(cuid())
+  caregiverAuthorizationId String                 @map("caregiver_authorization_id")
+  caregiverProfileId       String                 @map("caregiver_profile_id")
+  dischargeEpisodeId       String                 @map("discharge_episode_id")
+  invitationId             String                 @unique @map("invitation_id")
+  sessionTokenHash         String                 @unique @map("session_token_hash") @db.Char(64)
+  createdAt                DateTime               @default(now()) @map("created_at")
+  expiresAt                DateTime               @map("expires_at")
+  revokedAt                DateTime?              @map("revoked_at")
+  caregiverAuthorization   CaregiverAuthorization @relation(fields: [caregiverAuthorizationId], references: [id], onDelete: Restrict, map: "caregiver_sessions_authorization_fkey")
+  caregiverProfile         CaregiverProfile       @relation(fields: [caregiverProfileId], references: [id], onDelete: Restrict, map: "caregiver_sessions_profile_fkey")
+  dischargeEpisode         DischargeEpisode       @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "caregiver_sessions_episode_fkey")
+  invitation               CaregiverInvitation    @relation(fields: [invitationId, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], references: [id, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], onDelete: Restrict, map: "caregiver_sessions_invitation_identity_fkey")
+  observations             CaregiverObservation[]
+  accessAudits             CaregiverAccessAudit[]
+
+  @@unique([invitationId, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], map: "caregiver_sessions_invitation_identity_key")
+  @@unique([id, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], map: "caregiver_sessions_identity_key")
+  @@index([caregiverAuthorizationId, revokedAt, expiresAt], map: "caregiver_sessions_authorization_active_idx")
+  @@map("caregiver_sessions")
+}
+
+model CaregiverObservation {
+  id                       String                 @id @default(cuid())
+  caregiverAuthorizationId String                 @map("caregiver_authorization_id")
+  caregiverProfileId       String                 @map("caregiver_profile_id")
+  caregiverSessionId       String                 @map("caregiver_session_id")
+  dischargeEpisodeId       String                 @map("discharge_episode_id")
+  content                  String                 @db.Text
+  submittedAt              DateTime               @default(now()) @map("submitted_at")
+  caregiverAuthorization   CaregiverAuthorization @relation(fields: [caregiverAuthorizationId], references: [id], onDelete: Restrict, map: "caregiver_observations_authorization_fkey")
+  caregiverProfile         CaregiverProfile       @relation(fields: [caregiverProfileId], references: [id], onDelete: Restrict, map: "caregiver_observations_profile_fkey")
+  caregiverSession         CaregiverSession       @relation(fields: [caregiverSessionId, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], references: [id, caregiverAuthorizationId, caregiverProfileId, dischargeEpisodeId], onDelete: Restrict, map: "caregiver_observations_session_identity_fkey")
+  dischargeEpisode         DischargeEpisode       @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "caregiver_observations_episode_fkey")
+
+  @@index([dischargeEpisodeId, submittedAt], map: "caregiver_observations_episode_time_idx")
+  @@map("caregiver_observations")
+}
+
+model CaregiverAccessAudit {
+  id                       String                  @id @default(cuid())
+  caregiverAuthorizationId String?                 @map("caregiver_authorization_id")
+  caregiverProfileId       String?                 @map("caregiver_profile_id")
+  caregiverSessionId       String?                 @map("caregiver_session_id")
+  actorUserId              String?                 @map("actor_user_id")
+  action                   CaregiverAccessAction
+  outcome                  AuditOutcome
+  resourceType             String                  @map("resource_type") @db.VarChar(64)
+  resourceId               String?                 @map("resource_id") @db.VarChar(128)
+  correlationId            String                  @map("correlation_id") @db.Uuid
+  createdAt                DateTime                @default(now()) @map("created_at")
+  caregiverAuthorization   CaregiverAuthorization? @relation(fields: [caregiverAuthorizationId], references: [id], onDelete: Restrict, map: "caregiver_access_audits_authorization_fkey")
+  caregiverProfile         CaregiverProfile?       @relation(fields: [caregiverProfileId], references: [id], onDelete: Restrict, map: "caregiver_access_audits_profile_fkey")
+  caregiverSession         CaregiverSession?       @relation(fields: [caregiverSessionId], references: [id], onDelete: Restrict, map: "caregiver_access_audits_session_fkey")
+  actor                    User?                   @relation("CaregiverAccessAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "caregiver_access_audits_actor_fkey")
+
+  @@index([caregiverAuthorizationId, createdAt], map: "caregiver_access_audits_authorization_time_idx")
+  @@index([correlationId], map: "caregiver_access_audits_correlation_idx")
+  @@map("caregiver_access_audits")
 }
 
 model ProcessingBasisRecord {

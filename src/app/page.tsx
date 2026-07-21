@@ -6,6 +6,7 @@ import { CheckInProtocolAdminPanel } from "@/presentation/components/check-in-pr
 import { PatientCheckInPanel } from "@/presentation/components/patient-check-in-panel";
 import { ExplainableAlertsPanel } from "@/presentation/components/explainable-alerts-panel";
 import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
+import { CaregiverAccessPanel } from "@/presentation/components/caregiver-access-panel";
 
 export default function HomePage() {
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
@@ -37,6 +38,8 @@ export default function HomePage() {
       </div>
 
       <LegalStatePanel enabled={demoEnabled} />
+
+      <CaregiverAccessPanel enabled={demoEnabled} />
 
       <DischargeEpisodePanel enabled={demoEnabled} />
 
