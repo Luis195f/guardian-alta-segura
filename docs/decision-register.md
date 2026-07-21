@@ -58,3 +58,10 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 - Los eventos de tarea son append-only. Cada mutación exige `expectedRevision` e `Idempotency-Key`; un índice por tarea/revisión hace que una carrera tenga un único ganador.
 - La cola solo publica métricas técnicas agregadas. No se implementan prioridad ni SLA mientras DEC-017 siga pendiente.
 - Revisar un aviso no crea tareas. Resolver una tarea no resuelve automáticamente el aviso, no cierra el episodio y no genera SBAR, comunicación, derivación o recomendación clínica.
+
+## Decisiones técnicas provisionales de cierre Build Week
+
+- REQ-07 usa exclusivamente `synthetic-home-safety-information/demo-v1`, estados informativos no certificadores y versiones append-only. El acceso de cuidador no se amplía hasta disponer de un scope explícito aprobado; DEC-007 sigue pendiente.
+- REQ-10 muestra un recurso visible pero deshabilitado, sin teléfono ni URI. DEC-010/011 siguen siendo bloqueadores absolutos de cualquier acción.
+- REQ-11 ofrece `synthetic-minimized-sbar/demo-v1` como preview efímero e imprimible. Assessment usa un fallback explícito y R solo refleja tareas existentes. No existe PDF institucional, envío o firma; DEC-005/012 siguen pendientes.
+- La regla `synthetic-demo-flow-mechanics` activa del seed sirve solo para demostrar la mecánica aviso → revisión humana. Su nombre y referencia declaran que no está clínicamente validada. Las cuatro reglas de contenido permanecen `draft` y no aprobadas.

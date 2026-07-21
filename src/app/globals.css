@@ -616,6 +616,76 @@ footer {
   font-size: 0.9rem;
 }
 
+.safety-warning {
+  border-left: 4px solid var(--warning, #b45309);
+  background: #fff7ed;
+  padding: 0.8rem 1rem;
+}
+
+.structured-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.structured-checklist fieldset {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  padding: 0.8rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0.75rem 0;
+}
+
+.checkbox-label input {
+  width: auto;
+  margin-top: 0.2rem;
+}
+
+.sbar-preview {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.demo-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 auto 1.5rem;
+  max-width: 1180px;
+  padding: 0.85rem 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.8rem;
+  background: #eff6ff;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .sbar-print-area,
+  .sbar-print-area * {
+    visibility: visible;
+  }
+  .sbar-print-area {
+    position: absolute;
+    inset: 0;
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
 @media (max-width: 46rem) {
   .grid {
     grid-template-columns: 1fr;

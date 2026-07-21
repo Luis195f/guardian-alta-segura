@@ -34,6 +34,9 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "alert-review-write",
     "nursing-workqueue-read",
     "task-write",
+    "home-safety-read",
+    "home-safety-write",
+    "sbar-preview-generate",
   ],
   clinician: [
     "authenticated-session",
@@ -52,6 +55,9 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "alert-review-write",
     "nursing-workqueue-read",
     "task-write",
+    "home-safety-read",
+    "home-safety-write",
+    "sbar-preview-generate",
   ],
   patient: [
     "authenticated-session",

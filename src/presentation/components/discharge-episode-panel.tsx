@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { SafetyPlanPanel } from "@/presentation/components/safety-plan-panel";
 import { CheckInAssignmentPanel } from "@/presentation/components/check-in-assignment-panel";
+import { HomeSafetyPanel } from "@/presentation/components/home-safety-panel";
+import { SbarPreviewPanel } from "@/presentation/components/sbar-preview-panel";
 
 interface EpisodeListItem {
   readonly id: string;
@@ -211,6 +213,7 @@ export function DischargeEpisodePanel({ enabled }: { readonly enabled: boolean }
                   <button
                     type="button"
                     className="episode-link"
+                    data-episode-id={episode.id}
                     onClick={() => loadDetail(episode.id)}
                   >
                     {episode.patient.externalPseudonymousId} — {statusLabel[episode.status]} — v
@@ -307,6 +310,8 @@ export function DischargeEpisodePanel({ enabled }: { readonly enabled: boolean }
             protocolVersionId={detail.checkInProtocolVersionId}
             enabled={enabled}
           />
+          <HomeSafetyPanel episodeId={detail.id} enabled={enabled} />
+          <SbarPreviewPanel episodeId={detail.id} enabled={enabled} />
         </section>
       )}
       <p className="status" role="status" aria-live="polite">

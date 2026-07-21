@@ -1,5 +1,11 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vitest/config";
+
+if (existsSync(".env")) {
+  delete process.env.DATABASE_URL;
+  process.loadEnvFile(".env");
+}
 
 export default defineConfig({
   resolve: {

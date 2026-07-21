@@ -323,10 +323,20 @@ class PrismaNursingWorkQueueTransaction implements NursingWorkQueueTransaction {
 }
 
 export class PrismaNursingWorkQueueUnitOfWork implements NursingWorkQueueUnitOfWork {
-  run<T>(operation: (transaction: NursingWorkQueueTransaction) => Promise<T>): Promise<T> {
-    return prisma.$transaction((transaction) =>
-      operation(new PrismaNursingWorkQueueTransaction(transaction)),
-    );
+  async run<T>(operation: (transaction: NursingWorkQueueTransaction) => Promise<T>): Promise<T> {
+    try {
+      return await prisma.$transaction((transaction) =>
+        operation(new PrismaNursingWorkQueueTransaction(transaction)),
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientUnknownRequestError &&
+        error.message.includes("task event does not start from current revision")
+      ) {
+        throw new NursingTaskConflictError();
+      }
+      throw error;
+    }
   }
 }
 

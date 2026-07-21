@@ -28,6 +28,9 @@ export const PROTECTED_RESOURCES = [
   "task-write",
   "caregiver-access-manage",
   "caregiver-invitation-accept",
+  "home-safety-read",
+  "home-safety-write",
+  "sbar-preview-generate",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -59,6 +62,9 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "task-write": ["nurse", "clinician"],
   "caregiver-access-manage": ["patient"],
   "caregiver-invitation-accept": ["caregiver"],
+  "home-safety-read": ["nurse", "clinician"],
+  "home-safety-write": ["nurse", "clinician"],
+  "sbar-preview-generate": ["nurse", "clinician"],
 };
 
 export interface AuthorizationDecision {

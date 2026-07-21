@@ -14,8 +14,8 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Crear y transicionar episodio asignado | No | Sí, asignado | Sí, asignado | No | No | No |
 | Gestionar registros de participación y comunicaciones | No | No | Sí, según protocolo | Propio | No | No |
 | Ver episodio y contenido clínico | No por defecto | Sí, asignado | Sí, asignado | Propio | Autorizado | No |
-| Editar o activar Plan de Seguridad | No | Sí | No | No; aporta información por flujo autorizado | No | No |
-| Ver historial permitido del Plan | No por defecto | Sí, asignado | No | Propio | Autorizado por sección | No |
+| Editar o activar Plan de Seguridad | No | Sí, asignado | Sí, asignado | No; aporta información por flujo autorizado | No | No |
+| Ver historial permitido del Plan | No por defecto | Sí, asignado | Sí, asignado | Propio | Autorizado por sección | No |
 | Responder check-ins | No | No | No | Propio | No | No |
 | Versionar protocolos y cadencia de check-in | Sí, solo configuración sintética demo; no implica aprobación | No | No | No | No | No |
 | Crear asignaciones desde la versión fijada al episodio | No | Sí, asignado y con participación digital vigente | Sí, asignado y con participación digital vigente | No | No | No |
@@ -26,7 +26,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Activar una versión aprobada | Sí, sin acceso al contenido del episodio | No | No | No | No | No |
 | Evaluar reglas activas y revisar avisos | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
 | Consultar cola y crear/asignar/resolver tareas | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
-| Registrar/revisar Domicilio Seguro | No | Sí, revisión humana | No | No | Autorizado | No |
+| Registrar/revisar Domicilio Seguro | No | Sí, episodio asignado | Sí, episodio asignado | No | No; requiere scope futuro explícito | No |
 | Gestionar autorización de cuidador | No | No | No | Propio dentro del protocolo | No | No |
 | Crear/cambiar invitación y scope de cuidador | No | No | No | Propio, con autorización `caregiver:portal` vigente y limitado al episodio | No | No |
 | Ver secciones del Plan en portal cuidador | No | No | No | No | Autorizado por capability, sección y permiso documental | **No** |
@@ -34,9 +34,9 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Enviar observación para revisión humana | No | No | No | No | Autorizado; nunca genera alerta automática | **No** |
 | Ver recursos del portal cuidador | No | No | No | No | Solo claves enumeradas en el scope vigente | **No** |
 | Registrar revocación | No | No | Sí, según protocolo | Propio dentro del protocolo | No | No |
-| Abrir recurso de crisis aprobado | No | No | No | Propio | No | No |
-| Redactar/validar SBAR | No | Sí, si el protocolo lo permite | Sí | No | No | No |
-| Exportar PDF clínico minimizado | No por defecto | Sí, con perfil aprobado | Sí, con perfil aprobado | Solo si una política futura lo autoriza | No | No |
+| Abrir recurso de crisis aprobado | No; recurso no configurado | No; recurso no configurado | No; recurso no configurado | No; recurso no configurado | No | No |
+| Generar preview SBAR sintético no firmado | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
+| Exportar PDF clínico minimizado | No | No; solo impresión HTML demo | No; solo impresión HTML demo | No | No | No |
 | Autenticarse y usar capacidades asignadas | Sí, según alcance | Sí, según alcance | Sí, según alcance | Sí, según alcance | Sí, según alcance | Sí, según alcance técnico |
 | Consultar auditoría | Metadatos autorizados | Solo trazabilidad necesaria | Solo trazabilidad necesaria | No | No | Técnico, sin texto clínico |
 | Gestionar incidente técnico | No | No | No | No | No | Técnico |
@@ -54,7 +54,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 - `caregiver` solo ve módulos, secciones y acciones enumerados en el último scope de la autorización y episodio de su sesión; cambiar otro episodio no propaga permisos. Revocar invalida de inmediato todas las sesiones y el logout invalida la sesión persistida correspondiente.
 - `patient` no puede aprobar reglas, firmar cierres profesionales ni ampliar permisos fuera del protocolo.
 - `Todos` en REQ-12 significa que cada categoría necesita autenticación; no concede a ningún rol todas las capacidades de la matriz.
-- Solo una revisión humana autorizada puede originar una tarea o decisión asistencial.
+- Una tarea vinculada a aviso requiere revisión humana previa y una petición profesional explícita; la revisión por sí sola no crea tareas ni decisiones asistenciales.
 - Aprobar y activar una regla son capacidades separadas; ninguna de ellas crea avisos ni actuaciones por sí sola.
 - Los cambios de rol, permisos, scopes, sesiones y accesos críticos producen auditoría inmutable y minimizada.
 
