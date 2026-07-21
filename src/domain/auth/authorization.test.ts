@@ -59,8 +59,13 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "safety-plan-read",
     "check-in-read",
     "check-in-response-write",
+    "caregiver-access-manage",
   ],
-  caregiver: ["authenticated-session", "simulated-caregiver-section"],
+  caregiver: [
+    "authenticated-session",
+    "simulated-caregiver-section",
+    "caregiver-invitation-accept",
+  ],
   support: ["authenticated-session", "technical-support-metadata"],
 };
 

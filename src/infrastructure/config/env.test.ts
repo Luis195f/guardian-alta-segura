@@ -8,6 +8,8 @@ const baseEnvironment: NodeJS.ProcessEnv = {
   APP_BASE_URL: "http://localhost:3000",
   DEMO_MODE: "true",
   DEMO_SESSION_TTL_HOURS: "8",
+  CAREGIVER_DEMO_INVITATION_TTL_MINUTES: "30",
+  CAREGIVER_DEMO_SESSION_TTL_HOURS: "8",
   SESSION_COOKIE_SECURE: "false",
   EXPLAINABLE_TRAFFIC_LIGHT: "false",
 };
@@ -18,6 +20,8 @@ describe("server environment validation", () => {
       nodeEnv: "test",
       demoMode: true,
       demoSessionTtlHours: 8,
+      caregiverDemoInvitationTtlMinutes: 30,
+      caregiverDemoSessionTtlHours: 8,
       sessionCookieSecure: false,
       explainableTrafficLight: false,
     });
@@ -94,6 +98,18 @@ describe("server environment validation", () => {
       expect(() =>
         readServerEnvironment({ ...baseEnvironment, DEMO_SESSION_TTL_HOURS: ttl }),
       ).toThrow("DEMO_SESSION_TTL_HOURS must be an integer between 1 and 12");
+    },
+  );
+
+  it.each(["4", "121", "30.5", "not-a-number"])(
+    "rechaza TTL de invitación de cuidador fuera del supuesto demo: %s",
+    (ttl) => {
+      expect(() =>
+        readServerEnvironment({
+          ...baseEnvironment,
+          CAREGIVER_DEMO_INVITATION_TTL_MINUTES: ttl,
+        }),
+      ).toThrow("CAREGIVER_DEMO_INVITATION_TTL_MINUTES must be an integer between 5 and 120");
     },
   );
 });

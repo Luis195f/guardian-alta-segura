@@ -25,17 +25,17 @@ Un estado no implica los demás. Ninguna comunicación se habilita sin la base o
 
 ### 3. Autorización del cuidador
 
-El acceso de un cuidador requiere autorización explícita, vigente, granular y limitada a módulos o secciones concretas. La ausencia de alcance produce denegación. La autorización no concede acceso general a diagnósticos, notas, check-ins completos ni contenido no autorizado.
+El acceso de un cuidador requiere autorización explícita `caregiver:portal`, política aprobada, vigencia, invitación local de un uso, identidad coincidente y sesión separada. El scope append-only es específico por episodio, enumera capacidades, secciones del Plan y recursos, y se versiona N+1 dentro de autorización + episodio; cada petición usa la última versión del episodio ligado a la sesión. La ausencia de cualquiera de esos elementos produce denegación. La autorización no concede acceso general a diagnósticos, notas, check-ins completos ni contenido no autorizado, y no presume capacidad o representación legal.
 
 ### 4. Revocación
 
-La retirada de participación digital detiene futuras interacciones digitales según la configuración aprobada. La revocación del cuidador invalida de inmediato sus sesiones vigentes y bloquea nuevos accesos. Ninguna revocación borra el alta, planes, observaciones, revisiones ni documentación clínica histórica.
+La retirada de participación digital detiene futuras interacciones digitales según la configuración aprobada. La revocación del cuidador serializa contra lecturas y mutaciones, invalida de inmediato sus sesiones vigentes y bloquea nuevos accesos. Cerrar sesión también invalida solo esa sesión persistida. Ninguna revocación borra el alta, planes, invitaciones, scopes, sesiones, observaciones, revisiones ni documentación clínica histórica, ni modifica la base jurídica asistencial.
 
 ### 5. Plan de Seguridad versionado
 
 El Plan de Seguridad Stanley-Brown contiene seis secciones: señales de alarma, estrategias internas, distracción, red de apoyo, profesionales/recursos y reducción de acceso a medios. Una edición profesional crea `v.N+1`; `v.N` continúa disponible según autorización e historial. El guardado crea un borrador y una revisión humana posterior lo activa. Activar, sustituir o invalidar añade un evento append-only; invalidar exige motivo. El sistema no sobrescribe, firma, puntúa ni completa automáticamente contenido ausente.
 
-Cada sección conserva procedencia (`patient`, `nurse` o `clinician`) y permisos separados para paciente y cuidador. El paciente vinculado ve la versión activa y el historial sustituido permitido. La política de cuidador está desacoplada, pero no existe portal ni acceso de cuidador en esta fase. La revisión optimista impide que dos editores sobrescriban silenciosamente una base desactualizada.
+Cada sección conserva procedencia (`patient`, `nurse` o `clinician`) y permisos separados para paciente y cuidador. El paciente vinculado ve la versión activa y el historial sustituido permitido. El cuidador solo puede ver una sección de la versión activa cuando coinciden capability, sección enumerada en el scope vigente y permiso documental `CAREGIVER`. La revisión optimista impide que dos editores sobrescriban silenciosamente una base desactualizada.
 
 ### 6. Domicilio Seguro informativo
 

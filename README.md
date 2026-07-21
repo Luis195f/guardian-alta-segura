@@ -1,6 +1,6 @@
 # Guardián Alta Segura
 
-MVP técnico de continuidad postalta en salud mental. Esta rama contiene infraestructura, identidad demo sintética, autorización, auditoría, episodio postalta, Plan de Seguridad, check-ins configurables/versionados, avisos explicables y una cola profesional con tareas humanas trazables; no es apta para uso asistencial real.
+MVP técnico de continuidad postalta en salud mental. Esta rama contiene infraestructura, identidad demo sintética, autorización, auditoría, episodio postalta, Plan de Seguridad, check-ins configurables/versionados, avisos explicables, una cola profesional con tareas humanas trazables y un portal de cuidador limitado y revocable; no es apta para uso asistencial real.
 
 > **SINTÉTICO / NO USO CLÍNICO.** No diagnostica, prescribe ni predice riesgo. No sustituye decisiones profesionales ni acredita validación clínica, jurídica, institucional, RGPD o MDR.
 
@@ -64,7 +64,9 @@ CI ejecuta instalación congelada, generación de Prisma, despliegue/estado de m
 - `src/presentation` y `src/app`: UI accesible y adaptadores HTTP de Next.js; no contienen reglas de autorización.
 - `prisma`: modelos, migraciones versionadas, controles append-only y seed exclusivamente sintético.
 
-El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial y vista paciente filtrada por sección. No hay portal de cuidador, PDF, firma automática, scoring ni recurso de crisis definitivo en esta rama.
+El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial, vista paciente filtrada por sección y vista cuidador de la versión activa con doble filtro de scope y permiso documental. No hay PDF, firma automática, scoring ni recurso de crisis definitivo en esta rama.
+
+El portal de cuidador usa `CaregiverProfile` seudonimizado, invitaciones locales de un solo uso, scopes append-only versionados por autorización + episodio y una cookie HttpOnly independiente. Cada petición revalida identidad, política, vigencia, última versión del scope del episodio y revocación. PostgreSQL impide vínculos cruzados entre autorización, perfil, episodio, invitación, sesión y observación. Revocar serializa contra accesos, invalida todas las sesiones concurrentes y conserva historia; logout invalida la sesión persistida antes de expirar la cookie. Los TTL predeterminados son configuración técnica de demo, no política institucional. Las observaciones requieren revisión humana y nunca crean avisos o tareas automáticamente. La política demo `caregiver:portal` está `PENDING`; no habilita uso real ni presume capacidad o representación legal.
 
 Cada episodio nuevo referencia una versión exacta de protocolo de check-in. Claves compuestas impiden cruzar versiones y un outcome terminal único excluye respuesta, omisión y vencimiento entre sí. Preguntas, cadencia, zona, ventanas, asignaciones, outcomes, respuestas y eventos de no respuesta conservan historial append-only. El seed incluye ocho temas exclusivamente sintéticos y rotulados como no aprobados. No existe interpretación automática, alertas, comunicaciones reales ni scheduler; DEC-006 mantiene bloqueado el uso clínico de cualquier contenido o frecuencia.
 

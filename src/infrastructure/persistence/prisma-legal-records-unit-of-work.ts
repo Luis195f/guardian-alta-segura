@@ -112,10 +112,26 @@ class PrismaLegalRecordsTransaction implements LegalRecordsTransaction {
         });
         break;
       case "CAREGIVER_AUTHORIZATION":
-        record = await this.transaction.caregiverAuthorization.findUnique({
-          where: { id },
-          select,
-        });
+        record =
+          (
+            await this.transaction.$queryRaw<
+              {
+                id: string;
+                subjectUserId: string;
+                scope: string;
+                policyVersionId: string;
+              }[]
+            >(Prisma.sql`
+              SELECT
+                "id",
+                "subject_user_id" AS "subjectUserId",
+                "scope",
+                "policy_version_id" AS "policyVersionId"
+              FROM "caregiver_authorizations"
+              WHERE "id" = ${id}
+              FOR UPDATE
+            `)
+          )[0] ?? null;
         break;
       case "PROCESSING_BASIS":
         record = await this.transaction.processingBasisRecord.findUnique({ where: { id }, select });
@@ -142,6 +158,20 @@ class PrismaLegalRecordsTransaction implements LegalRecordsTransaction {
       }
       throw error;
     }
+  }
+
+  async revokeCaregiverSessions(caregiverAuthorizationId: string, revokedAt: Date) {
+    const result = await this.transaction.caregiverSession.updateMany({
+      where: { caregiverAuthorizationId, revokedAt: null },
+      data: { revokedAt },
+    });
+    return result.count;
+  }
+
+  async appendCaregiverAccessAudit(
+    input: Parameters<LegalRecordsTransaction["appendCaregiverAccessAudit"]>[0],
+  ) {
+    return this.transaction.caregiverAccessAudit.create({ data: input, select: { id: true } });
   }
 
   async appendAuditEvent(input: NewAuditEvent) {

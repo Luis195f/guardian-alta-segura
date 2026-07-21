@@ -198,6 +198,35 @@ textarea {
   margin: 2.5rem 0;
 }
 
+.caregiver-access {
+  margin: 2.5rem 0;
+}
+
+.caregiver-management,
+.caregiver-portal {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.caregiver-management fieldset {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.local-invitation {
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid var(--warning);
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+}
+
 .workqueue-filters,
 .task-create,
 .task-actions {

@@ -212,6 +212,7 @@ export function LegalStatePanel({ enabled }: { readonly enabled: boolean }) {
                 >
                   <option value="caregiver:safety-plan-summary">Resumen del plan</option>
                   <option value="caregiver:appointments">Citas</option>
+                  <option value="caregiver:portal">Portal limitado del cuidador</option>
                 </select>
               </>
             )}

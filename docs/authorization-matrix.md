@@ -28,6 +28,11 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Consultar cola y crear/asignar/resolver tareas | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
 | Registrar/revisar Domicilio Seguro | No | Sí, revisión humana | No | No | Autorizado | No |
 | Gestionar autorización de cuidador | No | No | No | Propio dentro del protocolo | No | No |
+| Crear/cambiar invitación y scope de cuidador | No | No | No | Propio, con autorización `caregiver:portal` vigente y limitado al episodio | No | No |
+| Ver secciones del Plan en portal cuidador | No | No | No | No | Autorizado por capability, sección y permiso documental | **No** |
+| Ver tareas asignadas en portal cuidador | No | No | No | No | Autorizado y solo asignadas a su identidad | **No** |
+| Enviar observación para revisión humana | No | No | No | No | Autorizado; nunca genera alerta automática | **No** |
+| Ver recursos del portal cuidador | No | No | No | No | Solo claves enumeradas en el scope vigente | **No** |
 | Registrar revocación | No | No | Sí, según protocolo | Propio dentro del protocolo | No | No |
 | Abrir recurso de crisis aprobado | No | No | No | Propio | No | No |
 | Redactar/validar SBAR | No | Sí, si el protocolo lo permite | Sí | No | No | No |
@@ -38,7 +43,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Acceder a notas clínicas en texto plano | No por defecto | Sí, asignado y necesario | Sí, asignado y necesario | Solo contenido propio permitido | No salvo sección autorizada explícita | **No** |
 | Crear una versión del Plan de Seguridad | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
 | Activar o invalidar una versión del Plan de Seguridad | No | Sí, episodio asignado y revisión humana | Sí, episodio asignado y revisión humana | No | No | No |
-| Consultar Plan de Seguridad | No | Todas las versiones del episodio asignado | Todas las versiones del episodio asignado | Activa e historial sustituido, solo secciones permitidas | Portal no disponible; política por sección preparada y denegada por defecto | **No** |
+| Consultar Plan de Seguridad | No | Todas las versiones del episodio asignado | Todas las versiones del episodio asignado | Activa e historial sustituido, solo secciones permitidas | Solo versión activa y secciones autorizadas simultáneamente por scope y documento | **No** |
 | Activar contingencia o acceder al censo | No | Solo con alcance verificado de Enfermería Gestora | No | No | No | No |
 
 ## Controles obligatorios
@@ -46,7 +51,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 - Un rol no concede acceso global: también se comprueban relación con el episodio, alcance, vigencia y finalidad.
 - `admin` gestiona la plataforma, pero no hereda acceso clínico por su función técnica.
 - `support` no puede impersonar a otro rol ni consultar notas, respuestas, planes, SBAR o exportaciones clínicas.
-- `caregiver` solo ve módulos, secciones y acciones enumerados en una autorización vigente; revocarla invalida de inmediato sus sesiones.
+- `caregiver` solo ve módulos, secciones y acciones enumerados en el último scope de la autorización y episodio de su sesión; cambiar otro episodio no propaga permisos. Revocar invalida de inmediato todas las sesiones y el logout invalida la sesión persistida correspondiente.
 - `patient` no puede aprobar reglas, firmar cierres profesionales ni ampliar permisos fuera del protocolo.
 - `Todos` en REQ-12 significa que cada categoría necesita autenticación; no concede a ningún rol todas las capacidades de la matriz.
 - Solo una revisión humana autorizada puede originar una tarea o decisión asistencial.

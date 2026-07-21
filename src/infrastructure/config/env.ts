@@ -8,6 +8,8 @@ export interface ServerEnvironment {
   readonly appBaseUrl: URL;
   readonly demoMode: boolean;
   readonly demoSessionTtlHours: number;
+  readonly caregiverDemoInvitationTtlMinutes: number;
+  readonly caregiverDemoSessionTtlHours: number;
   readonly sessionCookieSecure: boolean;
   readonly explainableTrafficLight: boolean;
 }
@@ -63,6 +65,20 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
     1,
     12,
   );
+  const caregiverDemoInvitationTtlMinutes = parseIntegerInRange(
+    "CAREGIVER_DEMO_INVITATION_TTL_MINUTES",
+    source.CAREGIVER_DEMO_INVITATION_TTL_MINUTES,
+    30,
+    5,
+    120,
+  );
+  const caregiverDemoSessionTtlHours = parseIntegerInRange(
+    "CAREGIVER_DEMO_SESSION_TTL_HOURS",
+    source.CAREGIVER_DEMO_SESSION_TTL_HOURS,
+    8,
+    1,
+    12,
+  );
   const sessionCookieSecure = parseBoolean(
     "SESSION_COOKIE_SECURE",
     source.SESSION_COOKIE_SECURE,
@@ -93,6 +109,8 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
     appBaseUrl,
     demoMode,
     demoSessionTtlHours,
+    caregiverDemoInvitationTtlMinutes,
+    caregiverDemoSessionTtlHours,
     sessionCookieSecure,
     explainableTrafficLight,
   };
