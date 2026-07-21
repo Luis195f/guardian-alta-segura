@@ -5,6 +5,7 @@ import { PatientSafetyPlanPanel } from "@/presentation/components/patient-safety
 import { CheckInProtocolAdminPanel } from "@/presentation/components/check-in-protocol-admin-panel";
 import { PatientCheckInPanel } from "@/presentation/components/patient-check-in-panel";
 import { ExplainableAlertsPanel } from "@/presentation/components/explainable-alerts-panel";
+import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
 
 export default function HomePage() {
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
@@ -46,6 +47,8 @@ export default function HomePage() {
       <PatientCheckInPanel enabled={demoEnabled} />
 
       <ExplainableAlertsPanel enabled={demoEnabled} />
+
+      <NursingWorkQueuePanel enabled={demoEnabled} />
 
       <footer>
         No diagnostica, no prescribe, no predice riesgo y no sustituye el juicio profesional.

@@ -32,6 +32,8 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "alert-evaluation-write",
     "alert-read",
     "alert-review-write",
+    "nursing-workqueue-read",
+    "task-write",
   ],
   clinician: [
     "authenticated-session",
@@ -48,6 +50,8 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "alert-evaluation-write",
     "alert-read",
     "alert-review-write",
+    "nursing-workqueue-read",
+    "task-write",
   ],
   patient: [
     "authenticated-session",

@@ -25,7 +25,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Aprobar una versión de regla | No | No | Sí, referencia local explícita | No | No | No |
 | Activar una versión aprobada | Sí, sin acceso al contenido del episodio | No | No | No | No | No |
 | Evaluar reglas activas y revisar avisos | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
-| Crear/cerrar tareas tras revisión | No | Sí, asignado | Sí, asignado | Solo acciones propias si se habilitan | Solo tareas autorizadas | No |
+| Consultar cola y crear/asignar/resolver tareas | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
 | Registrar/revisar Domicilio Seguro | No | Sí, revisión humana | No | No | Autorizado | No |
 | Gestionar autorización de cuidador | No | No | No | Propio dentro del protocolo | No | No |
 | Registrar revocación | No | No | Sí, según protocolo | Propio dentro del protocolo | No | No |

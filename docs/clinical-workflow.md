@@ -57,6 +57,8 @@ Una persona profesional autorizada revisa el aviso y registra actor, fecha, resu
 
 Después de la revisión humana, la interfaz puede permitir crear una tarea vinculada al aviso y al episodio. Crear o asignar la tarea es una decisión humana y no equivale a una actuación clínica automática. El origen y los cambios de estado quedan auditados sin copiar contenido clínico innecesario.
 
+En la demo técnica, toda tarea se vincula obligatoriamente al episodio y puede vincularse opcionalmente a un aviso. Revisar un aviso nunca crea una tarea. La asignación, reasignación, intento de contacto, nota breve y resolución se registran mediante acciones explícitas con historial append-only; la resolución exige actor, motivo y timestamp. La revisión optimista e idempotencia evitan resolución doble y actualización perdida. Resolver una tarea no cierra el episodio ni genera SBAR, derivación, comunicación o recomendación.
+
 ### 11. Botón de crisis
 
 El botón abre el marcador nativo únicamente cuando existe un recurso oficial aprobado localmente y verificado por TI. Dirección Médica es la autoridad final única sobre el destino. El paso 5 del Plan de Seguridad no es una fuente de configuración: mientras DEC-010 y DEC-011 sigan pendientes, rechaza URI `tel:` y secuencias con apariencia de teléfono. No se inventa teléfono, destino ni consejo.

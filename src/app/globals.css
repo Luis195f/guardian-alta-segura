@@ -194,6 +194,72 @@ textarea {
   margin: 2.5rem 0;
 }
 
+.nursing-workqueue {
+  margin: 2.5rem 0;
+}
+
+.workqueue-filters,
+.task-create,
+.task-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.workqueue-filters label,
+.task-create label,
+.task-actions label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.queue-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.queue-metrics div,
+.queue-list > li,
+.queue-alerts > li,
+.task-list > li {
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.queue-metrics dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.queue-metrics dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.queue-list,
+.queue-alerts,
+.task-list {
+  display: grid;
+  gap: 1rem;
+  padding-left: 1.5rem;
+}
+
+.queue-alerts small {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+}
+
+.task-create,
+.task-actions {
+  margin: 1rem 0;
+}
+
 .alert-list {
   display: grid;
   gap: 1rem;
@@ -529,6 +595,13 @@ footer {
   .episode-layout,
   .episode-detail dl,
   .schedule-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workqueue-filters,
+  .task-create,
+  .task-actions,
+  .queue-metrics {
     grid-template-columns: 1fr;
   }
 }
