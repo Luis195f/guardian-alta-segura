@@ -4,12 +4,14 @@ test("crea, activa, versiona y compara un Plan de Seguridad sin sobrescribir his
   page,
 }) => {
   await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-nurse");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
+  await page.getByLabel("Usuario demo").selectOption("demo-nurse");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto("/episodes/new");
 
   await page.getByLabel("Fecha de alta").fill("2026-07-17");
   await page.getByRole("button", { name: "Crear borrador" }).click();
+  await page.getByRole("tab", { name: "Plan de Seguridad" }).click();
   await expect(
     page.getByRole("heading", { name: "Plan de Seguridad Stanley-Brown" }),
   ).toBeVisible();

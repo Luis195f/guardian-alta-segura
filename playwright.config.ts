@@ -20,6 +20,8 @@ if (!databaseUrl) throw new Error("DATABASE_URL is required for Playwright e2e")
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  timeout: 180_000,
+  expect: { timeout: 60_000 },
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
@@ -28,6 +30,7 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
+    actionTimeout: 30_000,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
@@ -38,7 +41,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
+    command: "pnpm exec next dev --webpack --hostname 127.0.0.1",
     url: "http://127.0.0.1:3000/api/health",
     reuseExistingServer: false,
     timeout: 120_000,

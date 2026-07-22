@@ -67,7 +67,13 @@ interface PortalData {
   readonly canSubmitObservation: boolean;
 }
 
-export function CaregiverAccessPanel({ enabled }: { readonly enabled: boolean }) {
+export function CaregiverAccessPanel({
+  enabled,
+  mode = "combined",
+}: {
+  readonly enabled: boolean;
+  readonly mode?: "patient" | "caregiver" | "combined";
+}) {
   const [management, setManagement] = useState<ManagementData | null>(null);
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [authorizationId, setAuthorizationId] = useState("");
@@ -85,7 +91,11 @@ export function CaregiverAccessPanel({ enabled }: { readonly enabled: boolean })
   const [invitationToken, setInvitationToken] = useState("");
   const [acceptanceToken, setAcceptanceToken] = useState("");
   const [observation, setObservation] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(
+    mode === "caregiver"
+      ? "Sin acceso autorizado. Introduce una invitación local vigente para abrir contenido compartido."
+      : "",
+  );
   const [pending, setPending] = useState(false);
 
   const selectedAuthorization = useMemo(
@@ -243,190 +253,201 @@ export function CaregiverAccessPanel({ enabled }: { readonly enabled: boolean })
 
   return (
     <section className="panel caregiver-access" aria-labelledby="caregiver-access-title">
-      <p className="eyebrow">REQ-05 / REQ-06</p>
-      <h2 id="caregiver-access-title">Cuidador: autorización limitada y revocable</h2>
+      <p className="eyebrow">Acceso explícito y revocable</p>
+      <h2 id="caregiver-access-title">
+        {mode === "caregiver" ? "Portal de cuidador" : "Personas autorizadas"}
+      </h2>
       <p className="legal-warning">
         El acceso nunca incluye por defecto diagnósticos, notas clínicas ni check-ins completos. La
         autorización no presume capacidad ni representación legal y puede revocarse de inmediato.
       </p>
 
-      <h3>Gestión por el paciente</h3>
-      <button type="button" disabled={!enabled || pending} onClick={loadManagement}>
-        Cargar autorizaciones y episodios
-      </button>
-      {management && (
-        <div className="caregiver-management">
-          <label htmlFor="caregiver-authorization">Autorización explícita</label>
-          <select
-            id="caregiver-authorization"
-            value={authorizationId}
-            onChange={(event) => setAuthorizationId(event.target.value)}
-          >
-            <option value="">Selecciona una autorización</option>
-            {management.authorizations.map((authorization) => (
-              <option key={authorization.id} value={authorization.id}>
-                {authorization.pseudonym} · {authorization.legalScope} ·{" "}
-                {authorization.effective ? "vigente" : "denegada"}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="caregiver-episode">Episodio</label>
-          <select
-            id="caregiver-episode"
-            value={episodeId}
-            onChange={(event) => setEpisodeId(event.target.value)}
-          >
-            {management.episodes.map((episode) => (
-              <option key={episode.id} value={episode.id}>
-                {episode.dischargeDate} · {episode.status}
-              </option>
-            ))}
-          </select>
-          <fieldset>
-            <legend>Capacidades expresamente concedidas</legend>
-            {capabilities
-              .filter(([value]) => value !== "VIEW_AUTHORIZED_RESOURCES")
-              .map(([value, label]) => (
-                <label className="check-label" key={value}>
+      {mode !== "caregiver" && (
+        <>
+          <h3>Autorizaciones vigentes</h3>
+          <button type="button" disabled={!enabled || pending} onClick={loadManagement}>
+            Consultar autorizaciones
+          </button>
+          {management && (
+            <div className="caregiver-management">
+              <label htmlFor="caregiver-authorization">Autorización explícita</label>
+              <select
+                id="caregiver-authorization"
+                value={authorizationId}
+                onChange={(event) => setAuthorizationId(event.target.value)}
+              >
+                <option value="">Selecciona una autorización</option>
+                {management.authorizations.map((authorization) => (
+                  <option key={authorization.id} value={authorization.id}>
+                    {authorization.pseudonym} · {authorization.legalScope} ·{" "}
+                    {authorization.effective ? "vigente" : "denegada"}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="caregiver-episode">Episodio</label>
+              <select
+                id="caregiver-episode"
+                value={episodeId}
+                onChange={(event) => setEpisodeId(event.target.value)}
+              >
+                {management.episodes.map((episode) => (
+                  <option key={episode.id} value={episode.id}>
+                    {episode.dischargeDate} · {episode.status}
+                  </option>
+                ))}
+              </select>
+              <fieldset>
+                <legend>Capacidades expresamente concedidas</legend>
+                {capabilities
+                  .filter(([value]) => value !== "VIEW_AUTHORIZED_RESOURCES")
+                  .map(([value, label]) => (
+                    <label className="check-label" key={value}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCapabilities.includes(value)}
+                        onChange={() => toggleCapability(value)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                <label className="check-label">
                   <input
                     type="checkbox"
-                    checked={selectedCapabilities.includes(value)}
-                    onChange={() => toggleCapability(value)}
+                    checked={includeResources}
+                    onChange={(event) => setIncludeResources(event.target.checked)}
                   />
-                  {label}
+                  Ver recursos locales autorizados
                 </label>
-              ))}
-            <label className="check-label">
-              <input
-                type="checkbox"
-                checked={includeResources}
-                onChange={(event) => setIncludeResources(event.target.checked)}
-              />
-              Ver recursos locales autorizados
-            </label>
-          </fieldset>
-          {selectedCapabilities.includes("VIEW_PLAN_SECTIONS") && (
-            <fieldset>
-              <legend>Secciones concretas del plan</legend>
-              {planSections.map(([value, label]) => (
-                <label className="check-label" key={value}>
-                  <input
-                    type="checkbox"
-                    checked={selectedSections.includes(value)}
-                    onChange={() => toggleSection(value)}
-                  />
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <div className="episode-actions">
-            <button
-              type="button"
-              disabled={pending || !authorizationId || !episodeId}
-              onClick={() => manage("invite")}
-            >
-              Crear invitación local
-            </button>
-            <button
-              type="button"
-              disabled={pending || !selectedScope}
-              onClick={() => manage("change-scope")}
-            >
-              Guardar nueva versión de alcance
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={pending || !authorizationId || selectedAuthorization?.revoked}
-              onClick={() => manage("revoke")}
-            >
-              Revocar acceso y sesiones
-            </button>
-          </div>
-          {invitationToken && (
-            <div className="local-invitation" role="status">
-              <strong>Token local de un solo uso</strong>
-              <code>{invitationToken}</code>
-              <small>No se ha enviado email, SMS ni push.</small>
+              </fieldset>
+              {selectedCapabilities.includes("VIEW_PLAN_SECTIONS") && (
+                <fieldset>
+                  <legend>Secciones concretas del plan</legend>
+                  {planSections.map(([value, label]) => (
+                    <label className="check-label" key={value}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSections.includes(value)}
+                        onChange={() => toggleSection(value)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+              <div className="episode-actions">
+                <button
+                  type="button"
+                  disabled={pending || !authorizationId || !episodeId}
+                  onClick={() => manage("invite")}
+                >
+                  Crear invitación local
+                </button>
+                <button
+                  type="button"
+                  disabled={pending || !selectedScope}
+                  onClick={() => manage("change-scope")}
+                >
+                  Guardar nueva versión de alcance
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={pending || !authorizationId || selectedAuthorization?.revoked}
+                  onClick={() => manage("revoke")}
+                >
+                  Revocar acceso y sesiones
+                </button>
+              </div>
+              {invitationToken && (
+                <div className="local-invitation" role="status">
+                  <strong>Token local de un solo uso</strong>
+                  <code>{invitationToken}</code>
+                  <small>No se ha enviado email, SMS ni push.</small>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
-      <h3>Acceso del cuidador</h3>
-      <form onSubmit={acceptInvitation}>
-        <label htmlFor="caregiver-invitation-token">Token de invitación local</label>
-        <input
-          id="caregiver-invitation-token"
-          value={acceptanceToken}
-          autoComplete="off"
-          onChange={(event) => setAcceptanceToken(event.target.value)}
-        />
-        <button type="submit" disabled={!enabled || pending || acceptanceToken.length < 40}>
-          Aceptar como cuidador autenticado
-        </button>
-      </form>
-      <button type="button" disabled={!enabled || pending} onClick={loadPortal}>
-        Abrir portal limitado
-      </button>
+      {mode !== "patient" && (
+        <>
+          <h3>Acceso con invitación</h3>
+          <form onSubmit={acceptInvitation}>
+            <label htmlFor="caregiver-invitation-token">Token de invitación local</label>
+            <input
+              id="caregiver-invitation-token"
+              value={acceptanceToken}
+              autoComplete="off"
+              onChange={(event) => setAcceptanceToken(event.target.value)}
+            />
+            <button type="submit" disabled={!enabled || pending || acceptanceToken.length < 40}>
+              Aceptar como cuidador autenticado
+            </button>
+          </form>
+          <button type="button" disabled={!enabled || pending} onClick={loadPortal}>
+            Abrir portal limitado
+          </button>
 
-      {portal && (
-        <div className="caregiver-portal">
-          <p>{portal.notice}</p>
-          <p>
-            Perfil {portal.pseudonym} · alcance v{portal.scopeVersion}
-          </p>
-          <h4>Secciones autorizadas del plan</h4>
-          {portal.planSections.length ? (
-            <ul>
-              {portal.planSections.map((section) => (
-                <li key={section.step}>{section.content}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="empty-state">No hay secciones autorizadas y activas.</p>
+          {portal && (
+            <div className="caregiver-portal">
+              <p>{portal.notice}</p>
+              <h4>Paciente autorizante</h4>
+              <p>
+                Perfil {portal.pseudonym} · alcance vigente v{portal.scopeVersion}
+              </p>
+              <h4>Secciones autorizadas del plan</h4>
+              {portal.planSections.length ? (
+                <ul>
+                  {portal.planSections.map((section) => (
+                    <li key={section.step}>{section.content}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-state">No hay secciones autorizadas y activas.</p>
+              )}
+              <h4>Tareas asignadas</h4>
+              {portal.tasks.length ? (
+                <ul>
+                  {portal.tasks.map((task) => (
+                    <li key={task.id}>
+                      {task.summary} · {task.currentState}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-state">No hay tareas visibles en el alcance actual.</p>
+              )}
+              <h4>Recursos autorizados</h4>
+              {portal.resources.length ? (
+                <ul>
+                  {portal.resources.map((resource) => (
+                    <li key={resource.key}>
+                      <strong>{resource.title}</strong>: {resource.description}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-state">No hay recursos autorizados.</p>
+              )}
+              {portal.canSubmitObservation && (
+                <form onSubmit={submitObservation}>
+                  <label htmlFor="caregiver-observation">Observación para revisión humana</label>
+                  <textarea
+                    id="caregiver-observation"
+                    value={observation}
+                    maxLength={1000}
+                    onChange={(event) => setObservation(event.target.value)}
+                  />
+                  <small>No genera alertas, diagnósticos ni actuaciones automáticas.</small>
+                  <button type="submit" disabled={pending || observation.trim().length < 3}>
+                    Enviar observación
+                  </button>
+                </form>
+              )}
+            </div>
           )}
-          <h4>Tareas asignadas</h4>
-          {portal.tasks.length ? (
-            <ul>
-              {portal.tasks.map((task) => (
-                <li key={task.id}>
-                  {task.summary} · {task.currentState}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="empty-state">No hay tareas visibles en el alcance actual.</p>
-          )}
-          <h4>Recursos autorizados</h4>
-          {portal.resources.length ? (
-            <ul>
-              {portal.resources.map((resource) => (
-                <li key={resource.key}>
-                  <strong>{resource.title}</strong>: {resource.description}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="empty-state">No hay recursos autorizados.</p>
-          )}
-          {portal.canSubmitObservation && (
-            <form onSubmit={submitObservation}>
-              <label htmlFor="caregiver-observation">Observación para revisión humana</label>
-              <textarea
-                id="caregiver-observation"
-                value={observation}
-                maxLength={1000}
-                onChange={(event) => setObservation(event.target.value)}
-              />
-              <small>No genera alertas, diagnósticos ni actuaciones automáticas.</small>
-              <button type="submit" disabled={pending || observation.trim().length < 3}>
-                Enviar observación
-              </button>
-            </form>
-          )}
-        </div>
+        </>
       )}
       <p className="status" role="status" aria-live="polite">
         {message}

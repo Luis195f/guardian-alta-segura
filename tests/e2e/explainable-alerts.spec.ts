@@ -60,9 +60,9 @@ test.afterAll(async () => {
 
 test("fixtures siguen draft/no aprobados y admin no puede aprobarlos", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-admin");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
+  await page.getByLabel("Usuario demo").selectOption("demo-admin");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
 
   const response = await page.request.get("/api/demo/rules");
   expect(response.ok()).toBe(true);
@@ -276,16 +276,13 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
 
 test("UI prioriza texto/estado con semáforo apagado y sin acción automática", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Avisos explicables" })).toBeVisible();
-  await expect(page.getByTestId("traffic-light-status")).toHaveText(
-    "Semáforo visual: desactivado.",
-  );
-  await expect(page.getByText(/No hay diagnóstico, puntuación probabilística/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lista de avisos" })).toHaveCount(0);
 
-  await page.getByLabel("Usuario sintético").selectOption("demo-nurse");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
-  await page.getByRole("button", { name: "Cargar avisos" }).click();
+  await page.getByLabel("Usuario demo").selectOption("demo-nurse");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto("/alerts");
+  await expect(page.getByRole("heading", { name: "Lista de avisos" })).toBeVisible();
   await expect(page.getByTestId("traffic-light-status")).toHaveText(
     "Semáforo visual: desactivado.",
   );

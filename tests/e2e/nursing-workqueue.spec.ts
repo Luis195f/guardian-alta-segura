@@ -231,7 +231,14 @@ test("creación HTTP concurrente conserva idempotencia y nunca expone P2002 como
 
 test("UI ofrece filtros accesibles y estados vacío y de error", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Cola de trabajo enfermera" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cola de seguimiento" })).toHaveCount(0);
+
+  await page.getByLabel("Usuario demo").selectOption("demo-nurse");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto("/workqueue");
+  await expect(page.getByRole("heading", { name: "Cola de seguimiento" })).toBeVisible();
+  await page.getByText("Filtros", { exact: true }).click();
   await expect(page.getByLabel("Estado del episodio")).toBeVisible();
   await expect(page.getByLabel("Estado de tarea")).toBeVisible();
   await expect(page.getByLabel("Alta desde")).toBeVisible();
@@ -239,9 +246,6 @@ test("UI ofrece filtros accesibles y estados vacío y de error", async ({ page }
   await expect(page.getByLabel("Profesional responsable")).toBeVisible();
   await expect(page.getByLabel("Solo elementos pendientes")).toBeVisible();
 
-  await page.getByLabel("Usuario sintético").selectOption("demo-nurse");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
   await page.getByLabel("Alta desde").fill("2099-01-01");
   await page.getByRole("button", { name: "Cargar cola" }).click();
   await expect(page.getByText("Cola vacía para estos filtros.")).toBeVisible();

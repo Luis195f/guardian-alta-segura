@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Guardián Alta Segura — Fundación técnica",
-  description: "Entorno técnico sintético y no apto para uso clínico.",
+  title: "Guardián Alta Segura",
+  description: "Continuidad postalta estructurada, trazable y supervisada por profesionales.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

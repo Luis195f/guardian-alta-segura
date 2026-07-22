@@ -1,32 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-test("muestra límites sintéticos y el demo local no productivo", async ({ page }) => {
+test("muestra una entrada clara, sintética y responsive", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1, name: "Guardián Alta Segura" })).toBeVisible();
-  await expect(page.getByText("SINTÉTICO / NO USO CLÍNICO", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Modo demo NO PRODUCTIVO" })).toBeVisible();
+  await expect(page.getByText("DEMO SINTÉTICA · NO USO CLÍNICO", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Selecciona tu papel en la demo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "INICIAR DEMO" })).toBeEnabled();
+  await expect(page.getByRole("listitem").filter({ hasText: "Alta" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Seguimiento" })).toBeVisible();
   await expect(
-    page.getByText("Esta rama no contiene decisiones clínicas automatizadas."),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Consentimientos, autorizaciones y bases separadas" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/La base jurídica configurada para el tratamiento asistencial no equivale/),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Iniciar sesión sintética" })).toBeEnabled();
-
-  await page.getByLabel("Usuario sintético").selectOption("demo-patient");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
-  await page.getByRole("button", { name: "Cargar estados de demo-patient" }).click();
-  await page.getByLabel("Estado registrado").selectOption("ACTIVE");
-  await page.getByRole("button", { name: "Registrar nueva entrada" }).click();
-  await expect(
-    page.getByText("DENEGADO — política pendiente de validación local").first(),
-  ).toBeVisible();
-  await expect(page.getByText("DEMO-SYNTHETIC-ACK")).toHaveCount(0);
+    page.getByRole("heading", { name: "Cuidador: autorización limitada y revocable" }),
+  ).toHaveCount(0);
 });
 
 test("healthcheck solo devuelve estado técnico", async ({ request }) => {
@@ -38,4 +23,21 @@ test("healthcheck solo devuelve estado técnico", async ({ request }) => {
   });
   expect(response.headers()["x-correlation-id"]).toBeTruthy();
   expect(response.headers()["cache-control"]).toBe("no-store");
+});
+
+test("ofrece navegación de producto adaptada al viewport", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
+
+  const isMobile = (page.viewportSize()?.width ?? 1024) <= 768;
+  if (isMobile) {
+    const menu = page.getByText("Menú", { exact: true });
+    await expect(menu).toBeVisible();
+    await menu.click();
+    await expect(page.getByLabel("Navegación principal móvil")).toBeVisible();
+  } else {
+    await expect(page.getByLabel("Navegación principal", { exact: true })).toBeVisible();
+  }
 });

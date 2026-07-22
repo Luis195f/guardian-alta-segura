@@ -153,9 +153,8 @@ test.afterAll(async () => {
 
 test("panel admin solo crea protocolos sintéticos no aprobados", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-admin");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
+  await page.getByLabel("Usuario demo").selectOption("demo-admin");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
   await page.getByRole("button", { name: "Cargar versiones" }).click();
 
   await expect(
@@ -203,10 +202,10 @@ test("paciente usa teclado, recibe errores accesibles y no selecciona la última
   page,
 }) => {
   await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-patient");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
-  await page.getByRole("button", { name: "Cargar mis check-ins" }).click();
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
+  await page.goto("/my-check-ins");
 
   await expect(page.getByRole("heading", { name: "Tu check-in" })).toBeVisible();
   await expect(page.getByText(/objetivo aproximado 60 segundos/i)).toBeVisible();
@@ -259,9 +258,9 @@ test("reintento HTTP concurrente devuelve 201/200 y nunca 500", async ({ page })
   });
   httpAssignmentId = httpAssignment.id;
   await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-patient");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
 
   const payload = (await (await page.request.get("/api/demo/check-ins")).json()) as {
     assignments: readonly {

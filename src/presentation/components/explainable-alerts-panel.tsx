@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type AlertItem = {
   readonly id: string;
@@ -62,6 +62,34 @@ export function ExplainableAlertsPanel({ enabled }: { readonly enabled: boolean 
     }
   }, [enabled]);
 
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    fetch("/api/demo/alerts", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        return (await response.json()) as AlertResponse;
+      })
+      .then((payload) => {
+        if (!active) return;
+        setAlerts(payload.alerts);
+        setTrafficLightEnabled(payload.explainableTrafficLight);
+        setMessage(
+          payload.alerts.length === 0
+            ? "No hay avisos para la sesión actual."
+            : `${payload.alerts.length} aviso(s), ordenados por estado y texto.`,
+        );
+      })
+      .catch(
+        () =>
+          active &&
+          setMessage("No se pudieron cargar los avisos. No se ha creado ninguna actuación."),
+      );
+    return () => {
+      active = false;
+    };
+  }, [enabled]);
+
   async function markReviewed(alertId: string) {
     setPending(true);
     try {
@@ -81,9 +109,8 @@ export function ExplainableAlertsPanel({ enabled }: { readonly enabled: boolean 
 
   return (
     <section className="panel explainable-alerts" aria-labelledby="explainable-alerts-title">
-      <p className="badge">EJEMPLOS SINTÉTICOS / VALIDACIÓN CLÍNICA PENDIENTE</p>
       <p className="eyebrow">Organización determinista para revisión humana</p>
-      <h2 id="explainable-alerts-title">Avisos explicables</h2>
+      <h2 id="explainable-alerts-title">Lista de avisos</h2>
       <p>
         La prioridad se presenta mediante estado y texto. No hay diagnóstico, puntuación
         probabilística, derivación ni actuación automática.
@@ -92,8 +119,13 @@ export function ExplainableAlertsPanel({ enabled }: { readonly enabled: boolean 
         Semáforo visual:{" "}
         {trafficLightEnabled ? "habilitado por configuración local" : "desactivado"}.
       </p>
-      <button type="button" onClick={loadAlerts} disabled={!enabled || pending}>
-        Cargar avisos
+      <button
+        className="secondary-action"
+        type="button"
+        onClick={loadAlerts}
+        disabled={!enabled || pending}
+      >
+        Actualizar lista
       </button>
 
       {alerts.length > 0 && (
@@ -123,7 +155,7 @@ export function ExplainableAlertsPanel({ enabled }: { readonly enabled: boolean 
               <small>Evaluación trazable: {alert.evaluationId}</small>
               {alert.state === "open" && (
                 <button type="button" onClick={() => markReviewed(alert.id)} disabled={pending}>
-                  Registrar revisión humana
+                  Revisar
                 </button>
               )}
             </li>

@@ -1,81 +1,65 @@
 import { DemoLoginPanel } from "@/presentation/components/demo-login-panel";
-import { DischargeEpisodePanel } from "@/presentation/components/discharge-episode-panel";
-import { LegalStatePanel } from "@/presentation/components/legal-state-panel";
-import { PatientSafetyPlanPanel } from "@/presentation/components/patient-safety-plan-panel";
-import { CheckInProtocolAdminPanel } from "@/presentation/components/check-in-protocol-admin-panel";
-import { PatientCheckInPanel } from "@/presentation/components/patient-check-in-panel";
-import { ExplainableAlertsPanel } from "@/presentation/components/explainable-alerts-panel";
-import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
-import { CaregiverAccessPanel } from "@/presentation/components/caregiver-access-panel";
-import { CrisisResourcePanel } from "@/presentation/components/crisis-resource-panel";
+import { redirect } from "next/navigation";
 
-export default function HomePage() {
+import { homeForRole, roleLabels } from "@/presentation/navigation/role-navigation";
+import { getDemoPageSession } from "@/presentation/session/demo-page-session";
+
+export default async function HomePage() {
+  const session = await getDemoPageSession();
+  if (session) redirect(homeForRole(session.role));
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
+  const roles = ["nurse", "clinician", "patient", "caregiver", "admin", "support"] as const;
 
   return (
-    <main>
-      <header className="hero">
-        <p className="badge">SINTÉTICO / NO USO CLÍNICO</p>
-        <p className="eyebrow">Fundación técnica segura</p>
+    <main className="landing">
+      <header className="landing-hero">
+        <p className="eyebrow">Continuidad postalta supervisada</p>
         <h1>Guardián Alta Segura</h1>
         <p className="lede">
-          Base organizativa para continuidad postalta con revisión humana, autorización en servidor
-          y trazabilidad. Esta rama no contiene decisiones clínicas automatizadas.
+          Continuidad postalta estructurada, trazable y supervisada por profesionales.
         </p>
+        <p className="environment-badge">DEMO SINTÉTICA · NO USO CLÍNICO</p>
       </header>
 
-      <nav className="demo-flow" aria-label="Flujo demostrable con revisión humana">
+      <ol className="journey-flow" aria-label="Circuito de continuidad postalta">
         {[
-          "Paciente sintético",
+          "Alta",
+          "Plan de Seguridad",
           "Check-in",
-          "Regla determinista",
           "Aviso explicable",
           "Revisión humana",
-          "Tarea humana",
+          "Tarea",
           "Seguimiento",
         ].map((step, index) => (
-          <span key={step}>
+          <li key={step}>
+            <span>{index + 1}</span>
             {step}
-            {index < 6 && <span aria-hidden="true"> → </span>}
-          </span>
+          </li>
         ))}
-      </nav>
+      </ol>
 
-      <div className="grid">
+      <section className="landing-access" aria-labelledby="access-title">
         <DemoLoginPanel enabled={demoEnabled} />
-        <section className="panel" aria-labelledby="limits-title">
-          <p className="eyebrow">Límites activos</p>
-          <h2 id="limits-title">Qué garantiza esta base</h2>
-          <ul>
-            <li>Denegación por defecto y permisos evaluados en servidor.</li>
-            <li>Sesiones revocables sin tokens en localStorage.</li>
-            <li>Auditoría append-only y errores técnicos sanitizados.</li>
-            <li>Datos de desarrollo inequívocamente sintéticos.</li>
-          </ul>
-        </section>
-      </div>
-
-      <LegalStatePanel enabled={demoEnabled} />
-
-      <CaregiverAccessPanel enabled={demoEnabled} />
-
-      <DischargeEpisodePanel enabled={demoEnabled} />
-
-      <PatientSafetyPlanPanel enabled={demoEnabled} />
-
-      <CrisisResourcePanel />
-
-      <CheckInProtocolAdminPanel enabled={demoEnabled} />
-
-      <PatientCheckInPanel enabled={demoEnabled} />
-
-      <ExplainableAlertsPanel enabled={demoEnabled} />
-
-      <NursingWorkQueuePanel enabled={demoEnabled} />
-
-      <footer>
-        No diagnostica, no prescribe, no predice riesgo y no sustituye el juicio profesional.
-      </footer>
+        <div className="role-guide">
+          <p className="eyebrow">Seis experiencias diferenciadas</p>
+          <h2 id="access-title">Cada rol ve solo lo que necesita</h2>
+          <dl>
+            {roles.map((role) => (
+              <div key={role}>
+                <dt>{roleLabels[role]}</dt>
+                <dd>
+                  {role === "nurse" && "Revisión, episodios y seguimiento."}
+                  {role === "clinician" && "Supervisión clínica y avisos explicables."}
+                  {role === "patient" && "Plan, check-ins y personas autorizadas."}
+                  {role === "caregiver" && "Contenido expresamente compartido."}
+                  {role === "admin" && "Configuración demo y protocolos."}
+                  {role === "support" && "Estado técnico sanitizado."}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
     </main>
   );
 }

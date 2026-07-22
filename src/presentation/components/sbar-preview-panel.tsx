@@ -44,7 +44,7 @@ export function SbarPreviewPanel({
   }
   return (
     <section className="nested-panel sbar-print-area" aria-labelledby={`sbar-${episodeId}`}>
-      <p className="eyebrow">REQ-11 · composición determinista</p>
+      <p className="eyebrow">Preview determinista no firmado</p>
       <h3 id={`sbar-${episodeId}`}>Vista previa SBAR minimizada</h3>
       <p>
         Solo reutiliza campos estructurados ya registrados. No usa LLM, no inventa valoración o
