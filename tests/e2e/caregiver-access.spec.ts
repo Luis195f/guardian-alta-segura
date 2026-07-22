@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { PrismaClient } from "@prisma/client";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +13,20 @@ test.afterAll(async () => {
 
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+async function startDemo(page: Page, alias: string) {
+  const switcher = page.getByRole("button", { name: "Cambiar usuario demo" });
+  if (await switcher.isVisible().catch(() => false)) await switcher.click();
+  else await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption(alias);
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  const destination: Readonly<Record<string, RegExp>> = {
+    "demo-patient": /\/my-follow-up$/,
+    "demo-caregiver": /\/caregiver$/,
+    "demo-support": /\/support$/,
+  };
+  await expect(page).toHaveURL(destination[alias]!);
 }
 
 async function createCaregiverFixture() {
@@ -109,28 +123,13 @@ test("muestra los límites del portal e impide que support acepte una invitació
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     },
   });
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Cuidador: autorización limitada y revocable" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/nunca incluye por defecto diagnósticos, notas clínicas/i),
-  ).toBeVisible();
-
-  await page.getByLabel("Usuario sintético").selectOption("demo-support");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
-  await page.getByLabel("Token de invitación local").fill(validToken);
-  const denial = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/demo/caregiver/invitations/accept") &&
-      response.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "Aceptar como cuidador autenticado" }).click();
-  expect((await denial).status()).toBe(403);
-  await expect(
-    page.getByText(/Invitación inválida, vencida, ya utilizada o no vinculada/),
-  ).toBeVisible();
+  await startDemo(page, "demo-support");
+  await expect(page.getByLabel("Token de invitación local")).toHaveCount(0);
+  const denial = await page.request.post("/api/demo/caregiver/invitations/accept", {
+    headers: { Origin: "http://127.0.0.1:3000" },
+    data: { token: validToken },
+  });
+  expect(denial.status()).toBe(403);
   await expect(
     prisma.caregiverInvitation.findUniqueOrThrow({ where: { id: invitation.id } }),
   ).resolves.toMatchObject({ consumedAt: null });
@@ -171,10 +170,7 @@ test("logout invalida la sesión persistida y el token capturado no se puede reu
     },
   });
 
-  await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-caregiver");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
+  await startDemo(page, "demo-caregiver");
   await page.getByLabel("Token de invitación local").fill(validToken);
   await page.getByRole("button", { name: "Aceptar como cuidador autenticado" }).click();
   await expect(page.getByText(/Portal limitado actualizado/)).toBeVisible();
@@ -208,20 +204,16 @@ test("acepta acceso limitado y la revocación corta la sesión sin borrar observ
 }) => {
   const { episode, authorization } = await createCaregiverFixture();
 
-  await page.goto("/");
-  await page.getByLabel("Usuario sintético").selectOption("demo-patient");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
-  await page.getByRole("button", { name: "Cargar autorizaciones y episodios" }).click();
+  await startDemo(page, "demo-patient");
+  await page.goto("/authorized-people");
+  await page.getByRole("button", { name: "Consultar autorizaciones" }).click();
   await page.getByLabel("Autorización explícita").selectOption(authorization.id);
   await page.getByLabel("Episodio", { exact: true }).selectOption(episode.id);
   await page.getByRole("button", { name: "Crear invitación local" }).click();
   const token = await page.locator(".local-invitation code").textContent();
   expect(token).toMatch(/^[A-Za-z0-9_-]{40,64}$/u);
 
-  await page.getByLabel("Usuario sintético").selectOption("demo-caregiver");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
+  await startDemo(page, "demo-caregiver");
   await page.getByLabel("Token de invitación local").fill(token!);
   await page.getByRole("button", { name: "Aceptar como cuidador autenticado" }).click();
   await expect(page.getByText(/Portal limitado actualizado/)).toBeVisible();
@@ -231,15 +223,14 @@ test("acepta acceso limitado y la revocación corta la sesión sin borrar observ
   await page.getByRole("button", { name: "Enviar observación" }).click();
   await expect(page.getByText(/no se ha creado una alerta/i)).toBeVisible();
 
-  await page.getByLabel("Usuario sintético").selectOption("demo-patient");
-  await page.getByRole("button", { name: "Iniciar sesión sintética" }).click();
-  await expect(page.getByText(/Sesión demo sintética iniciada/)).toBeVisible();
-  await page.getByRole("button", { name: "Cargar autorizaciones y episodios" }).click();
+  await startDemo(page, "demo-patient");
+  await page.goto("/authorized-people");
+  await page.getByRole("button", { name: "Consultar autorizaciones" }).click();
   await page.getByLabel("Autorización explícita").selectOption(authorization.id);
   await page.getByRole("button", { name: "Revocar acceso y sesiones" }).click();
   await expect(page.getByText(/todas las sesiones activas han quedado invalidadas/i)).toBeVisible();
-  await page.getByRole("button", { name: "Abrir portal limitado" }).click();
-  await expect(page.getByText(/autorización fue revocada/i)).toBeVisible();
+  const revokedPortal = await page.request.get("/api/demo/caregiver/portal");
+  expect(revokedPortal.status()).toBe(401);
 
   await expect(
     prisma.caregiverObservation.count({

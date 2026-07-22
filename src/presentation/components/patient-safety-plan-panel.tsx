@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface PatientPlan {
   readonly episodeId: string;
@@ -45,6 +45,29 @@ export function PatientSafetyPlanPanel({ enabled }: { readonly enabled: boolean 
     }
   }
 
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    fetch("/api/demo/safety-plans", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        return (await response.json()) as { readonly plans: readonly PatientPlan[] };
+      })
+      .then((payload) => {
+        if (!active) return;
+        setPlans(payload.plans);
+        setMessage(
+          payload.plans.length === 0
+            ? "No hay episodios vinculados a esta identidad paciente."
+            : "Plan activo e historial permitido cargados.",
+        );
+      })
+      .catch(() => active && setMessage("No se pudo consultar el plan propio."));
+    return () => {
+      active = false;
+    };
+  }, [enabled]);
+
   return (
     <section className="panel patient-plan-panel" aria-labelledby="patient-plan-title">
       <p className="eyebrow">Vista paciente</p>
@@ -58,7 +81,7 @@ export function PatientSafetyPlanPanel({ enabled }: { readonly enabled: boolean 
         aprobado mientras el protocolo local siga pendiente.
       </p>
       <button type="button" onClick={load} disabled={!enabled || pending}>
-        Cargar mi plan
+        Actualizar mi plan
       </button>
       {plans.map(({ episodeId, view }) => (
         <section key={episodeId} className="patient-plan-history">

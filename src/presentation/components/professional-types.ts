@@ -1,0 +1,84 @@
+export type Professional = { readonly id: string; readonly syntheticAlias: string };
+
+export interface ProfessionalQueueTask {
+  readonly id: string;
+  readonly alertId: string | null;
+  readonly summary: string;
+  readonly state: "open" | "resolved";
+  readonly assignedTo: Professional | null;
+  readonly createdAt: string;
+}
+
+export interface ProfessionalQueueEntry {
+  readonly episode: {
+    readonly id: string;
+    readonly status: "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED";
+    readonly dischargeDate: string;
+    readonly patientPseudonymousId: string;
+    readonly responsibleNurse: Professional;
+    readonly responsibleClinician: Professional;
+  };
+  readonly pendingElementCount: number;
+  readonly lastRelevantCheckIn: {
+    readonly id: string;
+    readonly scheduledFor: string;
+    readonly outcome: { readonly type: string; readonly recordedAt: string } | null;
+  } | null;
+  readonly openAlerts: readonly {
+    readonly id: string;
+    readonly state: "open" | "reviewed" | "actioned";
+    readonly ruleName: string;
+    readonly ruleVersionId: string;
+    readonly ruleVersionNumber: number;
+    readonly explanation: string;
+    readonly origins: readonly {
+      readonly source?: {
+        readonly resourceType?: string;
+        readonly resourceId?: string;
+        readonly field?: string;
+      };
+    }[];
+    readonly triggeredAt: string;
+    readonly reviewedByHuman: boolean;
+  }[];
+  readonly tasks: readonly ProfessionalQueueTask[];
+}
+
+export interface ProfessionalQueueResponse {
+  readonly entries: readonly ProfessionalQueueEntry[];
+  readonly metrics: {
+    readonly episodeCount: number;
+    readonly pendingElementCount: number;
+    readonly openTaskCount: number;
+    readonly resolvedTaskCount: number;
+    readonly oldestOpenTaskAgeHours: number | null;
+  };
+}
+
+export interface EpisodeDetail {
+  readonly id: string;
+  readonly dischargeDate: string;
+  readonly programLengthDays: number;
+  readonly status: "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED";
+  readonly version: number;
+  readonly checkInProtocolVersionId: string;
+  readonly patient: { readonly externalPseudonymousId: string };
+  readonly responsibleNurse: { readonly syntheticAlias: string };
+  readonly responsibleClinician: { readonly syntheticAlias: string };
+  readonly transitions: readonly {
+    readonly id: string;
+    readonly fromStatus: EpisodeDetail["status"] | null;
+    readonly toStatus: EpisodeDetail["status"];
+    readonly reason: string | null;
+    readonly resultingVersion: number;
+    readonly occurredAt: string;
+    readonly actor: { readonly syntheticAlias: string };
+  }[];
+}
+
+export const episodeStatusLabels: Readonly<Record<EpisodeDetail["status"], string>> = {
+  DRAFT: "Borrador",
+  ACTIVE: "Activo",
+  PAUSED: "Pausado",
+  CLOSED: "Cerrado",
+};

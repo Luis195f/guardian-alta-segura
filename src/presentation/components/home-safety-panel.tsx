@@ -115,7 +115,7 @@ export function HomeSafetyPanel({
 
   return (
     <section className="nested-panel" aria-labelledby={`home-safety-${episodeId}`}>
-      <p className="eyebrow">REQ-07 · información estructurada</p>
+      <p className="eyebrow">Información estructurada para revisión humana</p>
       <h3 id={`home-safety-${episodeId}`}>Domicilio Seguro</h3>
       <p className="safety-warning">
         <strong>{HOME_SAFETY_DISCLAIMER}</strong>

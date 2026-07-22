@@ -120,6 +120,29 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
     }
   }
 
+  useEffect(() => {
+    if (!enabled) return;
+    let activeRequest = true;
+    fetch("/api/demo/check-ins", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        return (await response.json()) as { assignments: readonly AssignmentView[] };
+      })
+      .then((payload) => {
+        if (!activeRequest) return;
+        setAssignments(payload.assignments);
+        setMessage(
+          payload.assignments.length === 0
+            ? "No hay check-ins asignados."
+            : "Histórico de check-ins actualizado.",
+        );
+      })
+      .catch(() => activeRequest && setMessage("No se pudieron consultar los check-ins propios."));
+    return () => {
+      activeRequest = false;
+    };
+  }, [enabled]);
+
   function validateRequiredAnswers(questions: readonly QuestionView[]) {
     const errors: Record<string, string> = {};
     for (const question of questions) {

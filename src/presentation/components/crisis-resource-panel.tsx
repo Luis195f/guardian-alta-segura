@@ -3,7 +3,7 @@ import { CRISIS_RESOURCE_STATUS } from "@/domain/crisis/crisis-resource";
 export function CrisisResourcePanel() {
   return (
     <section className="panel crisis-panel" aria-labelledby="crisis-resource-title">
-      <p className="eyebrow">REQ-10 · estado seguro</p>
+      <p className="eyebrow">Pendiente de protocolo local</p>
       <h2 id="crisis-resource-title">Recurso de crisis</h2>
       <p className="safety-warning">
         <strong>{CRISIS_RESOURCE_STATUS.message}</strong>

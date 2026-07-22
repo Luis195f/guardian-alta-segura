@@ -13,7 +13,7 @@
 ```powershell
 git clone https://github.com/Luis195f/guardian-alta-segura.git
 Set-Location guardian-alta-segura
-git switch buildweek/final-submission
+git switch main
 pnpm demo:prepare
 pnpm dev
 ```
@@ -28,17 +28,17 @@ El seed crea identidades `demo-*`, `SYNTH-PATIENT-001` y el episodio `synthetic-
 
 ## Recorrido principal
 
-1. Iniciar sesión como `demo-nurse`; verificar que la UI muestra `rol: nurse`.
-2. En Alta estructurada, pulsar **Cargar episodios asignados** y abrir `SYNTH-PATIENT-001 — Activo`.
-3. Cargar el Plan de Seguridad y mostrar v1/historial; no editar durante el vídeo.
-4. Iniciar sesión como `demo-patient`; en Check-ins pulsar **Cargar mis check-ins** para mostrar el resultado sintético existente.
-5. Volver a `demo-nurse`; en Avisos pulsar **Cargar avisos**. Mostrar explicación, versión, origen y “Pendiente de revisión”.
-6. Pulsar **Registrar revisión humana**. Confirmar que no se creó ninguna tarea automáticamente.
-7. En Cola enfermera, pulsar **Cargar cola**. En el episodio, escribir `Seguimiento sintético tras revisión humana`, seleccionar el aviso revisado y `demo-nurse`, y pulsar **Crear tarea**.
-8. Registrar **Sin respuesta** o **Contacto alcanzado**, añadir `Nota sintética minimizada`, y resolver con `Cierre organizativo sintético por revisión humana`.
-9. Mostrar el timeline de la tarea con actor, timestamp y motivo.
-10. En el episodio, cargar Domicilio Seguro; destacar el disclaimer y crear v2 solo si se desea. Generar el preview SBAR y mostrar “Sin valoración clínica adicional registrada”, referencias y “no firmada”.
-11. Mostrar el recurso de crisis deshabilitado y el mensaje de protocolo local pendiente.
+1. En la landing, explicar el circuito visual Alta → Plan de Seguridad → Check-in → Aviso → Revisión humana → Tarea → Seguimiento.
+2. Seleccionar `demo-nurse` y pulsar **INICIAR DEMO**. Verificar el badge persistente, el rol y el alias sintético.
+3. En el dashboard, mostrar episodios activos, avisos pendientes, tareas abiertas y check-ins; son métricas organizativas, no clínicas.
+4. Abrir `SYNTH-PATIENT-001` y recorrer **Resumen** y **Plan de Seguridad**; mostrar v1/historial sin editar durante el vídeo.
+5. Usar **Cambiar usuario demo**, seleccionar `demo-patient` y abrir **Mis Check-ins** para mostrar el resultado sintético existente. Destacar que no aparecen controles profesionales.
+6. Volver a `demo-nurse`, abrir el episodio y seleccionar **Avisos**. Mostrar estado, fecha, origen, regla/version y explicación.
+7. Pulsar **Revisar**. Confirmar el mensaje “Revisar el aviso no ha creado ninguna actuación automática”.
+8. Abrir **Seguimiento**. Escribir `Seguimiento sintético tras revisión humana`, seleccionar el aviso revisado y `demo-nurse`, y pulsar **Crear tarea**.
+9. Registrar **Sin respuesta** o **Contacto alcanzado**, añadir `Nota sintética minimizada`, y resolver con `Cierre organizativo sintético por revisión humana`.
+10. Mostrar el historial de la tarea con actor, timestamp y motivo.
+11. En las pestañas del episodio, abrir **Domicilio Seguro**; destacar el disclaimer y crear v2 solo si se desea. Abrir **SBAR**, generar el preview y mostrar “Sin valoración clínica adicional registrada”, referencias y “no firmada”.
 
 ## Cuidador (momento opcional)
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 type Professional = { readonly id: string; readonly syntheticAlias: string };
 type QueueTask = {
@@ -206,7 +206,13 @@ function TaskActions({
   );
 }
 
-export function NursingWorkQueuePanel({ enabled }: { readonly enabled: boolean }) {
+export function NursingWorkQueuePanel({
+  enabled,
+  episodeId,
+}: {
+  readonly enabled: boolean;
+  readonly episodeId?: string;
+}) {
   const [queue, setQueue] = useState<QueueResponse | null>(null);
   const [status, setStatus] = useState("");
   const [taskState, setTaskState] = useState("");
@@ -221,6 +227,7 @@ export function NursingWorkQueuePanel({ enabled }: { readonly enabled: boolean }
   const [drafts, setDrafts] = useState<
     Readonly<Record<string, { summary: string; alertId: string; assignedToId: string }>>
   >({});
+  const initiallyLoaded = useRef(false);
 
   const professionals = useMemo(() => {
     const byId = new Map<string, Professional>();
@@ -268,6 +275,17 @@ export function NursingWorkQueuePanel({ enabled }: { readonly enabled: boolean }
       }
     },
     [dateFrom, dateTo, enabled, pendingOnly, responsibleId, status, taskState],
+  );
+
+  useEffect(() => {
+    if (initiallyLoaded.current) return;
+    initiallyLoaded.current = true;
+    void loadQueue();
+  }, [loadQueue]);
+
+  const visibleEntries = useMemo(
+    () => queue?.entries.filter((entry) => !episodeId || entry.episode.id === episodeId) ?? [],
+    [episodeId, queue],
   );
 
   function updateDraft(episodeId: string, field: string, value: string) {
@@ -331,73 +349,78 @@ export function NursingWorkQueuePanel({ enabled }: { readonly enabled: boolean }
 
   return (
     <section className="panel nursing-workqueue" aria-labelledby="nursing-workqueue-title">
-      <p className="badge">SINTÉTICO / NO USO CLÍNICO</p>
       <p className="eyebrow">Organización para seguimiento humano</p>
-      <h2 id="nursing-workqueue-title">Cola de trabajo enfermera</h2>
+      <h2 id="nursing-workqueue-title">Cola de seguimiento</h2>
       <p>
         Revisado no significa resuelto. Crear una tarea no deriva, cierra, recomienda ni ejecuta
         ninguna actuación clínica.
       </p>
-      <form
-        className="workqueue-filters"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void loadQueue();
-        }}
-      >
-        <label>
-          Estado del episodio
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">Todos</option>
-            <option value="DRAFT">Borrador</option>
-            <option value="ACTIVE">Activo</option>
-            <option value="PAUSED">Pausado</option>
-            <option value="CLOSED">Cerrado</option>
-          </select>
-        </label>
-        <label>
-          Estado de tarea
-          <select value={taskState} onChange={(event) => setTaskState(event.target.value)}>
-            <option value="">Cualquiera</option>
-            <option value="open">Abierta</option>
-            <option value="resolved">Resuelta</option>
-          </select>
-        </label>
-        <label>
-          Alta desde
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
-          />
-        </label>
-        <label>
-          Alta hasta
-          <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
-        </label>
-        <label>
-          Profesional responsable
-          <select value={responsibleId} onChange={(event) => setResponsibleId(event.target.value)}>
-            <option value="">Todos los visibles</option>
-            {professionals.map((professional) => (
-              <option key={professional.id} value={professional.id}>
-                {professional.syntheticAlias}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="check-label">
-          <input
-            type="checkbox"
-            checked={pendingOnly}
-            onChange={(event) => setPendingOnly(event.target.checked)}
-          />
-          Solo elementos pendientes
-        </label>
-        <button type="submit" disabled={!enabled || pending}>
-          Cargar cola
-        </button>
-      </form>
+      <details className="filter-panel">
+        <summary>Filtros</summary>
+        <form
+          className="workqueue-filters"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void loadQueue();
+          }}
+        >
+          <label>
+            Estado del episodio
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="">Todos</option>
+              <option value="DRAFT">Borrador</option>
+              <option value="ACTIVE">Activo</option>
+              <option value="PAUSED">Pausado</option>
+              <option value="CLOSED">Cerrado</option>
+            </select>
+          </label>
+          <label>
+            Estado de tarea
+            <select value={taskState} onChange={(event) => setTaskState(event.target.value)}>
+              <option value="">Cualquiera</option>
+              <option value="open">Abierta</option>
+              <option value="resolved">Resuelta</option>
+            </select>
+          </label>
+          <label>
+            Alta desde
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+            />
+          </label>
+          <label>
+            Alta hasta
+            <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+          </label>
+          <label>
+            Profesional responsable
+            <select
+              value={responsibleId}
+              onChange={(event) => setResponsibleId(event.target.value)}
+            >
+              <option value="">Todos los visibles</option>
+              {professionals.map((professional) => (
+                <option key={professional.id} value={professional.id}>
+                  {professional.syntheticAlias}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={pendingOnly}
+              onChange={(event) => setPendingOnly(event.target.checked)}
+            />
+            Solo elementos pendientes
+          </label>
+          <button type="submit" disabled={!enabled || pending}>
+            Cargar cola
+          </button>
+        </form>
+      </details>
 
       {queue && (
         <dl className="queue-metrics" aria-label="Métricas técnicas agregadas de la cola">
@@ -428,9 +451,11 @@ export function NursingWorkQueuePanel({ enabled }: { readonly enabled: boolean }
         </dl>
       )}
 
-      {queue?.entries.length === 0 && <p className="empty-state">Cola vacía para estos filtros.</p>}
+      {queue && visibleEntries.length === 0 && (
+        <p className="empty-state">Cola vacía para estos filtros.</p>
+      )}
       <ol className="queue-list">
-        {queue?.entries.map((entry) => {
+        {visibleEntries.map((entry) => {
           const draft = drafts[entry.episode.id] ?? { summary: "", alertId: "", assignedToId: "" };
           const episodeProfessionals = [
             entry.episode.responsibleNurse,
