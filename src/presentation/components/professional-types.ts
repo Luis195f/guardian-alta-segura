@@ -1,3 +1,5 @@
+import type { AlertProvenanceReadResult } from "@/domain/provenance/signal-provenance";
+
 export type Professional = { readonly id: string; readonly syntheticAlias: string };
 
 export interface ProfessionalQueueTask {
@@ -31,13 +33,7 @@ export interface ProfessionalQueueEntry {
     readonly ruleVersionId: string;
     readonly ruleVersionNumber: number;
     readonly explanation: string;
-    readonly origins: readonly {
-      readonly source?: {
-        readonly resourceType?: string;
-        readonly resourceId?: string;
-        readonly field?: string;
-      };
-    }[];
+    readonly provenance: AlertProvenanceReadResult;
     readonly triggeredAt: string;
     readonly reviewedByHuman: boolean;
   }[];

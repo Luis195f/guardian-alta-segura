@@ -142,7 +142,7 @@ async function setup() {
   const terminalAssignment = await prisma.checkInAssignment.findUniqueOrThrow({
     where: { episodeId_sequence: { episodeId: activeEpisode.id, sequence: 1 } },
   });
-  await prisma.$transaction(async (transaction) => {
+  const nonResponseSource = await prisma.$transaction(async (transaction) => {
     const outcome = await transaction.checkInOutcome.create({
       data: {
         assignmentId: terminalAssignment.id,
@@ -154,7 +154,7 @@ async function setup() {
         recordedAt: new Date("2026-07-19T09:00:00.000Z"),
       },
     });
-    await transaction.nonResponseEvent.create({
+    return transaction.nonResponseEvent.create({
       data: {
         outcomeId: outcome.id,
         assignmentId: terminalAssignment.id,
@@ -166,7 +166,16 @@ async function setup() {
       },
     });
   });
-  return { admin, nurse, clinician, otherNurse, activeEpisode, pausedEpisode, isolatedEpisode };
+  return {
+    admin,
+    nurse,
+    clinician,
+    otherNurse,
+    activeEpisode,
+    pausedEpisode,
+    isolatedEpisode,
+    nonResponseSource,
+  };
 }
 
 async function createAlert(users: Awaited<ReturnType<typeof setup>>) {
@@ -201,8 +210,9 @@ async function createAlert(users: Awaited<ReturnType<typeof setup>>) {
         observedAt: "2026-07-20T08:00:00.000Z",
         source: {
           resourceType: "NonResponseEvent",
-          resourceId: `synthetic-queue-source-${randomUUID()}`,
+          resourceId: users.nonResponseSource.id,
           field: "elapsedHours",
+          episodeId: users.activeEpisode.id,
         },
       },
     ],

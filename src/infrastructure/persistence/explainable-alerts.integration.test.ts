@@ -8,6 +8,7 @@ import {
   CreateRuleVersionService,
   EvaluateRuleService,
   ExplainableAlertConflictError,
+  ExplainableAlertInvalidError,
   ReviewAlertService,
 } from "@/application/alerts/manage-explainable-alerts";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
@@ -68,6 +69,55 @@ async function setupEpisode() {
   return { admin, nurse, clinician, episode };
 }
 
+async function createNonResponseSource(input: Awaited<ReturnType<typeof setupEpisode>>) {
+  return prisma.$transaction(async (transaction) => {
+    const protocolVersionId = input.episode.checkInProtocolVersionId;
+    const batch = await transaction.checkInAssignmentBatch.create({
+      data: {
+        episodeId: input.episode.id,
+        checkInProtocolVersionId: protocolVersionId,
+        createdById: input.nurse.id,
+        idempotencyKey: `source-batch:${randomUUID()}`,
+        requestFingerprint: "a".repeat(64),
+      },
+    });
+    const assignment = await transaction.checkInAssignment.create({
+      data: {
+        batchId: batch.id,
+        episodeId: input.episode.id,
+        checkInProtocolVersionId: protocolVersionId,
+        sequence: 1,
+        scheduledFor: new Date("2026-07-17T07:00:00.000Z"),
+        windowStartsAt: new Date("2026-07-17T07:00:00.000Z"),
+        windowEndsAt: new Date("2026-07-17T08:00:00.000Z"),
+        createdById: input.nurse.id,
+      },
+    });
+    const outcome = await transaction.checkInOutcome.create({
+      data: {
+        assignmentId: assignment.id,
+        checkInProtocolVersionId: protocolVersionId,
+        type: "EXPIRED",
+        recordedById: input.nurse.id,
+        idempotencyKey: `source-outcome:${randomUUID()}`,
+        requestFingerprint: "b".repeat(64),
+        recordedAt: new Date("2026-07-17T08:00:00.000Z"),
+      },
+    });
+    return transaction.nonResponseEvent.create({
+      data: {
+        outcomeId: outcome.id,
+        assignmentId: assignment.id,
+        checkInProtocolVersionId: protocolVersionId,
+        outcomeType: "EXPIRED",
+        reason: "WINDOW_EXPIRED",
+        recordedById: input.nurse.id,
+        recordedAt: new Date("2026-07-17T08:00:00.000Z"),
+      },
+    });
+  });
+}
+
 describe.sequential("PostgreSQL explainable alert guarantees", () => {
   it("conserva versión, aprobación, evaluación y revisión como historia auditable", async () => {
     const fixture = SYNTHETIC_RULE_FIXTURES[2]!;
@@ -93,6 +143,7 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
       correlationId,
     });
     const evaluationService = new EvaluateRuleService(unitOfWork);
+    const nonResponseSource = await createNonResponseSource(users);
     const idempotencyKey = `alert-evaluation:${randomUUID()}`;
     const evaluationInput = {
       actor: actor(users.nurse.id, "nurse"),
@@ -105,8 +156,9 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
           observedAt: "2026-07-17T08:00:00.000Z",
           source: {
             resourceType: "NonResponseEvent",
-            resourceId: "synthetic-integration-source",
+            resourceId: nonResponseSource.id,
             field: "elapsedHours",
+            episodeId: users.episode.id,
           },
         },
       ],
@@ -119,6 +171,51 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
     });
     expect(evaluated).toMatchObject({ outcome: "matched", idempotent: false });
     expect(evaluated.alertId).not.toBeNull();
+    const storedAlert = await prisma.alert.findUniqueOrThrow({
+      where: { id: evaluated.alertId! },
+      select: { inputReferences: true },
+    });
+    expect(storedAlert.inputReferences).toEqual([
+      expect.objectContaining({
+        schemaVersion: 1,
+        episodeId: users.episode.id,
+        subject: expect.objectContaining({ kind: "ALERT" }),
+        parents: expect.arrayContaining([
+          expect.objectContaining({ kind: "RULE_EVALUATION" }),
+          expect.objectContaining({
+            kind: "CHECK_IN_NON_RESPONSE",
+            terminalOutcome: "EXPIRED",
+            protocolVersion: expect.objectContaining({
+              resourceId: users.episode.checkInProtocolVersionId,
+              versionNumber: 1,
+            }),
+          }),
+        ]),
+      }),
+    ]);
+    expect(JSON.stringify(storedAlert.inputReferences)).not.toContain('"value":49');
+    expect(JSON.stringify(storedAlert.inputReferences)).not.toContain("explanation");
+    const persistedLineage = JSON.parse(JSON.stringify(storedAlert.inputReferences)) as [
+      {
+        parents: Array<{
+          kind: string;
+          timestamps?: Record<string, string>;
+          ruleInputContext?: Record<string, string>;
+        }>;
+      },
+    ];
+    const persistedSource = persistedLineage[0].parents.find(
+      ({ kind }) => kind === "CHECK_IN_NON_RESPONSE",
+    );
+    expect(persistedSource?.timestamps).toEqual({
+      recordedAt: "2026-07-17T08:00:00.000Z",
+    });
+    expect(persistedSource?.ruleInputContext).toEqual({
+      inputKey: "non_response_hours",
+      sourceField: "elapsedHours",
+      observedAt: "2026-07-17T08:00:00.000Z",
+      verificationStatus: "DECLARED_NOT_SOURCE_VERIFIED",
+    });
     const retry = await evaluationService.execute({
       ...evaluationInput,
       evaluatedAt: new Date("2026-07-17T12:05:00.000Z"),
@@ -165,7 +262,7 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
       ruleVersionId: created.ruleVersionId,
       ruleVersionNumber: 1,
       currentState: "REVIEWED",
-      explanation: expect.stringContaining("synthetic-integration-source"),
+      explanation: expect.stringContaining(nonResponseSource.id),
     });
     expect(reviews).toHaveLength(1);
     expect(audits.map(({ action }) => action)).toEqual(
@@ -191,21 +288,34 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
         },
       }),
     ).resolves.toBe(2);
+    const unknownSourceKey = `alert-evaluation-unknown-source:${randomUUID()}`;
+    await expect(
+      evaluationService.execute({
+        ...evaluationInput,
+        idempotencyKey: unknownSourceKey,
+        correlationId: randomUUID(),
+        inputs: [
+          {
+            ...evaluationInput.inputs[0],
+            source: {
+              ...evaluationInput.inputs[0].source,
+              resourceId: randomUUID(),
+            },
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ExplainableAlertInvalidError);
+    await expect(
+      prisma.ruleEvaluation.count({
+        where: { evaluatedById: users.nurse.id, idempotencyKey: unknownSourceKey },
+      }),
+    ).resolves.toBe(0);
     const concurrentKey = `alert-evaluation-concurrent:${randomUUID()}`;
     const concurrentCorrelationId = randomUUID();
     const concurrentInput = {
       ...evaluationInput,
       idempotencyKey: concurrentKey,
       correlationId: concurrentCorrelationId,
-      inputs: [
-        {
-          ...evaluationInput.inputs[0],
-          source: {
-            ...evaluationInput.inputs[0].source,
-            resourceId: "synthetic-concurrent-source",
-          },
-        },
-      ],
       evaluatedAt: new Date("2026-07-17T13:00:00.000Z"),
     } as const;
     const concurrentResults = await Promise.all([

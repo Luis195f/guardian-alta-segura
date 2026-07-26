@@ -15,7 +15,7 @@ separado.
 | Límite | Capacidad | Decisión | Responsabilidad de Guardián |
 |---|---|---|---|
 | `CORE GUARDIAN` | Episode governance | Mantener como IP/core | Componer estado, responsables, versión de protocolo, autorizaciones, pendientes y blockers sobre `DischargeEpisode` y eventos existentes |
-| `CORE GUARDIAN` | Signal provenance | Mantener como IP/core | Definir envelope canónico, identidad de fuente, tiempo, versión de esquema, referencias y hash sin perder el payload de origen |
+| `CORE GUARDIAN` | Signal provenance | Mantener como IP/core | Implementado como `CanonicalProvenanceLineageV1`: identidad de fuente, tiempo, versión de esquema, referencias, derivación y hash por referencia, sin copiar el payload de origen |
 | `CORE GUARDIAN` | Human authorization | Mantener como IP/core | Exigir actor autorizado, decisión explícita, motivo cuando aplique y evidencia antes de cualquier acción posterior |
 | `CORE GUARDIAN` | Accountability | Mantener como IP/core | Resolver quién debe revisar/actuar, cómo se asigna, transfiere y deja evidencia |
 | `CORE GUARDIAN` | SLA y escalado | Mantener como IP/core tras DEC-017 | Evaluar configuración versionada y explicable; nunca inferir prioridad clínica |
@@ -45,7 +45,7 @@ separado.
 | Concepto propuesto | Riesgo | Fuente de verdad o workflow existente | Recomendación |
 |---|---|---|---|
 | `EpisodeContract` | Alto | `DischargeEpisode`, `EpisodeTransition`, `EpisodeGovernancePolicy/View`, responsables, protocolo, avisos y tareas | No crear tabla ni agregado paralelo. Reutilizar la política/vista de gobernanza compuesta ya implementada. |
-| `SignalRecord` | Alto si se usa como copia universal | `RuleEvaluation`, `Alert.inputReferences`, check-ins, procedencia de Plan/Domicilio y observaciones | Definir primero un envelope/value object. Persistir solo mensajes externos cuando exista contrato y necesidad de reintento/linaje. |
+| `SignalRecord` | Alto si se usa como copia universal | `CanonicalProvenanceLineageV1`, `RuleEvaluation`, `Alert.inputReferences`, check-ins, procedencia de Plan/Domicilio y observaciones | No crear: el value object v1 ya resuelve el linaje interno. Persistir mensajes externos solo cuando exista contrato y necesidad de reintento/linaje. |
 | `ReviewGate` | Alto | `AlertReview`, `ReviewAlertService`, guard de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | Extraer una política reutilizable sin duplicar revisión ni estado. |
 | `TaskCase` | Muy alto | `Task`, `TaskEvent` y `NursingWorkQueue` | Extender el lifecycle actual. No crear otra cola o tabla de casos. |
 | `AccountabilityGraph` | Alto | Responsables del episodio, `reviewOwner`, asignado/creador/resolutor y actores de eventos | Empezar con una proyección relacional. Graph DB solo con consultas y escala demostradas. |

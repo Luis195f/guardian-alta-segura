@@ -9,6 +9,7 @@ import {
   EvaluateRuleService,
   ExplainableAlertConflictError,
   ExplainableAlertDeniedError,
+  ExplainableAlertInvalidError,
   ReviewAlertService,
 } from "@/application/alerts/manage-explainable-alerts";
 import type {
@@ -19,6 +20,11 @@ import type {
 } from "@/application/ports/explainable-alerts-unit-of-work";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { SYNTHETIC_RULE_FIXTURES } from "@/domain/alerts/synthetic-rule-fixtures";
+import {
+  attachRuleObservationToVerifiedSource,
+  mapCheckInNonResponseProvenance,
+  mapRuleInputSourceClaim,
+} from "@/domain/provenance/signal-provenance";
 
 function principal(userId: string, roles: AuthenticatedPrincipal["roles"]): AuthenticatedPrincipal {
   return { userId, roles, sessionId: randomUUID() };
@@ -83,6 +89,28 @@ function transaction(
       responsibleNurseId: "nurse-1",
       responsibleClinicianId: "clinician-1",
     }),
+    resolveSourceProvenance: async (inputs, episodeId) =>
+      inputs.map((input) => {
+        const claim = mapRuleInputSourceClaim(input, episodeId);
+        if (claim.kind !== "CHECK_IN_NON_RESPONSE") {
+          throw new Error("Unsupported synthetic source in unit test");
+        }
+        return attachRuleObservationToVerifiedSource(
+          input,
+          episodeId,
+          mapCheckInNonResponseProvenance({
+            nonResponseEventId: claim.resource.resourceId,
+            assignmentId: "assignment-1",
+            outcomeId: "outcome-1",
+            episodeId,
+            protocolVersionId: "protocol-version-1",
+            protocolVersionNumber: 1,
+            outcomeType: "EXPIRED",
+            recordedById: "nurse-1",
+            recordedAt: new Date("2026-07-17T08:00:00.000Z"),
+          }),
+        );
+      }),
     findEvaluationByIdempotency: async () => null,
     recordEvaluation: async (input) => ({
       evaluationId: "evaluation-1",
@@ -217,6 +245,7 @@ describe("explainable alert application services", () => {
             resourceType: "NonResponseEvent",
             resourceId: "synthetic-non-response-1",
             field: "elapsedHours",
+            episodeId: "episode-1",
           },
         },
       ],
@@ -274,6 +303,7 @@ describe("explainable alert application services", () => {
             resourceType: "NonResponseEvent",
             resourceId: "synthetic-idempotent-source",
             field: "elapsedHours",
+            episodeId: "episode-1",
           },
         },
       ],
@@ -302,6 +332,36 @@ describe("explainable alert application services", () => {
         inputs: [{ ...request.inputs[0], value: 47 }],
       }),
     ).rejects.toBeInstanceOf(ExplainableAlertConflictError);
+  });
+
+  it("rechaza procedencia desconocida antes de persistir evaluación o aviso", async () => {
+    const recordEvaluation = vi.fn(transaction().recordEvaluation);
+    await expect(
+      new EvaluateRuleService(
+        unitOfWork(transaction({ getVersion: async () => activeVersion, recordEvaluation })),
+      ).execute({
+        actor: principal("nurse-1", ["nurse"]),
+        ruleVersionId: activeVersion.id,
+        episodeId: "episode-1",
+        inputs: [
+          {
+            inputKey: "non_response_hours",
+            value: 48,
+            observedAt: "2026-07-17T08:00:00.000Z",
+            source: {
+              resourceType: "UnknownSource",
+              resourceId: "unknown-source-1",
+              field: "elapsedHours",
+              episodeId: "episode-1",
+            },
+          },
+        ],
+        idempotencyKey: "alert:unknown-source",
+        correlationId: randomUUID(),
+        evaluatedAt: new Date("2026-07-17T12:00:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(ExplainableAlertInvalidError);
+    expect(recordEvaluation).not.toHaveBeenCalled();
   });
 
   it("solo la revisión humana explícita cambia el estado del aviso", async () => {

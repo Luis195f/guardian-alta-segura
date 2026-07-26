@@ -16,6 +16,7 @@ import {
 } from "@/domain/alerts/explainable-rule";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
+import { ProvenanceValidationError } from "@/domain/provenance/signal-provenance";
 
 export class ExplainableAlertDeniedError extends Error {}
 export class ExplainableAlertInvalidError extends Error {}
@@ -52,6 +53,17 @@ function fingerprintEvaluationRequest(input: {
       ),
     )
     .digest("hex");
+}
+
+function ruleInputReferenceIdentity(input: ReferencedRuleInput): string {
+  return [
+    input.inputKey,
+    input.observedAt,
+    input.source.resourceType,
+    input.source.resourceId,
+    input.source.field,
+    input.source.episodeId,
+  ].join("\u001f");
 }
 
 function validateIdempotencyKey(value: string): string {
@@ -385,6 +397,7 @@ export class EvaluateRuleService {
           definitionId: version.definitionId,
           ruleVersionId: version.id,
           ruleVersionNumber: version.versionNumber,
+          episodeId: episode.id,
           dsl: version.dsl,
           evaluatedAt,
           inputs: input.inputs,
@@ -392,6 +405,27 @@ export class EvaluateRuleService {
       } catch (error) {
         if (error instanceof ExplainableRuleValidationError) {
           throw new ExplainableAlertInvalidError(error.message);
+        }
+        throw error;
+      }
+      let sourceReferences;
+      try {
+        const resolvedSources = await transaction.resolveSourceProvenance(
+          result.normalizedInputs,
+          episode.id,
+        );
+        if (resolvedSources.length !== result.normalizedInputs.length) {
+          throw new ProvenanceValidationError("INVALID_REFERENCE");
+        }
+        const referencedIdentities = new Set(
+          result.referencedInputs.map(ruleInputReferenceIdentity),
+        );
+        sourceReferences = resolvedSources.filter((_, index) =>
+          referencedIdentities.has(ruleInputReferenceIdentity(result.normalizedInputs[index]!)),
+        );
+      } catch (error) {
+        if (error instanceof ProvenanceValidationError) {
+          throw new ExplainableAlertInvalidError("Input provenance is invalid or unsupported");
         }
         throw error;
       }
@@ -411,7 +445,7 @@ export class EvaluateRuleService {
         alert:
           result.outcome === "matched" && result.explanation
             ? {
-                inputReferences: result.referencedInputs,
+                sourceReferences,
                 explanation: result.explanation,
                 administrativeSeverity: version.dsl.administrativeSeverity,
                 reviewOwner: version.dsl.reviewOwner,

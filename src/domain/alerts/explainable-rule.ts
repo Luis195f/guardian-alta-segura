@@ -55,6 +55,7 @@ export interface ReferencedRuleInput {
     readonly resourceType: string;
     readonly resourceId: string;
     readonly field: string;
+    readonly episodeId: string;
   };
 }
 
@@ -62,6 +63,7 @@ export interface RuleEvaluationRequest {
   readonly definitionId: string;
   readonly ruleVersionId: string;
   readonly ruleVersionNumber: number;
+  readonly episodeId: string;
   readonly dsl: ExplainableRuleDsl;
   readonly evaluatedAt: Date;
   readonly inputs: readonly ReferencedRuleInput[];
@@ -344,6 +346,7 @@ function normalizeInputs(
   inputs: readonly ReferencedRuleInput[],
   dsl: ExplainableRuleDsl,
   evaluatedAt: Date,
+  episodeId: string,
 ): readonly ReferencedRuleInput[] {
   if (inputs.length > 500) {
     throw new ExplainableRuleValidationError("An evaluation permits at most 500 input references");
@@ -369,11 +372,16 @@ function normalizeInputs(
         typeof input.source.resourceId !== "string" ||
         !SAFE_RESOURCE_ID.test(input.source.resourceId) ||
         typeof input.source.field !== "string" ||
-        !SAFE_SOURCE_FIELD.test(input.source.field)
+        !SAFE_SOURCE_FIELD.test(input.source.field) ||
+        typeof input.source.episodeId !== "string" ||
+        !SAFE_RESOURCE_ID.test(input.source.episodeId)
       ) {
         throw new ExplainableRuleValidationError(
           `Input ${input.inputKey} has an invalid source reference`,
         );
+      }
+      if (input.source.episodeId !== episodeId) {
+        throw new ExplainableRuleValidationError("Input source belongs to another episode");
       }
       return {
         inputKey: input.inputKey,
@@ -383,6 +391,7 @@ function normalizeInputs(
           resourceType: input.source.resourceType,
           resourceId: input.source.resourceId,
           field: input.source.field,
+          episodeId: input.source.episodeId,
         },
       };
     })
@@ -392,7 +401,8 @@ function normalizeInputs(
         left.observedAt.localeCompare(right.observedAt) ||
         left.source.resourceType.localeCompare(right.source.resourceType) ||
         left.source.resourceId.localeCompare(right.source.resourceId) ||
-        left.source.field.localeCompare(right.source.field),
+        left.source.field.localeCompare(right.source.field) ||
+        left.source.episodeId.localeCompare(right.source.episodeId),
     );
   for (let index = 1; index < normalized.length; index += 1) {
     const previous = normalized[index - 1]!;
@@ -402,7 +412,8 @@ function normalizeInputs(
       previous.observedAt === current.observedAt &&
       previous.source.resourceType === current.source.resourceType &&
       previous.source.resourceId === current.source.resourceId &&
-      previous.source.field === current.source.field
+      previous.source.field === current.source.field &&
+      previous.source.episodeId === current.source.episodeId
     ) {
       throw new ExplainableRuleValidationError(
         `Input ${current.inputKey} contains a duplicate source reference`,
@@ -422,7 +433,15 @@ export function evaluateExplainableRule(
   if (Number.isNaN(request.evaluatedAt.valueOf())) {
     throw new ExplainableRuleValidationError("Evaluation timestamp is invalid");
   }
-  const normalizedInputs = normalizeInputs(request.inputs, dsl, request.evaluatedAt);
+  if (!SAFE_RESOURCE_ID.test(request.episodeId)) {
+    throw new ExplainableRuleValidationError("Evaluation episode is invalid");
+  }
+  const normalizedInputs = normalizeInputs(
+    request.inputs,
+    dsl,
+    request.evaluatedAt,
+    request.episodeId,
+  );
   const windowStartsAt = new Date(
     request.evaluatedAt.getTime() - dsl.window.lookbackHours * 60 * 60 * 1000,
   );
@@ -440,6 +459,7 @@ export function evaluateExplainableRule(
           definitionId: request.definitionId,
           ruleVersionId: request.ruleVersionId,
           ruleVersionNumber: request.ruleVersionNumber,
+          episodeId: request.episodeId,
           dsl,
           evaluatedAt: request.evaluatedAt.toISOString(),
           inputs: normalizedInputs,

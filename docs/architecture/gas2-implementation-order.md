@@ -33,24 +33,34 @@ presentar `Episode Contract` como una feature o tabla nueva.
 5. La evidencia usa IDs, estados y correlation ID; no copia contenido sensible.
 6. No cambia el alcance sintético ni habilita automatización clínica.
 
-## Siguiente rama exacta
+## Segunda rama fundacional completada
 
-Tras completar la gobernanza del episodio, la siguiente rama sigue siendo:
+La segunda rama es:
 
 ```text
 feat/gas2-signal-provenance-boundary
 ```
 
-No se encontró evidencia que justifique alterar su orden o ampliar su alcance:
-debe definir envelope/value objects y mapping sobre evidencia actual, sin
-conectores externos ni tabla `SignalRecord` universal.
+Define `CanonicalProvenanceLineageV1`, mappers sobre evidencia actual y linaje
+fuente → `RuleEvaluation` → `Alert`. Reutiliza el array JSON existente con lectura
+histórica compatible; no crea conectores, tabla `SignalRecord`, migración o
+dependencia.
+
+## Siguiente rama exacta
+
+Tras completar gobernanza de episodio y procedencia, la siguiente rama continúa
+siendo:
+
+```text
+refactor/gas2-human-authorization-policy
+```
 
 ## Revisión de la secuencia inicial
 
 | Orden | Rama inicial | Decisión | Rama recomendada / condición |
 |---:|---|---|---|
 | 1 | `feat/gas2-episode-governance` | Modificar | `refactor/gas2-episode-governance-policy`; ya existe el agregado |
-| 2 | `feat/gas2-signal-provenance` | Mantener con alcance menor | `feat/gas2-signal-provenance-boundary`; envelope/value objects y mapping sobre evidencia actual |
+| 2 | `feat/gas2-signal-provenance` | Mantener con alcance menor | `feat/gas2-signal-provenance-boundary`; completada con value objects, mappers y lineage sobre evidencia actual |
 | 3 | `refactor/gas2-human-authorization-policy` | Mantener | Después de provenance; reutilizar `AlertReview` y guards, sin `ReviewGate` persistente |
 | 4 | `feat/gas2-accountability-sla` | Dividir por bloqueo | `feat/gas2-task-accountability`; SLA/escalado solo después de DEC-017 |
 | 5 | `feat/gas2-process-safety` | Mantener condicionado | Proyección determinista tras lifecycle/SLA; sin scoring ni acción autónoma |
@@ -70,9 +80,10 @@ mientras falta la política local.
 
 ### 2. `feat/gas2-signal-provenance-boundary`
 
-Define tipos canónicos y adapters internos para check-in, evaluación, aviso y
-observación. Prueba linaje y abstención. No añade conectores externos ni una tabla
-`SignalRecord` universal.
+Completada. Define tipos canónicos y mappers internos para check-in, observación
+de cuidador, Plan de Seguridad, Domicilio Seguro, evaluación y aviso. Prueba
+linaje, minimización, compatibilidad y fallo cerrado. No añade conectores externos
+ni una tabla `SignalRecord` universal.
 
 ### 3. `refactor/gas2-human-authorization-policy`
 

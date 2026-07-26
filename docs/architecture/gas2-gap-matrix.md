@@ -21,7 +21,7 @@ clínica; exige primero contrato, autoridad y evidencia.
 | ID | Concepto GAS 2.0 | Estado | Acción | Evidencia actual reutilizable | Brecha y límite |
 |---|---|---|---|---|---|
 | A | Episode Contract / episode governance | `EXISTS` | `REUSE` | `DischargeEpisode`, `EpisodeTransition`, versión optimista, responsables, protocolo fijo y `EpisodeGovernancePolicy/View` sobre avisos y tareas actuales | La proyección técnica está implementada sin tabla paralela. DEC-002 pendiente mantiene el cierre `NOT_AUTHORIZED`; avisos y tareas son obligaciones organizativas, no reglas clínicas definitivas. Una futura apertura exige decisión local y diseño de consistencia concurrente explícito. |
-| B | Signal Provenance | `PARTIAL` | `EXTEND` | `RuleEvaluation` con snapshot/hash, `Alert.inputReferences`, protocolo/pregunta de check-in, procedencia de Plan y Domicilio Seguro, sesión de cuidador | No hay envelope canónico, identidad de fuente, esquema de versión ni normalización entre productores. Las referencias llegan manualmente. |
+| B | Signal Provenance | `EXISTS` | `REUSE` | `CanonicalProvenanceLineageV1`, mappers de fuentes internas, `RuleEvaluation` con snapshot/hash y `Alert.inputReferences` compatible | Boundary v1 tipado y fail-closed. Las fuentes internas soportadas se resuelven contra PostgreSQL y se verifica referencia, tipo y pertenencia al episodio; el contexto de observación declarado por la regla queda diferenciado y no implica verificación semántica del valor. Autenticidad, contratos y semántica de fuentes externas siguen aplazados. |
 | C | Human Authorization Gate | `PARTIAL` | `REFACTOR` | `AlertReview`, transiciones append-only, guard de tarea en aplicación y SQL, actores humanos en casos de uso | El gate no es una política transversal. `actioned` no exige referencia de acción y las tareas sin aviso no comparten una decisión estructurada. Mantener siempre actor humano. |
 | D | Accountability / responsibility chain | `PARTIAL` | `EXTEND` | Responsables del episodio, `reviewOwner`, creador/asignado/resolutor de tarea y actores de eventos | Faltan aceptación, equipo/turno, suplencia, escalado, transferencia y evidencia de quién debe actuar ahora. No se justifica un graph database. |
 | E | Task lifecycle + SLA + escalation | `PARTIAL` | `EXTEND` | `Task`, `TaskEvent`, estado open/resolved, revisión, idempotencia, asignación, contacto, nota y resolución | Faltan prioridad operativa aprobada, `dueAt`, SLA versionado, acuse, escalado y vencimiento. DEC-017 es bloqueante. |
@@ -40,6 +40,8 @@ clínica; exige primero contrato, autoridad y evidencia.
 
 - episodio versionado con responsables y timeline;
 - gobernanza compuesta minimizada con blockers técnicos/locales y cierre fail-closed;
+- procedencia canónica como contrato/value objects y lineage sobre fuentes
+  actuales, sin duplicado persistente;
 - reglas deterministas versionadas y procedencia reproducible;
 - revisión humana append-only antes de tareas vinculadas;
 - tareas humanas concurrentes y auditadas;
@@ -50,7 +52,6 @@ clínica; exige primero contrato, autoridad y evidencia.
 
 ### Debe evolucionar
 
-- procedencia canónica como contrato y value objects, no como duplicado inmediato;
 - política reutilizable de autorización humana;
 - responsabilidad y SLA sobre `Task`/`TaskEvent`;
 - observabilidad a partir de correlation ID y eventos existentes;

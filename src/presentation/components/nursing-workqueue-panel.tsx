@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import type { AlertProvenanceReadResult } from "@/domain/provenance/signal-provenance";
+
 type Professional = { readonly id: string; readonly syntheticAlias: string };
 type QueueTask = {
   readonly id: string;
@@ -47,13 +49,7 @@ type QueueEntry = {
     readonly ruleVersionId: string;
     readonly ruleVersionNumber: number;
     readonly explanation: string;
-    readonly origins: readonly {
-      readonly source?: {
-        readonly resourceType?: string;
-        readonly resourceId?: string;
-        readonly field?: string;
-      };
-    }[];
+    readonly provenance: AlertProvenanceReadResult;
     readonly triggeredAt: string;
     readonly reviewedByHuman: boolean;
   }[];
@@ -69,6 +65,21 @@ type QueueResponse = {
     readonly oldestOpenTaskAgeHours: number | null;
   };
 };
+
+function provenanceSummary(provenance: AlertProvenanceReadResult): string {
+  if (provenance.status === "VALID") {
+    return provenance.lineage.parents
+      .filter((reference) => reference.evidenceClass === "SOURCE")
+      .map(({ resource }) => `${resource.resourceType}/${resource.resourceId}`)
+      .join(", ");
+  }
+  if (provenance.status === "LEGACY_UNVERSIONED") {
+    return provenance.references
+      .map(({ resourceType, resourceId, field }) => `${resourceType}/${resourceId}#${field}`)
+      .join(", ");
+  }
+  return "Procedencia no disponible";
+}
 
 function newKey(prefix: string): string {
   return `${prefix}:${crypto.randomUUID()}`;
@@ -493,16 +504,7 @@ export function NursingWorkQueuePanel({
                         {alert.ruleName} · v{alert.ruleVersionNumber} · {alert.state}
                       </strong>
                       <p>{alert.explanation}</p>
-                      <small>
-                        Origen:{" "}
-                        {alert.origins
-                          .map(({ source }) =>
-                            source
-                              ? `${source.resourceType}/${source.resourceId}#${source.field}`
-                              : "referencia estructurada",
-                          )
-                          .join(", ")}
-                      </small>
+                      <small>Origen: {provenanceSummary(alert.provenance)}</small>
                       {alert.state === "open" && (
                         <button
                           type="button"
