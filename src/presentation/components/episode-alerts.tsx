@@ -8,6 +8,22 @@ import type {
 } from "@/presentation/components/professional-types";
 import { EmptyState, ErrorState, LoadingState } from "@/presentation/components/ui-states";
 
+function provenanceLabel(entry: ProfessionalQueueEntry["openAlerts"][number]): string {
+  if (entry.provenance.status === "VALID") {
+    const source = entry.provenance.lineage.parents.find(
+      (reference) => reference.evidenceClass === "SOURCE",
+    );
+    return source ? `${source.kind} · ${source.resource.resourceId}` : "Sin fuente referenciada";
+  }
+  if (entry.provenance.status === "LEGACY_UNVERSIONED") {
+    const source = entry.provenance.references[0];
+    return source
+      ? `${source.resourceType} · ${source.resourceId} (histórico no versionado)`
+      : "Histórico sin referencias";
+  }
+  return "Procedencia no disponible";
+}
+
 export function EpisodeAlerts({
   episodeId,
   onOpenFollowUp,
@@ -94,7 +110,7 @@ export function EpisodeAlerts({
               <dl className="detail-list">
                 <div>
                   <dt>Origen</dt>
-                  <dd>{alert.origins[0]?.source?.resourceType ?? "Registro estructurado"}</dd>
+                  <dd>{provenanceLabel(alert)}</dd>
                 </div>
                 <div>
                   <dt>Regla / versión</dt>

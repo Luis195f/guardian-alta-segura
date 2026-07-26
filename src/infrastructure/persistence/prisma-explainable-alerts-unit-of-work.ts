@@ -19,6 +19,20 @@ import {
 } from "@/domain/alerts/explainable-rule";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
+import {
+  attachRuleObservationToVerifiedSource,
+  createAlertLineage,
+  createRuleEvaluationLineage,
+  mapCaregiverObservationProvenance,
+  mapCheckInNonResponseProvenance,
+  mapCheckInResponseProvenance,
+  mapHomeSafetyReviewVersionProvenance,
+  mapRuleInputSourceClaim,
+  mapSafetyPlanVersionProvenance,
+  ProvenanceValidationError,
+  readAlertProvenance,
+  type SourceEvidenceReference,
+} from "@/domain/provenance/signal-provenance";
 import { prisma } from "@/infrastructure/persistence/prisma";
 
 const versionInclude = {
@@ -261,6 +275,188 @@ class PrismaExplainableAlertsTransaction implements ExplainableAlertsTransaction
       : null;
   }
 
+  async resolveSourceProvenance(
+    inputs: Parameters<ExplainableAlertsTransaction["resolveSourceProvenance"]>[0],
+    episodeId: string,
+  ) {
+    for (const input of inputs) mapRuleInputSourceClaim(input, episodeId);
+    const ids = (resourceType: string) =>
+      inputs
+        .filter((input) => input.source.resourceType === resourceType)
+        .map((input) => input.source.resourceId);
+    const [responses, nonResponses, observations, safetyPlans, homeSafetyReviews] =
+      await Promise.all([
+        this.transaction.checkInResponse.findMany({
+          where: { id: { in: ids("CheckInResponse") } },
+          select: {
+            id: true,
+            outcomeId: true,
+            assignmentId: true,
+            submittedById: true,
+            submittedAt: true,
+            assignment: {
+              select: {
+                episodeId: true,
+                episode: {
+                  select: {
+                    checkInProtocolVersion: {
+                      select: { id: true, versionNumber: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+        this.transaction.nonResponseEvent.findMany({
+          where: { id: { in: ids("NonResponseEvent") } },
+          select: {
+            id: true,
+            outcomeId: true,
+            assignmentId: true,
+            outcomeType: true,
+            recordedById: true,
+            recordedAt: true,
+            assignment: {
+              select: {
+                episodeId: true,
+                episode: {
+                  select: {
+                    checkInProtocolVersion: {
+                      select: { id: true, versionNumber: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+        this.transaction.caregiverObservation.findMany({
+          where: { id: { in: ids("CaregiverObservation") } },
+          select: {
+            id: true,
+            caregiverAuthorizationId: true,
+            caregiverProfileId: true,
+            caregiverSessionId: true,
+            dischargeEpisodeId: true,
+            submittedAt: true,
+            caregiverProfile: { select: { caregiverUserId: true } },
+          },
+        }),
+        this.transaction.safetyPlanVersion.findMany({
+          where: { id: { in: ids("SafetyPlanVersion") } },
+          select: {
+            id: true,
+            versionNumber: true,
+            createdById: true,
+            createdAt: true,
+            safetyPlan: { select: { id: true, dischargeEpisodeId: true } },
+          },
+        }),
+        this.transaction.homeSafetyReviewVersion.findMany({
+          where: { id: { in: ids("HomeSafetyReviewVersion") } },
+          select: {
+            id: true,
+            dischargeEpisodeId: true,
+            versionNumber: true,
+            templateKey: true,
+            templateVersion: true,
+            actorUserId: true,
+            recordedAt: true,
+          },
+        }),
+      ]);
+    const responseById = new Map(responses.map((record) => [record.id, record]));
+    const nonResponseById = new Map(nonResponses.map((record) => [record.id, record]));
+    const observationById = new Map(observations.map((record) => [record.id, record]));
+    const safetyPlanById = new Map(safetyPlans.map((record) => [record.id, record]));
+    const homeSafetyById = new Map(homeSafetyReviews.map((record) => [record.id, record]));
+
+    return inputs.map((input) => {
+      let verified: SourceEvidenceReference;
+      if (input.source.resourceType === "CheckInResponse") {
+        const record = responseById.get(input.source.resourceId);
+        if (!record || record.assignment.episodeId !== episodeId) {
+          throw new ProvenanceValidationError("INVALID_REFERENCE");
+        }
+        verified = mapCheckInResponseProvenance({
+          responseId: record.id,
+          assignmentId: record.assignmentId,
+          outcomeId: record.outcomeId,
+          episodeId: record.assignment.episodeId,
+          protocolVersionId: record.assignment.episode.checkInProtocolVersion.id,
+          protocolVersionNumber: record.assignment.episode.checkInProtocolVersion.versionNumber,
+          submittedById: record.submittedById,
+          submittedAt: record.submittedAt,
+        });
+      } else if (input.source.resourceType === "NonResponseEvent") {
+        const record = nonResponseById.get(input.source.resourceId);
+        if (
+          !record ||
+          record.assignment.episodeId !== episodeId ||
+          !["OMITTED", "EXPIRED"].includes(record.outcomeType)
+        ) {
+          throw new ProvenanceValidationError("INVALID_REFERENCE");
+        }
+        verified = mapCheckInNonResponseProvenance({
+          nonResponseEventId: record.id,
+          assignmentId: record.assignmentId,
+          outcomeId: record.outcomeId,
+          episodeId: record.assignment.episodeId,
+          protocolVersionId: record.assignment.episode.checkInProtocolVersion.id,
+          protocolVersionNumber: record.assignment.episode.checkInProtocolVersion.versionNumber,
+          outcomeType: record.outcomeType as "OMITTED" | "EXPIRED",
+          recordedById: record.recordedById,
+          recordedAt: record.recordedAt,
+        });
+      } else if (input.source.resourceType === "CaregiverObservation") {
+        const record = observationById.get(input.source.resourceId);
+        if (!record || record.dischargeEpisodeId !== episodeId) {
+          throw new ProvenanceValidationError("INVALID_REFERENCE");
+        }
+        verified = mapCaregiverObservationProvenance({
+          observationId: record.id,
+          episodeId: record.dischargeEpisodeId,
+          caregiverUserId: record.caregiverProfile.caregiverUserId,
+          caregiverAuthorizationId: record.caregiverAuthorizationId,
+          caregiverProfileId: record.caregiverProfileId,
+          caregiverSessionId: record.caregiverSessionId,
+          submittedAt: record.submittedAt,
+        });
+      } else if (input.source.resourceType === "SafetyPlanVersion") {
+        const record = safetyPlanById.get(input.source.resourceId);
+        if (!record || record.safetyPlan.dischargeEpisodeId !== episodeId) {
+          throw new ProvenanceValidationError("INVALID_REFERENCE");
+        }
+        verified = mapSafetyPlanVersionProvenance({
+          versionId: record.id,
+          safetyPlanId: record.safetyPlan.id,
+          episodeId: record.safetyPlan.dischargeEpisodeId,
+          versionNumber: record.versionNumber,
+          createdById: record.createdById,
+          createdAt: record.createdAt,
+        });
+      } else if (input.source.resourceType === "HomeSafetyReviewVersion") {
+        const record = homeSafetyById.get(input.source.resourceId);
+        if (!record || record.dischargeEpisodeId !== episodeId) {
+          throw new ProvenanceValidationError("INVALID_REFERENCE");
+        }
+        verified = mapHomeSafetyReviewVersionProvenance({
+          versionId: record.id,
+          episodeId: record.dischargeEpisodeId,
+          versionNumber: record.versionNumber,
+          templateKey: record.templateKey,
+          templateVersion: record.templateVersion,
+          actorUserId: record.actorUserId,
+          recordedAt: record.recordedAt,
+        });
+      } else {
+        throw new ProvenanceValidationError("UNKNOWN_EVIDENCE_KIND");
+      }
+      return attachRuleObservationToVerifiedSource(input, episodeId, verified);
+    });
+  }
+
   async findEvaluationByIdempotency(evaluatedById: string, idempotencyKey: string) {
     const evaluation = await this.transaction.ruleEvaluation.findUnique({
       where: {
@@ -325,14 +521,33 @@ class PrismaExplainableAlertsTransaction implements ExplainableAlertsTransaction
     }
     let alertId: string | null = null;
     if (input.alert) {
+      alertId = randomUUID();
+      const evaluationLineage = createRuleEvaluationLineage({
+        evaluationId,
+        episodeId: input.episodeId,
+        ruleDefinitionId: input.ruleDefinitionId,
+        ruleVersionId: input.ruleVersionId,
+        ruleVersionNumber: input.ruleVersionNumber,
+        evaluatedById: input.evaluatedById,
+        evaluatedAt: input.evaluatedAt,
+        outcome: input.outcome,
+        inputHash: input.inputHash,
+        sources: input.alert.sourceReferences,
+      });
+      const alertLineage = createAlertLineage({
+        alertId,
+        triggeredAt: input.alert.triggeredAt,
+        evaluationLineage,
+      });
       const alert = await this.transaction.alert.create({
         data: {
+          id: alertId,
           ruleDefinitionId: input.ruleDefinitionId,
           ruleVersionId: input.ruleVersionId,
           ruleVersionNumber: input.ruleVersionNumber,
           evaluationId,
           episodeId: input.episodeId,
-          inputReferences: inputJson(input.alert.inputReferences),
+          inputReferences: inputJson([alertLineage]),
           explanation: input.alert.explanation,
           administrativeSeverity: input.alert.administrativeSeverity.toUpperCase() as
             "STANDARD" | "PRIORITY",
@@ -492,7 +707,7 @@ export async function listVisibleAlerts(principal: AuthenticatedPrincipal) {
       ruleName: alert.definition.name,
       ruleVersionId: alert.ruleVersionId,
       ruleVersionNumber: alert.ruleVersionNumber,
-      inputReferences: alert.inputReferences,
+      provenance: readAlertProvenance(alert.inputReferences),
       explanation: alert.explanation,
       administrativeSeverity: alert.administrativeSeverity.toLowerCase(),
       reviewOwner: alert.reviewOwner.toLowerCase(),

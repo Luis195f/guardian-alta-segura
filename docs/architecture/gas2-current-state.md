@@ -4,14 +4,19 @@
 
 Auditoría diferencial iniciada el 25 de julio de 2026 sobre la rama
 `audit/gas2-architecture-delta`, en el commit base `88be7da`, y actualizada tras
-implementar `refactor/gas2-episode-governance-policy`. Las conclusiones se basan en
-el código, esquema, migraciones, pruebas, CI y documentación presentes en el
-repositorio. No acreditan validación clínica, jurídica, institucional, RGPD o MDR.
+implementar `refactor/gas2-episode-governance-policy` y
+`feat/gas2-signal-provenance-boundary`. Las conclusiones se basan en el código,
+esquema, migraciones, pruebas, CI y documentación presentes en el repositorio. No
+acreditan validación clínica, jurídica, institucional, RGPD o MDR.
 
 El refactor añade una proyección y política de gobernanza sin modificar Prisma,
 añadir dependencias ni crear arquitectura paralela. Solo cambia la consulta
 organizativa y el mecanismo fail-closed del cierre; no habilita ninguna mutación
 de cierre ni actuación clínica automática.
+
+El boundary de procedencia añade contratos/mappers v1 y una lectura compatible
+de `Alert.inputReferences`, también sin cambiar Prisma o dependencias. No añade
+otra fuente clínica, conectores, FHIR ni acciones automáticas.
 
 ## Stack real
 
@@ -116,21 +121,36 @@ tareas son obligaciones visibles, no criterios clínicos definitivos.
 
 ### Señales, avisos y procedencia
 
-No hay un `SignalRecord` canónico. Sí existen piezas de procedencia:
+No hay ni se necesita un `SignalRecord` canónico. Existe un boundary de
+procedencia interno `CanonicalProvenanceLineageV1`, compuesto únicamente por
+value objects, validación y mappers sobre estas fuentes de verdad:
 
 - `CheckInAssignment`, `CheckInOutcome`, `CheckInResponse` y `CheckInAnswer`
   conservan protocolo, pregunta y tiempo;
 - `RuleEvaluation` conserva versión, instante, snapshot estructurado, hash,
   resultado e inputs ausentes;
 - `Alert` conserva evaluación, regla/versión, referencias estructuradas de origen,
-  explicación, responsable de revisión y tiempo;
+  explicación, responsable de revisión y tiempo. Los avisos nuevos guardan un
+  lineage v1 minimizado dentro del array JSON existente;
 - Plan de Seguridad y Domicilio Seguro incluyen procedencia por sección o ítem;
 - `CaregiverObservation` conserva autoría indirecta por autorización, perfil y
   sesión, pero no crea avisos o tareas.
 
-Las referencias de una evaluación se entregan explícitamente en la petición. No
-hay extracción automática, normalización entre fuentes ni contrato de señal para
-conectores.
+El contrato distingue `SOURCE` de `DERIVED` y reconstruye una o varias fuentes →
+`RuleEvaluation` → `Alert` sin copiar valores, respuestas, explicaciones ni
+documentos. Los lectores marcan arrays históricos como `LEGACY_UNVERSIONED` y
+versiones o formas desconocidas como `INVALID`. Las referencias de una evaluación
+siguen entregándose explícitamente en la petición. Para las fuentes internas
+soportadas, Prisma resuelve la referencia y la pertenencia real al episodio; el
+`ruleInputContext` conserva aparte `inputKey`, `sourceField` y `observedAt` como
+datos declarados por la evaluación y explícitamente no verificados contra el
+contenido fuente. No hay extracción automática, conectores externos ni contrato
+FHIR.
+
+El lineage canónico se persiste dentro de `Alert.inputReferences` cuando una
+evaluación `matched` crea un aviso. No existe persistencia canónica separada para
+evaluaciones `not-matched` o `abstained`: `RuleEvaluation`, con su snapshot, hash,
+regla/versión y outcome actuales, continúa siendo su fuente de verdad.
 
 ### Tareas y responsabilidad
 
@@ -280,7 +300,7 @@ integraciones implementadas.
 | `pnpm format:check` | PASS |
 | `pnpm lint` | PASS |
 | `pnpm typecheck` | PASS |
-| `pnpm test:unit` | PASS — 25 archivos, 207 pruebas |
+| `pnpm test:unit` | PASS — 26 archivos, 222 pruebas |
 | `pnpm test:integration` | PASS — 9 archivos, 56 pruebas |
 | `pnpm test:e2e` | PASS — 43 pruebas |
 | `pnpm build` | PASS — 18 páginas generadas y rutas dinámicas compiladas |
@@ -295,7 +315,8 @@ fallos.
 
 Guardián Alta Segura ya contiene un núcleo modular y trazable para continuidad
 postalta sintética. GAS 2.0 debe ser una evolución de ese núcleo, no un nuevo
-árbol de código ni un segundo modelo de datos. Las brechas prioritarias son
-componer la gobernanza del episodio sobre los módulos actuales, normalizar
-procedencia sin perder linaje, formalizar autorización humana y responsabilidad,
-y añadir SLA/proceso seguro una vez resueltas las decisiones locales.
+árbol de código ni un segundo modelo de datos. Las fronteras fundacionales de
+gobernanza de episodio y procedencia ya están compuestas sobre los módulos
+actuales. Las brechas prioritarias siguientes son formalizar autorización humana
+y responsabilidad, y añadir SLA/proceso seguro una vez resueltas las decisiones
+locales.

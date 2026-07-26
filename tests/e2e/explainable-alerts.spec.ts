@@ -8,6 +8,7 @@ test.use({ userAgent: "guardian-explainable-alerts-e2e/1.0" });
 const prisma = new PrismaClient();
 const baseURL = "http://127.0.0.1:3000";
 let episodeId = "";
+let nonResponseSourceId = "";
 
 async function createAuthenticatedContext(
   alias: "demo-admin" | "demo-nurse" | "demo-clinician",
@@ -52,6 +53,52 @@ test.beforeAll(async () => {
     },
   });
   episodeId = episode.id;
+  const nonResponse = await prisma.$transaction(async (transaction) => {
+    const batch = await transaction.checkInAssignmentBatch.create({
+      data: {
+        episodeId,
+        checkInProtocolVersionId: protocol.id,
+        createdById: nurse.id,
+        idempotencyKey: `e2e-source-batch:${randomUUID()}`,
+        requestFingerprint: "a".repeat(64),
+      },
+    });
+    const assignment = await transaction.checkInAssignment.create({
+      data: {
+        batchId: batch.id,
+        episodeId,
+        checkInProtocolVersionId: protocol.id,
+        sequence: 1,
+        scheduledFor: new Date("2026-07-17T07:00:00.000Z"),
+        windowStartsAt: new Date("2026-07-17T07:00:00.000Z"),
+        windowEndsAt: new Date("2026-07-17T08:00:00.000Z"),
+        createdById: nurse.id,
+      },
+    });
+    const outcome = await transaction.checkInOutcome.create({
+      data: {
+        assignmentId: assignment.id,
+        checkInProtocolVersionId: protocol.id,
+        type: "EXPIRED",
+        recordedById: nurse.id,
+        idempotencyKey: `e2e-source-outcome:${randomUUID()}`,
+        requestFingerprint: "b".repeat(64),
+        recordedAt: new Date("2026-07-17T08:00:00.000Z"),
+      },
+    });
+    return transaction.nonResponseEvent.create({
+      data: {
+        outcomeId: outcome.id,
+        assignmentId: assignment.id,
+        checkInProtocolVersionId: protocol.id,
+        outcomeType: "EXPIRED",
+        reason: "WINDOW_EXPIRED",
+        recordedById: nurse.id,
+        recordedAt: new Date("2026-07-17T08:00:00.000Z"),
+      },
+    });
+  });
+  nonResponseSourceId = nonResponse.id;
 });
 
 test.afterAll(async () => {
@@ -162,8 +209,9 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
         observedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
         source: {
           resourceType: "NonResponseEvent",
-          resourceId: `synthetic-e2e-source-${randomUUID()}`,
+          resourceId: nonResponseSourceId,
           field: "elapsedHours",
+          episodeId,
         },
       },
     ],
@@ -218,7 +266,10 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
       readonly explanation: string;
       readonly state: string;
       readonly reviews: readonly unknown[];
-      readonly inputReferences: readonly unknown[];
+      readonly provenance: {
+        readonly status: string;
+        readonly lineage?: { readonly schemaVersion: number; readonly parents: readonly unknown[] };
+      };
     }[];
   };
   const alert = alertsPayload.alerts.find(({ id }) => id === evaluated.alertId);
@@ -229,7 +280,11 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
     state: "open",
     reviews: [],
   });
-  expect(alert?.inputReferences).toHaveLength(1);
+  expect(alert?.provenance).toMatchObject({
+    status: "VALID",
+    lineage: { schemaVersion: 1 },
+  });
+  expect(alert?.provenance.lineage?.parents).toHaveLength(2);
   expect(alert?.explanation).toContain("Condición coincidente:");
   expect(alert).not.toHaveProperty("taskId");
   await expect(prisma.alertReview.count({ where: { alertId: evaluated.alertId } })).resolves.toBe(

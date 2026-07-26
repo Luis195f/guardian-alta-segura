@@ -9,6 +9,7 @@ import type {
   RuleState,
 } from "@/domain/alerts/explainable-rule";
 import type { Role } from "@/domain/auth/role";
+import type { SourceEvidenceReference } from "@/domain/provenance/signal-provenance";
 
 export interface RuleDefinitionRecord {
   readonly id: string;
@@ -93,6 +94,10 @@ export interface ExplainableAlertsTransaction {
     readonly activatedAt: Date;
   }): Promise<RuleVersionRecord>;
   getEpisode(episodeId: string): Promise<AlertEpisodeRecord | null>;
+  resolveSourceProvenance(
+    inputs: readonly ReferencedRuleInput[],
+    episodeId: string,
+  ): Promise<readonly SourceEvidenceReference[]>;
   findEvaluationByIdempotency(
     evaluatedById: string,
     idempotencyKey: string,
@@ -111,7 +116,7 @@ export interface ExplainableAlertsTransaction {
     readonly outcome: RuleEvaluationOutcome;
     readonly missingInputs: readonly string[];
     readonly alert: {
-      readonly inputReferences: readonly ReferencedRuleInput[];
+      readonly sourceReferences: readonly SourceEvidenceReference[];
       readonly explanation: string;
       readonly administrativeSeverity: AdministrativeSeverity;
       readonly reviewOwner: RuleReviewOwner;

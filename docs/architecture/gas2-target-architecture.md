@@ -14,8 +14,8 @@ flowchart TB
   EXT["Sistemas externos<br/>HCE, proveedores, mensajería, IdP, RPM"]
   ADAPTERS["Integration adapters<br/>nuevos, uno por contrato real"]
   CONNECTOR["Connector boundary<br/>nuevo port + validación + idempotencia"]
-  SIGNAL["Canonical signal boundary<br/>nuevo envelope/value objects"]
-  PROV["Provenance<br/>extender RuleEvaluation y referencias existentes"]
+  SIGNAL["Canonical evidence references<br/>implementado: value objects v1"]
+  PROV["Provenance lineage<br/>implementado sobre RuleEvaluation y Alert"]
   EPISODE["Episode governance<br/>EpisodeGovernancePolicy/View sobre fuentes actuales"]
   HUMAN["Human authorization<br/>refactor sobre AlertReview y casos de uso"]
   TASK["Task / accountability<br/>extender Task + TaskEvent + workqueue"]
@@ -45,8 +45,8 @@ obligue a copiar todos los datos entre tablas.
 |---|---|---|
 | Integration adapters | `src/infrastructure`, `InstitutionalIdentityProvider`, adaptador local de invitación | Adapter por proveedor real; configuración server-only; sin SDK en dominio |
 | Connector boundary | `src/application/ports` | Port de ingestión/entrega con autenticidad, idempotencia, versión y resultado; inbox/outbox solo si el contrato lo requiere |
-| Canonical signal boundary | Tipos de inputs de reglas y referencias de origen | Envelope discriminado y versionado; no crear una copia genérica de todos los datos |
-| Provenance | `RuleEvaluation`, `Alert`, check-ins y procedencia documental | Resolver linaje fuente → señal → evaluación → aviso sin perder IDs y tiempos |
+| Canonical signal boundary | Tipos de inputs de reglas y referencias de origen | Implementado para fuentes internas como referencias discriminadas v1; cualquier envelope de ingestión externa sigue aplazado hasta disponer de contrato real |
+| Provenance | `RuleEvaluation`, `Alert`, check-ins y procedencia documental | Implementado: lineage fuente → evaluación → aviso sobre IDs y tiempos existentes, con lectura histórica compatible y sin copiar contenido |
 | Episode governance | `DischargeEpisode`, `EpisodeTransition`, política de activación, avisos y tareas | Implementado: `EpisodeGovernancePolicy/View` compone responsabilidades, protocolo, autorización técnica, obligaciones y blockers sin persistencia nueva; DEC-002 mantiene cierre denegado |
 | Human authorization | `AlertReviewService`, guards de tarea y triggers | Política explícita de autorización con actor, rol, decisión, motivo y referencia de evidencia |
 | Task/accountability | `Task`, `TaskEvent`, `NursingWorkQueue` | Añadir lifecycle y responsabilidad; SLA solo desde configuración aprobada |
@@ -80,9 +80,23 @@ tareas abiertas permanecen en `Alert`/`AlertReview` y `Task`/`TaskEvent`; la vis
 no copia explicación, resumen ni contenido clínico. DEC-002 se publica como
 `LOCAL_POLICY_PENDING` y no existe un camino de mutación de cierre en esta rama.
 
-### Canonical signal
+### Procedencia canónica interna
 
-El contrato canónico debe distinguir al menos:
+`CanonicalProvenanceLineageV1` distingue evidencia `SOURCE` y `DERIVED`, conserva
+referencias técnicas, episodio, productor, tiempos, actores y versiones realmente
+disponibles y rechaza episodio, versión o tipo incoherentes. Los mappers actuales
+cubren respuesta/no respuesta de check-in, observación de cuidador, Plan de
+Seguridad y Domicilio Seguro. `RuleEvaluation` y `Alert` añaden derivación,
+regla/versión e integridad sin duplicar `inputSnapshot`.
+
+`Alert.inputReferences` conserva el array exigido por el esquema aplicado y guarda
+un lineage v1 como único elemento para avisos nuevos. Los registros antiguos se
+leen como no versionados y los formatos desconocidos fallan de forma cerrada.
+
+### Canonical signal externo condicionado
+
+Un futuro contrato de ingestión externa, solo tras seleccionar un conector real,
+deberá distinguir al menos:
 
 ```text
 CanonicalSignalEnvelope

@@ -12,6 +12,7 @@ import type {
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
+import { readAlertProvenance } from "@/domain/provenance/signal-provenance";
 import type { ContactAttemptOutcome, TaskEventType } from "@/domain/workqueue/nursing-task";
 import { prisma } from "@/infrastructure/persistence/prisma";
 
@@ -506,7 +507,7 @@ export async function listNursingWorkQueue(
         ruleVersionId: alert.ruleVersionId,
         ruleVersionNumber: alert.ruleVersionNumber,
         explanation: alert.explanation,
-        origins: alert.inputReferences,
+        provenance: readAlertProvenance(alert.inputReferences),
         triggeredAt: alert.triggeredAt,
         reviewedByHuman: alert._count.reviews > 0,
       })),

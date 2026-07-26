@@ -7,6 +7,7 @@ import {
 import { SYNTHETIC_RULE_FIXTURES } from "@/domain/alerts/synthetic-rule-fixtures";
 
 const evaluatedAt = new Date("2026-07-17T12:00:00.000Z");
+const episodeId = "episode-1";
 
 function input(
   inputKey: string,
@@ -19,9 +20,10 @@ function input(
     value,
     observedAt,
     source: {
-      resourceType: "SyntheticCheckIn",
+      resourceType: "CheckInResponse",
       resourceId: sourceId,
       field: inputKey,
+      episodeId,
     },
   };
 }
@@ -48,6 +50,7 @@ describe("explainable deterministic rule engine", () => {
         definitionId: fixture.ruleKey,
         ruleVersionId: `${fixture.ruleKey}-v1`,
         ruleVersionNumber: 1,
+        episodeId,
         dsl: fixture.dsl,
         evaluatedAt,
         inputs: matchingInputs[fixture.ruleKey]!,
@@ -64,6 +67,7 @@ describe("explainable deterministic rule engine", () => {
       definitionId: fixture.ruleKey,
       ruleVersionId: `${fixture.ruleKey}-v1`,
       ruleVersionNumber: 1,
+      episodeId,
       dsl: fixture.dsl,
       evaluatedAt,
       inputs: [input("sleep_hours", 3)],
@@ -83,6 +87,7 @@ describe("explainable deterministic rule engine", () => {
       definitionId: fixture.ruleKey,
       ruleVersionId: `${fixture.ruleKey}-v1`,
       ruleVersionNumber: 1,
+      episodeId,
       dsl: fixture.dsl,
       evaluatedAt,
       inputs,
@@ -91,6 +96,7 @@ describe("explainable deterministic rule engine", () => {
       definitionId: fixture.ruleKey,
       ruleVersionId: `${fixture.ruleKey}-v1`,
       ruleVersionNumber: 1,
+      episodeId,
       dsl: fixture.dsl,
       evaluatedAt,
       inputs: [...inputs].reverse(),
@@ -104,6 +110,7 @@ describe("explainable deterministic rule engine", () => {
       definitionId: fixture.ruleKey,
       ruleVersionId: `${fixture.ruleKey}-v1`,
       ruleVersionNumber: 1,
+      episodeId,
       dsl: fixture.dsl,
       evaluatedAt,
       inputs: matchingInputs[fixture.ruleKey]!,
@@ -111,7 +118,7 @@ describe("explainable deterministic rule engine", () => {
     expect(result.inputHash).toMatch(/^[a-f0-9]{64}$/);
     expect(result.explanation).toContain("Regla v1, ventana 72 h");
     expect(result.explanation).toContain("non_response_hours >= 48");
-    expect(result.explanation).toContain("SyntheticCheckIn/synthetic-source-1.non_response_hours");
+    expect(result.explanation).toContain("CheckInResponse/synthetic-source-1.non_response_hours");
     expect(result.explanation).toContain("non_response_hours=48");
   });
 
@@ -123,6 +130,7 @@ describe("explainable deterministic rule engine", () => {
         definitionId: fixture.ruleKey,
         ruleVersionId: `${fixture.ruleKey}-v1`,
         ruleVersionNumber: 1,
+        episodeId,
         dsl: fixture.dsl,
         evaluatedAt,
         inputs: [repeated, repeated],
@@ -134,15 +142,17 @@ describe("explainable deterministic rule engine", () => {
         definitionId: fixture.ruleKey,
         ruleVersionId: `${fixture.ruleKey}-v1`,
         ruleVersionNumber: 1,
+        episodeId,
         dsl: fixture.dsl,
         evaluatedAt,
         inputs: [
           {
             ...repeated,
             source: {
-              resourceType: "SyntheticCheckIn",
+              resourceType: "CheckInResponse",
               resourceId: "",
               field: repeated.inputKey,
+              episodeId,
             },
           },
         ],

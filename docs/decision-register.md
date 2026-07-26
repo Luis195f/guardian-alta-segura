@@ -49,6 +49,7 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 - Las cuatro reglas sembradas son ejemplos técnicos sintéticos en estado `draft`, sin `RuleApproval`, rotulados como no aprobados. DEC-008 sigue pendiente y bloquea su activación para uso real.
 - `EXPLAINABLE_TRAFFIC_LIGHT=false` es el valor predeterminado. DEC-009 sigue pendiente; cambiar el flag exige la decisión local correspondiente y no altera la lógica de evaluación.
 - Cada petición de evaluación exige clave idempotente por actor; el mismo payload devuelve la evaluación existente y otro payload con la misma clave se rechaza. Evaluación y creación de aviso conservan eventos de auditoría separados y minimizados.
+- `CanonicalProvenanceLineageV1` referencia fuentes internas, evaluación y aviso mediante IDs, tipos, tiempos y versiones. Los avisos nuevos usan el array JSON existente; los históricos se marcan como no versionados y los formatos desconocidos como inválidos. El boundary no copia valores clínicos ni resuelve DEC-008.
 - Evaluar una regla es una operación profesional explícita. Un resultado coincidente crea un aviso `open`, pero nunca crea tareas, derivaciones, firmas, cierres ni otras acciones clínicas. Toda transición posterior exige `AlertReview` humano append-only.
 
 ## Decisiones técnicas provisionales de REQ-09
