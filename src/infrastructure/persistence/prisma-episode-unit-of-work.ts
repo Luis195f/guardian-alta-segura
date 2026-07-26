@@ -38,6 +38,9 @@ function toEpisodeRecord(episode: EpisodeWithIdentity): EpisodeRecord {
     identity: {
       patientIsSynthetic: episode.patient.isSynthetic,
       patientState: episode.patient.identityVerificationState,
+      policyVersionId: policy?.id ?? null,
+      policyKey: policy?.policyKey ?? null,
+      policyVersion: policy?.version ?? null,
       policyState: policy?.state ?? null,
       acceptedState: policy?.acceptedState ?? null,
       processCode: policy?.processCode ?? null,
@@ -105,6 +108,93 @@ class PrismaEpisodeTransaction implements EpisodeTransaction {
       include: episodeContextInclude,
     });
     return episode ? toEpisodeRecord(episode) : null;
+  }
+
+  async getEpisodeGovernanceFacts(episodeId: string) {
+    const [episode, openAlerts, openTasks] = await Promise.all([
+      this.transaction.dischargeEpisode.findUnique({
+        where: { id: episodeId },
+        select: {
+          responsibleNurse: {
+            select: {
+              id: true,
+              isActive: true,
+              roleAssignments: {
+                where: { role: "nurse", revokedAt: null },
+                select: { id: true },
+                take: 1,
+              },
+            },
+          },
+          responsibleClinician: {
+            select: {
+              id: true,
+              isActive: true,
+              roleAssignments: {
+                where: { role: "clinician", revokedAt: null },
+                select: { id: true },
+                take: 1,
+              },
+            },
+          },
+          checkInProtocolVersion: {
+            select: {
+              id: true,
+              protocolKey: true,
+              versionNumber: true,
+              state: true,
+              isSyntheticFixture: true,
+            },
+          },
+        },
+      }),
+      this.transaction.alert.findMany({
+        where: {
+          episodeId,
+          currentState: { in: ["OPEN", "REVIEWED", "ACTIONED"] },
+        },
+        select: { id: true, currentState: true },
+        orderBy: { id: "asc" },
+      }),
+      this.transaction.task.findMany({
+        where: { episodeId, currentState: "OPEN" },
+        select: { id: true, revision: true },
+        orderBy: { id: "asc" },
+      }),
+    ]);
+
+    return {
+      responsibleProfessionals: {
+        nurseActive:
+          episode?.responsibleNurse.isActive === true &&
+          episode.responsibleNurse.roleAssignments.length === 1,
+        clinicianActive:
+          episode?.responsibleClinician.isActive === true &&
+          episode.responsibleClinician.roleAssignments.length === 1,
+      },
+      checkInProtocol: episode
+        ? {
+            versionId: episode.checkInProtocolVersion.id,
+            protocolKey: episode.checkInProtocolVersion.protocolKey,
+            versionNumber: episode.checkInProtocolVersion.versionNumber,
+            state: episode.checkInProtocolVersion.state,
+            isSyntheticFixture: episode.checkInProtocolVersion.isSyntheticFixture,
+          }
+        : null,
+      openObligations: [
+        ...openAlerts.map((alert) => ({
+          kind: "ALERT" as const,
+          resourceId: alert.id,
+          state: alert.currentState.toLowerCase() as "open" | "reviewed" | "actioned",
+        })),
+        ...openTasks.map((task) => ({
+          kind: "TASK" as const,
+          resourceId: task.id,
+          state: "open" as const,
+          revision: task.revision,
+        })),
+      ],
+    };
   }
 
   async findIdempotentTransition(actorUserId: string, idempotencyKey: string) {

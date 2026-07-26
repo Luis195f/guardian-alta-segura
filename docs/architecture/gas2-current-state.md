@@ -2,16 +2,16 @@
 
 ## Alcance de la auditoría
 
-Auditoría diferencial realizada el 25 de julio de 2026 sobre la rama
-`audit/gas2-architecture-delta`, en el commit base `88be7da`. Las conclusiones se
-basan en el código, esquema, migraciones, pruebas, CI y documentación presentes en
-el repositorio. No acreditan validación clínica, jurídica, institucional, RGPD o
-MDR.
+Auditoría diferencial iniciada el 25 de julio de 2026 sobre la rama
+`audit/gas2-architecture-delta`, en el commit base `88be7da`, y actualizada tras
+implementar `refactor/gas2-episode-governance-policy`. Las conclusiones se basan en
+el código, esquema, migraciones, pruebas, CI y documentación presentes en el
+repositorio. No acreditan validación clínica, jurídica, institucional, RGPD o MDR.
 
-Esta rama no cambia comportamiento de producción, no modifica Prisma, no añade
-dependencias y no crea una arquitectura paralela. El cambio previo no relacionado
-en `next-env.d.ts` estaba presente antes de esta auditoría y queda fuera de su
-alcance.
+El refactor añade una proyección y política de gobernanza sin modificar Prisma,
+añadir dependencias ni crear arquitectura paralela. Solo cambia la consulta
+organizativa y el mecanismo fail-closed del cierre; no habilita ninguna mutación
+de cierre ni actuación clínica automática.
 
 ## Stack real
 
@@ -101,9 +101,18 @@ petición, idempotencia por actor, `EpisodeTransition` append-only y `AuditEvent
 la misma transacción. La activación exige verificación humana de identidad bajo
 una política versionada.
 
-La gobernanza es parcial: existe `EpisodeClosurePolicy`, pero la ruta está
-conectada a `AlertModuleUnavailableClosurePolicy`, que deniega todo cierre. Es un
-estado seguro, aunque no integra los avisos y tareas actuales ni resuelve DEC-002.
+La gobernanza organizativa se calcula mediante `EpisodeGovernancePolicy` y
+`EpisodeGovernanceView` sobre el episodio actual, responsables activos, referencia
+exacta del protocolo de check-in, evidencia técnica de identidad, avisos no
+terminales y tareas abiertas. No existe tabla ni agregado paralelo. La ruta de
+detalle expone la proyección minimizada y la transición de cierre la evalúa dentro
+del `EpisodeUnitOfWork`.
+
+`PendingInstitutionalEpisodeGovernancePolicy` diferencia blockers técnicos u
+operativos de `LOCAL_POLICY_PENDING`. DEC-002 permanece pendiente y el caso de uso
+no contiene un camino de mutación de cierre: política ausente, excepción, vista
+inconsistente o decisión local pendiente producen `NOT_AUTHORIZED`. Los avisos y
+tareas son obligaciones visibles, no criterios clínicos definitivos.
 
 ### Señales, avisos y procedencia
 
@@ -157,7 +166,7 @@ institucionales DEC-003, DEC-004, DEC-005 y DEC-013.
 El build expone rutas para:
 
 - sesión demo y asignación administrativa de roles;
-- episodios, detalle y transición;
+- episodios, detalle con gobernanza organizativa y transición;
 - Plan de Seguridad, Domicilio Seguro y preview SBAR;
 - protocolos, asignaciones, respuesta, omisión y vencimiento de check-ins;
 - catálogo/versiones de reglas, aprobación, activación, evaluación, avisos y
@@ -225,6 +234,11 @@ contra resolución, reasignación contra resolución, creación concurrente
 idempotente, rol revocado e inserciones SQL con semántica falsa. Las E2E cubren
 doble resolución y creación HTTP concurrente.
 
+La prueba de integración del episodio cubre además dos transiciones concurrentes
+con la misma `expectedVersion`: una sola actualiza episodio, timeline y auditoría.
+No se simula una carrera de cierres porque DEC-002 impide legítimamente alcanzar
+la mutación.
+
 No existe orden global entre episodios o módulos, cursor de eventos, inbox/outbox
 ni garantía de entrega a sistemas externos.
 
@@ -266,8 +280,8 @@ integraciones implementadas.
 | `pnpm format:check` | PASS |
 | `pnpm lint` | PASS |
 | `pnpm typecheck` | PASS |
-| `pnpm test:unit` | PASS — 25 archivos, 201 pruebas |
-| `pnpm test:integration` | PASS — 9 archivos, 55 pruebas |
+| `pnpm test:unit` | PASS — 25 archivos, 207 pruebas |
+| `pnpm test:integration` | PASS — 9 archivos, 56 pruebas |
 | `pnpm test:e2e` | PASS — 43 pruebas |
 | `pnpm build` | PASS — 18 páginas generadas y rutas dinámicas compiladas |
 | `pnpm traceability:check` | PASS — REQ-01 a REQ-14 |

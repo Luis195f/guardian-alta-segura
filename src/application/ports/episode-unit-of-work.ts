@@ -1,6 +1,9 @@
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { Role } from "@/domain/auth/role";
-import type { IdentityActivationContext } from "@/domain/episode/activation-policy";
+import type {
+  EpisodeGovernanceInput,
+  IdentityActivationContext,
+} from "@/domain/episode/activation-policy";
 import type {
   EpisodeActorRole,
   EpisodeStatus,
@@ -27,6 +30,12 @@ export interface IdempotentEpisodeTransition {
   readonly resultingVersion: number;
 }
 
+export interface EpisodeGovernanceFacts {
+  readonly responsibleProfessionals: EpisodeGovernanceInput["responsibleProfessionals"];
+  readonly checkInProtocol: EpisodeGovernanceInput["checkInProtocol"];
+  readonly openObligations: EpisodeGovernanceInput["openObligations"];
+}
+
 export interface EpisodeTransaction {
   isActiveUserWithRole(userId: string, role: Role): Promise<boolean>;
   findPatientByExternalId(externalPseudonymousId: string): Promise<{
@@ -44,6 +53,7 @@ export interface EpisodeTransaction {
     readonly checkInProtocolVersionId: string;
   }): Promise<EpisodeRecord>;
   getEpisodeForTransition(episodeId: string): Promise<EpisodeRecord | null>;
+  getEpisodeGovernanceFacts(episodeId: string): Promise<EpisodeGovernanceFacts>;
   findIdempotentTransition(
     actorUserId: string,
     idempotencyKey: string,

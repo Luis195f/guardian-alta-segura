@@ -79,7 +79,7 @@ El censo de contingencia es opcional, está desactivado por defecto y solo puede
 
 Una persona autorizada cierra el episodio con motivo y conforme al protocolo local. El sistema no cierra automáticamente por fecha, puntuación o ausencia de actividad. El cierre conserva el historial, las versiones, las autorizaciones y revocaciones y las evidencias de revisión sujetas a la política institucional pendiente.
 
-Hasta que exista el módulo de avisos, una interfaz de política de cierre permanece en denegación segura. No se presume que la ausencia del módulo equivalga a ausencia de avisos abiertos.
+La vista de gobernanza consulta los avisos no terminales y tareas abiertas actuales, pero no los convierte en criterio clínico definitivo. DEC-002 sigue pendiente y mantiene el cierre en denegación segura. Política ausente, error de evaluación o estado inconsistente también deniegan; ninguna de esas condiciones se interpreta como ausencia de blockers.
 
 ## Excepciones seguras
 

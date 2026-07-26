@@ -76,6 +76,40 @@ export interface EpisodeDetail {
   }[];
 }
 
+export interface EpisodeGovernanceView {
+  readonly episodeId: string;
+  readonly episodeVersion: number;
+  readonly episodeStatus: EpisodeDetail["status"];
+  readonly openObligations: readonly (
+    | {
+        readonly kind: "ALERT";
+        readonly resourceId: string;
+        readonly state: "open" | "reviewed" | "actioned";
+      }
+    | {
+        readonly kind: "TASK";
+        readonly resourceId: string;
+        readonly state: "open";
+        readonly revision: number;
+      }
+  )[];
+  readonly blockers: readonly {
+    readonly category: "TECHNICAL_OR_OPERATIONAL_BLOCKER" | "LOCAL_POLICY_PENDING";
+    readonly code: string;
+    readonly resourceIds: readonly string[];
+  }[];
+  readonly pendingInstitutionalDecisions: readonly {
+    readonly decisionId: "DEC-002";
+    readonly status: "PENDING";
+  }[];
+  readonly organizationallyGoverned: boolean;
+  readonly transitionDecision: {
+    readonly targetStatus: "CLOSED";
+    readonly authorization: "AUTHORIZED" | "NOT_AUTHORIZED";
+  };
+  readonly evaluatedAt: string;
+}
+
 export const episodeStatusLabels: Readonly<Record<EpisodeDetail["status"], string>> = {
   DRAFT: "Borrador",
   ACTIVE: "Activo",

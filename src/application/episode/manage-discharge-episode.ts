@@ -1,8 +1,15 @@
 import { createHash } from "node:crypto";
 
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
-import type { EpisodeClosurePolicy } from "@/domain/episode/activation-policy";
-import { isIdentityEligibleForActivation } from "@/domain/episode/activation-policy";
+import {
+  EPISODE_CLOSURE_INSTITUTIONAL_DECISION,
+  failClosedEpisodeGovernanceView,
+  isIdentityEligibleForActivation,
+  type EpisodeGovernanceBlockerCode,
+  type EpisodeGovernanceInput,
+  type EpisodeGovernancePolicy,
+  type EpisodeGovernanceView,
+} from "@/domain/episode/activation-policy";
 import {
   assertLegalEpisodeTransition,
   isProgramLengthDays,
@@ -11,7 +18,7 @@ import {
   type EpisodeStatus,
   type ProgramLengthDays,
 } from "@/domain/episode/discharge-episode";
-import type { EpisodeUnitOfWork } from "@/application/ports/episode-unit-of-work";
+import type { EpisodeRecord, EpisodeUnitOfWork } from "@/application/ports/episode-unit-of-work";
 
 export class EpisodeDeniedError extends Error {}
 export class EpisodeInvalidError extends Error {}
@@ -20,7 +27,11 @@ export class EpisodeConcurrencyConflictError extends Error {}
 export class EpisodeIdempotencyConflictError extends Error {}
 export class EpisodeIdentityNotVerifiedError extends Error {}
 export class EpisodeResponsibleProfessionalsError extends Error {}
-export class EpisodeClosureBlockedError extends Error {}
+export class EpisodeClosureBlockedError extends Error {
+  constructor(readonly blockerCodes: readonly EpisodeGovernanceBlockerCode[]) {
+    super("Episode closure is not authorized by governance");
+  }
+}
 
 function fingerprint(value: object): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -70,6 +81,104 @@ async function assertActiveProfessionals(
   if (!activeActor) throw new EpisodeDeniedError("Actor role is no longer active");
   if (!activeNurse || !activeClinician) {
     throw new EpisodeResponsibleProfessionalsError("Responsible professionals are required");
+  }
+}
+
+async function governanceInput(
+  transaction: Parameters<Parameters<EpisodeUnitOfWork["run"]>[0]>[0],
+  episode: EpisodeRecord,
+  correlationId: string,
+  evaluatedAt: Date,
+): Promise<EpisodeGovernanceInput> {
+  const facts = await transaction.getEpisodeGovernanceFacts(episode.id);
+  return {
+    episode: {
+      id: episode.id,
+      version: episode.version,
+      status: episode.status,
+      responsibleNurseId: episode.responsibleNurseId,
+      responsibleClinicianId: episode.responsibleClinicianId,
+      checkInProtocolVersionId: episode.checkInProtocolVersionId,
+      identity: episode.identity,
+    },
+    ...facts,
+    evaluatedAt,
+    correlationId,
+  };
+}
+
+function isGovernanceViewConsistent(
+  view: EpisodeGovernanceView,
+  input: EpisodeGovernanceInput,
+): boolean {
+  if (
+    view.episodeId !== input.episode.id ||
+    view.episodeVersion !== input.episode.version ||
+    view.episodeStatus !== input.episode.status ||
+    view.transitionDecision.targetStatus !== "CLOSED"
+  ) {
+    return false;
+  }
+  if (
+    view.transitionDecision.authorization === "AUTHORIZED" &&
+    (!view.organizationallyGoverned ||
+      view.blockers.length > 0 ||
+      view.pendingInstitutionalDecisions.length > 0)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+async function evaluateGovernance(
+  policy: EpisodeGovernancePolicy | null,
+  input: EpisodeGovernanceInput,
+): Promise<EpisodeGovernanceView> {
+  if (!policy) {
+    return failClosedEpisodeGovernanceView(input, "GOVERNANCE_POLICY_UNAVAILABLE");
+  }
+  try {
+    const view = await policy.evaluate(input);
+    return isGovernanceViewConsistent(view, input)
+      ? view
+      : failClosedEpisodeGovernanceView(input, "GOVERNANCE_STATE_INCONSISTENT");
+  } catch {
+    return failClosedEpisodeGovernanceView(input, "GOVERNANCE_EVALUATION_FAILED");
+  }
+}
+
+export class GetEpisodeGovernanceViewService {
+  constructor(
+    private readonly unitOfWork: EpisodeUnitOfWork,
+    private readonly governancePolicy: EpisodeGovernancePolicy | null,
+  ) {}
+
+  async execute(input: {
+    readonly actor: AuthenticatedPrincipal;
+    readonly episodeId: string;
+    readonly correlationId: string;
+    readonly now?: Date;
+  }): Promise<EpisodeGovernanceView> {
+    const actorRole = requireActor(input.actor);
+    if (!input.episodeId) throw new EpisodeInvalidError("Invalid episode governance request");
+    const evaluatedAt = input.now ?? new Date();
+    return this.unitOfWork.run(async (transaction) => {
+      const episode = await transaction.getEpisodeForTransition(input.episodeId);
+      if (!episode) throw new EpisodeNotFoundError("Episode not found");
+      if (
+        input.actor.userId !== episode.responsibleNurseId &&
+        input.actor.userId !== episode.responsibleClinicianId
+      ) {
+        throw new EpisodeDeniedError("Actor is not assigned to episode");
+      }
+      if (!(await transaction.isActiveUserWithRole(input.actor.userId, actorRole))) {
+        throw new EpisodeDeniedError("Actor role is no longer active");
+      }
+      return evaluateGovernance(
+        this.governancePolicy,
+        await governanceInput(transaction, episode, input.correlationId, evaluatedAt),
+      );
+    });
   }
 }
 
@@ -184,7 +293,7 @@ export class CreateDischargeEpisodeService {
 export class TransitionDischargeEpisodeService {
   constructor(
     private readonly unitOfWork: EpisodeUnitOfWork,
-    private readonly closurePolicy: EpisodeClosurePolicy,
+    private readonly governancePolicy: EpisodeGovernancePolicy | null,
   ) {}
 
   async execute(input: {
@@ -247,20 +356,35 @@ export class TransitionDischargeEpisodeService {
       ) {
         throw new EpisodeDeniedError("Actor is not assigned to episode");
       }
+      if (episode.version !== input.expectedVersion) {
+        throw new EpisodeConcurrencyConflictError("Episode was edited concurrently");
+      }
       assertLegalEpisodeTransition(episode.status, input.targetStatus);
-      await assertActiveProfessionals(
-        transaction,
-        input.actor,
-        actorRole,
-        episode.responsibleNurseId,
-        episode.responsibleClinicianId,
-      );
+      if (input.targetStatus !== "CLOSED") {
+        await assertActiveProfessionals(
+          transaction,
+          input.actor,
+          actorRole,
+          episode.responsibleNurseId,
+          episode.responsibleClinicianId,
+        );
+      }
       if (input.targetStatus === "ACTIVE" && !isIdentityEligibleForActivation(episode.identity)) {
         throw new EpisodeIdentityNotVerifiedError("Identity policy does not permit activation");
       }
       if (input.targetStatus === "CLOSED") {
-        const decision = await this.closurePolicy.evaluate(episode.id);
-        if (!decision.allowed) throw new EpisodeClosureBlockedError(decision.reason);
+        const governance = await evaluateGovernance(
+          this.governancePolicy,
+          await governanceInput(transaction, episode, input.correlationId, occurredAt),
+        );
+        const blockerCodes = governance.blockers.map(({ code }) => code);
+        if (
+          EPISODE_CLOSURE_INSTITUTIONAL_DECISION.status === "PENDING" &&
+          !blockerCodes.includes("DEC_002_EPISODE_CLOSURE_POLICY_PENDING")
+        ) {
+          blockerCodes.push("DEC_002_EPISODE_CLOSURE_POLICY_PENDING");
+        }
+        throw new EpisodeClosureBlockedError(blockerCodes);
       }
       const updated = await transaction.updateEpisodeStatus({
         episodeId: episode.id,
