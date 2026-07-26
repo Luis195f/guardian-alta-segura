@@ -9,6 +9,7 @@ import {
   EpisodeDeniedError,
   EpisodeIdentityNotVerifiedError,
   EpisodeResponsibleProfessionalsError,
+  GetEpisodeGovernanceViewService,
   TransitionDischargeEpisodeService,
 } from "@/application/episode/manage-discharge-episode";
 import type {
@@ -19,17 +20,17 @@ import type {
 } from "@/application/ports/episode-unit-of-work";
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { Role } from "@/domain/auth/role";
-import type { EpisodeClosurePolicy } from "@/domain/episode/activation-policy";
+import {
+  PendingInstitutionalEpisodeGovernancePolicy,
+  type EpisodeGovernancePolicy,
+} from "@/domain/episode/activation-policy";
 import type {
   EpisodeActorRole,
   EpisodeStatus,
   ProgramLengthDays,
 } from "@/domain/episode/discharge-episode";
 
-const allowClosure: EpisodeClosurePolicy = { evaluate: async () => ({ allowed: true }) };
-const denyClosure: EpisodeClosurePolicy = {
-  evaluate: async () => ({ allowed: false, reason: "OPEN_ALERTS" }),
-};
+const pendingGovernance = new PendingInstitutionalEpisodeGovernancePolicy();
 
 class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
   readonly activeRoles = new Map<string, Set<Role>>([
@@ -54,6 +55,9 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
   episode: EpisodeRecord | null = null;
   forceConcurrencyConflict = false;
   identityVerified = true;
+  openObligations: Awaited<
+    ReturnType<EpisodeTransaction["getEpisodeGovernanceFacts"]>
+  >["openObligations"] = [];
 
   run<T>(operation: (transaction: EpisodeTransaction) => Promise<T>): Promise<T> {
     return operation(this);
@@ -99,6 +103,23 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
   async getEpisodeForTransition(): Promise<EpisodeRecord | null> {
     if (!this.episode) return null;
     return { ...this.episode, identity: this.identityContext() };
+  }
+
+  async getEpisodeGovernanceFacts() {
+    return {
+      responsibleProfessionals: {
+        nurseActive: this.activeRoles.get("nurse-1")?.has("nurse") ?? false,
+        clinicianActive: this.activeRoles.get("clinician-1")?.has("clinician") ?? false,
+      },
+      checkInProtocol: {
+        versionId: "check-in-protocol-v1",
+        protocolKey: "synthetic-check-in",
+        versionNumber: 1,
+        state: "SYNTHETIC_DEMO" as const,
+        isSyntheticFixture: true,
+      },
+      openObligations: this.openObligations,
+    };
   }
 
   async findIdempotentTransition(actorUserId: string, idempotencyKey: string) {
@@ -184,6 +205,9 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
     return {
       patientIsSynthetic: true,
       patientState: this.identityVerified ? ("VERIFIED" as const) : ("PENDING" as const),
+      policyVersionId: "identity-policy-v1",
+      policyKey: "synthetic-identity-policy",
+      policyVersion: "demo-v1",
       policyState: "APPROVED" as const,
       acceptedState: "VERIFIED" as const,
       processCode: "RECORDED_HUMAN_REVIEW",
@@ -214,7 +238,7 @@ function createInput(store: MemoryEpisodeStore, actor = principal("nurse-1", ["n
 }
 
 function activate(store: MemoryEpisodeStore, idempotencyKey = "activate:episode-001") {
-  return new TransitionDischargeEpisodeService(store, allowClosure).execute({
+  return new TransitionDischargeEpisodeService(store, pendingGovernance).execute({
     actor: principal("nurse-1", ["nurse"]),
     episodeId: "episode-1",
     targetStatus: "ACTIVE",
@@ -290,7 +314,7 @@ describe("discharge episode application service", () => {
     const store = new MemoryEpisodeStore();
     store.seedDraft();
     await activate(store);
-    await new TransitionDischargeEpisodeService(store, allowClosure).execute({
+    await new TransitionDischargeEpisodeService(store, pendingGovernance).execute({
       actor: principal("clinician-1", ["clinician"]),
       episodeId: "episode-1",
       targetStatus: "PAUSED",
@@ -306,11 +330,152 @@ describe("discharge episode application service", () => {
     expect(store.transitionInputs.map(({ toStatus }) => toStatus)).toEqual(["ACTIVE", "PAUSED"]);
   });
 
+  it("compone la vista desde DischargeEpisode, avisos y tareas existentes sin mutarlos", async () => {
+    const store = new MemoryEpisodeStore();
+    store.seedDraft();
+    await activate(store);
+    store.openObligations = [
+      { kind: "ALERT", resourceId: "alert-existing", state: "reviewed" },
+      { kind: "TASK", resourceId: "task-existing", state: "open", revision: 2 },
+    ];
+
+    const view = await new GetEpisodeGovernanceViewService(store, pendingGovernance).execute({
+      actor: principal("nurse-1", ["nurse"]),
+      episodeId: "episode-1",
+      correlationId: randomUUID(),
+      now: new Date("2026-07-25T12:00:00Z"),
+    });
+
+    expect(view).toMatchObject({
+      episodeId: "episode-1",
+      episodeVersion: 2,
+      episodeStatus: "ACTIVE",
+      responsibleNurse: { userId: "nurse-1", active: true },
+      responsibleClinician: { userId: "clinician-1", active: true },
+      transitionDecision: { targetStatus: "CLOSED", authorization: "NOT_AUTHORIZED" },
+    });
+    expect(view.openObligations).toEqual(store.openObligations);
+    expect(view.blockers.map(({ code }) => code)).toEqual([
+      "UNRESOLVED_ALERTS",
+      "OPEN_TASKS",
+      "DEC_002_EPISODE_CLOSURE_POLICY_PENDING",
+    ]);
+    expect(store.transitions).toHaveLength(1);
+    expect(store.audits).toHaveLength(1);
+  });
+
+  it("falla cerrado cuando la política de gobernanza está ausente", async () => {
+    const store = new MemoryEpisodeStore();
+    store.seedDraft();
+    await activate(store);
+
+    await expect(
+      new TransitionDischargeEpisodeService(store, null).execute({
+        actor: principal("nurse-1", ["nurse"]),
+        episodeId: "episode-1",
+        targetStatus: "CLOSED",
+        expectedVersion: 2,
+        reason: "Cierre sintético revisado",
+        idempotencyKey: "close:no-policy-001",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      blockerCodes: expect.arrayContaining([
+        "GOVERNANCE_POLICY_UNAVAILABLE",
+        "DEC_002_EPISODE_CLOSURE_POLICY_PENDING",
+      ]),
+    });
+    expect(store.episode?.status).toBe("ACTIVE");
+  });
+
+  it("falla cerrado ante error o estado inconsistente de la evaluación", async () => {
+    const store = new MemoryEpisodeStore();
+    store.seedDraft();
+    await activate(store);
+    const failingPolicy: EpisodeGovernancePolicy = {
+      evaluate: async () => {
+        throw new Error("synthetic clinical detail that must not escape");
+      },
+    };
+
+    await expect(
+      new TransitionDischargeEpisodeService(store, failingPolicy).execute({
+        actor: principal("nurse-1", ["nurse"]),
+        episodeId: "episode-1",
+        targetStatus: "CLOSED",
+        expectedVersion: 2,
+        reason: "Cierre sintético revisado",
+        idempotencyKey: "close:policy-error-001",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      blockerCodes: expect.arrayContaining(["GOVERNANCE_EVALUATION_FAILED"]),
+    });
+    const inconsistentPolicy: EpisodeGovernancePolicy = {
+      evaluate: async (input) => {
+        const view = await pendingGovernance.evaluate(input);
+        return { ...view, episodeVersion: view.episodeVersion + 1 };
+      },
+    };
+    await expect(
+      new TransitionDischargeEpisodeService(store, inconsistentPolicy).execute({
+        actor: principal("nurse-1", ["nurse"]),
+        episodeId: "episode-1",
+        targetStatus: "CLOSED",
+        expectedVersion: 2,
+        reason: "Cierre sintético revisado",
+        idempotencyKey: "close:policy-state-001",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      blockerCodes: expect.arrayContaining(["GOVERNANCE_STATE_INCONSISTENT"]),
+    });
+    expect(store.episode?.status).toBe("ACTIVE");
+    expect(store.transitions).toHaveLength(1);
+    expect(store.audits).toHaveLength(1);
+  });
+
+  it("DEC-002 pendiente no puede eludirse con una política permisiva inyectada", async () => {
+    const store = new MemoryEpisodeStore();
+    store.seedDraft();
+    await activate(store);
+    const permissivePolicy: EpisodeGovernancePolicy = {
+      evaluate: async (input) => {
+        const view = await pendingGovernance.evaluate(input);
+        return {
+          ...view,
+          blockers: [],
+          pendingInstitutionalDecisions: [],
+          organizationallyGoverned: true,
+          transitionDecision: { targetStatus: "CLOSED", authorization: "AUTHORIZED" },
+        };
+      },
+    };
+
+    await expect(
+      new TransitionDischargeEpisodeService(store, permissivePolicy).execute({
+        actor: principal("nurse-1", ["nurse"]),
+        episodeId: "episode-1",
+        targetStatus: "CLOSED",
+        expectedVersion: 2,
+        reason: "Cierre sintético revisado",
+        idempotencyKey: "close:permissive-001",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      blockerCodes: ["DEC_002_EPISODE_CLOSURE_POLICY_PENDING"],
+    });
+    expect(store.episode?.status).toBe("ACTIVE");
+    expect(store.transitions).toHaveLength(1);
+    expect(store.audits).toHaveLength(1);
+  });
+
   it("bloquea cierre con avisos abiertos y exige motivo", async () => {
     const store = new MemoryEpisodeStore();
     store.seedDraft();
     await activate(store);
-    const service = new TransitionDischargeEpisodeService(store, denyClosure);
+    store.openObligations = [{ kind: "ALERT", resourceId: "alert-1", state: "open" }];
+    const service = new TransitionDischargeEpisodeService(store, pendingGovernance);
     await expect(
       service.execute({
         actor: principal("nurse-1", ["nurse"]),
@@ -329,7 +494,7 @@ describe("discharge episode application service", () => {
     store.seedDraft();
     await activate(store);
     await expect(
-      new TransitionDischargeEpisodeService(store, allowClosure).execute({
+      new TransitionDischargeEpisodeService(store, pendingGovernance).execute({
         actor: principal("nurse-1", ["nurse"]),
         episodeId: "episode-1",
         targetStatus: "CLOSED",

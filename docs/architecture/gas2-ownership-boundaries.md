@@ -44,7 +44,7 @@ separado.
 
 | Concepto propuesto | Riesgo | Fuente de verdad o workflow existente | Recomendación |
 |---|---|---|---|
-| `EpisodeContract` | Alto | `DischargeEpisode`, `EpisodeTransition`, `EpisodeClosurePolicy`, responsables y protocolo de check-in | No crear tabla ni agregado paralelo. Crear una política/vista de gobernanza compuesta. |
+| `EpisodeContract` | Alto | `DischargeEpisode`, `EpisodeTransition`, `EpisodeGovernancePolicy/View`, responsables, protocolo, avisos y tareas | No crear tabla ni agregado paralelo. Reutilizar la política/vista de gobernanza compuesta ya implementada. |
 | `SignalRecord` | Alto si se usa como copia universal | `RuleEvaluation`, `Alert.inputReferences`, check-ins, procedencia de Plan/Domicilio y observaciones | Definir primero un envelope/value object. Persistir solo mensajes externos cuando exista contrato y necesidad de reintento/linaje. |
 | `ReviewGate` | Alto | `AlertReview`, `ReviewAlertService`, guard de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | Extraer una política reutilizable sin duplicar revisión ni estado. |
 | `TaskCase` | Muy alto | `Task`, `TaskEvent` y `NursingWorkQueue` | Extender el lifecycle actual. No crear otra cola o tabla de casos. |

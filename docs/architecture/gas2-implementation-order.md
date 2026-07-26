@@ -1,29 +1,28 @@
 # Guardián Alta Segura 2.0 — orden incremental de implementación
 
-## Siguiente rama exacta
+## Rama fundacional completada
 
-La siguiente rama recomendada es:
+La primera rama fundacional es:
 
 ```text
 refactor/gas2-episode-governance-policy
 ```
 
 El prefijo `refactor` es intencional: episodio, transiciones, responsables,
-versiones y ports ya existen. La rama debe componer y endurecer esa arquitectura,
-no presentar `Episode Contract` como una feature o tabla nueva.
+versiones y ports ya existían. La rama compone y endurece esa arquitectura sin
+presentar `Episode Contract` como una feature o tabla nueva.
 
-### Alcance propuesto de la siguiente rama
+### Resultado implementado
 
-- introducir una vista/política de gobernanza sobre `DischargeEpisode` y fuentes
-  existentes;
-- reemplazar el concepto “módulo de avisos no disponible” por una evaluación real
-  y fail-closed de blockers, sin permitir cierre mientras DEC-002 siga pendiente;
-- exponer motivos técnicos y decisiones locales pendientes sin contenido clínico;
-- conservar idempotencia, versión optimista, timeline y auditoría existentes;
-- añadir pruebas unitarias, integración y E2E de cierre denegado y concurrencia;
-- actualizar ADR-0004, decisión/trazabilidad solo si el contrato cambia;
-- no crear `EpisodeContract`, migración ni dependencia salvo evidencia técnica
-  posterior y explícita.
+- `EpisodeGovernancePolicy/View` consulta `DischargeEpisode`, responsables,
+  protocolo exacto, avisos no terminales y tareas abiertas;
+- la ruta de detalle expone blockers técnicos/operativos y decisiones locales
+  pendientes sin contenido clínico;
+- el caso de uso de transición evalúa gobernanza en el `EpisodeUnitOfWork`, pero
+  DEC-002 pendiente conserva cierre `NOT_AUTHORIZED`;
+- política ausente, error o estado inconsistente falla cerrado;
+- idempotencia, versión optimista, timeline y auditoría permanecen intactos;
+- no se creó tabla, migración, dependencia ni flujo de acción automática.
 
 ### Definition of Done específica
 
@@ -33,6 +32,18 @@ no presentar `Episode Contract` como una feature o tabla nueva.
 4. Dos cierres concurrentes no pueden ganar.
 5. La evidencia usa IDs, estados y correlation ID; no copia contenido sensible.
 6. No cambia el alcance sintético ni habilita automatización clínica.
+
+## Siguiente rama exacta
+
+Tras completar la gobernanza del episodio, la siguiente rama sigue siendo:
+
+```text
+feat/gas2-signal-provenance-boundary
+```
+
+No se encontró evidencia que justifique alterar su orden o ampliar su alcance:
+debe definir envelope/value objects y mapping sobre evidencia actual, sin
+conectores externos ni tabla `SignalRecord` universal.
 
 ## Revisión de la secuencia inicial
 
@@ -53,9 +64,9 @@ no presentar `Episode Contract` como una feature o tabla nueva.
 
 ### 1. `refactor/gas2-episode-governance-policy`
 
-Reutiliza episodio y cierra la deriva entre ADR-0004 y el módulo de avisos ya
-existente. No requiere decidir reglas clínicas de cierre; debe seguir denegando
-cuando falta la política local.
+Completada. Reutiliza episodio y cierra la deriva entre ADR-0004 y los módulos de
+avisos/tareas existentes. No decide reglas clínicas de cierre y sigue denegando
+mientras falta la política local.
 
 ### 2. `feat/gas2-signal-provenance-boundary`
 

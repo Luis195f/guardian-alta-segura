@@ -38,7 +38,7 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 
 - El seed registra una política `synthetic-demo-identity-verification/demo-v1` y un paciente inequívocamente sintético. Su estado `APPROVED` solo habilita pruebas locales; no resuelve DEC-001 ni representa protocolo institucional.
 - La duración debe elegirse explícitamente entre 30, 60 y 90. No se asigna por diagnóstico, eficacia o riesgo y no existe valor clínico automático.
-- El cierre exige actor y motivo. Mientras no exista el módulo de avisos, `AlertModuleUnavailableClosurePolicy` deniega el cierre; una implementación futura deberá consultar avisos abiertos de forma consistente con la transacción.
+- El cierre exige actor, motivo y `expectedVersion`. `EpisodeGovernancePolicy` compone la vista técnica desde el episodio, responsables, protocolo, avisos no terminales y tareas abiertas, pero DEC-002 permanece `Pendiente` y la decisión de cierre es siempre `NOT_AUTHORIZED`. Política ausente, error o vista inconsistente también fallan de forma cerrada. Avisos y tareas se muestran como obligaciones organizativas, no como criterio clínico definitivo.
 - Episodios, pacientes, políticas de identidad y transiciones no se borran físicamente. La conservación definitiva continúa bloqueada por DEC-005.
 - `nurse` y `clinician` son roles técnicos provisionales; su correspondencia institucional continúa bloqueada por DEC-013.
 

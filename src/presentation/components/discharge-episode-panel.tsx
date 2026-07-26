@@ -136,7 +136,7 @@ export function DischargeEpisodePanel({ enabled }: { readonly enabled: boolean }
       if (response.status === 409) {
         setMessage(
           targetStatus === "CLOSED"
-            ? "Cierre bloqueado: la política de avisos abiertos aún no está disponible o el episodio cambió."
+            ? "Cierre bloqueado por gobernanza organizativa o por una decisión institucional pendiente."
             : "Conflicto de edición: vuelve a cargar el detalle antes de reintentar.",
         );
         return;

@@ -9,9 +9,10 @@ import {
   EpisodeInvalidError,
   EpisodeNotFoundError,
   EpisodeResponsibleProfessionalsError,
+  GetEpisodeGovernanceViewService,
   TransitionDischargeEpisodeService,
 } from "@/application/episode/manage-discharge-episode";
-import { AlertModuleUnavailableClosurePolicy } from "@/domain/episode/activation-policy";
+import { PendingInstitutionalEpisodeGovernancePolicy } from "@/domain/episode/activation-policy";
 import { IllegalEpisodeTransitionError, isEpisodeStatus } from "@/domain/episode/discharge-episode";
 import { errors } from "@/infrastructure/http/app-error";
 import { getCorrelationId } from "@/infrastructure/http/correlation-id";
@@ -24,6 +25,8 @@ import {
 } from "@/infrastructure/persistence/prisma-episode-unit-of-work";
 
 export const dynamic = "force-dynamic";
+
+const governancePolicy = new PendingInstitutionalEpisodeGovernancePolicy();
 
 function mapTransitionError(error: unknown): never {
   if (error instanceof EpisodeDeniedError) throw errors.forbidden();
@@ -54,10 +57,18 @@ export async function GET(
   try {
     const { principal } = await requireDemoEpisodePrincipal(request, "read");
     const { episodeId } = await context.params;
-    const episode = await getAssignedEpisodeDetail(episodeId, principal.userId);
+    const [episode, governance] = await Promise.all([
+      getAssignedEpisodeDetail(episodeId, principal.userId),
+      new GetEpisodeGovernanceViewService(new PrismaEpisodeUnitOfWork(), governancePolicy).execute({
+        actor: principal,
+        episodeId,
+        correlationId,
+      }),
+    ]);
     if (!episode) throw errors.notFound();
+    if (episode.version !== governance.episodeVersion) throw errors.conflict();
     return NextResponse.json(
-      { notice: "SINTÉTICO / NO USO CLÍNICO", episode },
+      { notice: "SINTÉTICO / NO USO CLÍNICO", episode, governance },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },
     );
   } catch (error) {
@@ -80,7 +91,7 @@ export async function PATCH(
     try {
       result = await new TransitionDischargeEpisodeService(
         new PrismaEpisodeUnitOfWork(),
-        new AlertModuleUnavailableClosurePolicy(),
+        governancePolicy,
       ).execute({
         actor: principal,
         episodeId,

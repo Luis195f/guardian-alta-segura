@@ -16,7 +16,7 @@ flowchart TB
   CONNECTOR["Connector boundary<br/>nuevo port + validación + idempotencia"]
   SIGNAL["Canonical signal boundary<br/>nuevo envelope/value objects"]
   PROV["Provenance<br/>extender RuleEvaluation y referencias existentes"]
-  EPISODE["Episode governance<br/>extender DischargeEpisode + policies"]
+  EPISODE["Episode governance<br/>EpisodeGovernancePolicy/View sobre fuentes actuales"]
   HUMAN["Human authorization<br/>refactor sobre AlertReview y casos de uso"]
   TASK["Task / accountability<br/>extender Task + TaskEvent + workqueue"]
   PROCESS["Process safety<br/>nueva proyección determinista"]
@@ -47,7 +47,7 @@ obligue a copiar todos los datos entre tablas.
 | Connector boundary | `src/application/ports` | Port de ingestión/entrega con autenticidad, idempotencia, versión y resultado; inbox/outbox solo si el contrato lo requiere |
 | Canonical signal boundary | Tipos de inputs de reglas y referencias de origen | Envelope discriminado y versionado; no crear una copia genérica de todos los datos |
 | Provenance | `RuleEvaluation`, `Alert`, check-ins y procedencia documental | Resolver linaje fuente → señal → evaluación → aviso sin perder IDs y tiempos |
-| Episode governance | `DischargeEpisode`, `EpisodeTransition`, políticas de activación/cierre | `EpisodeGovernancePolicy/View` que componga responsabilidades y blockers existentes |
+| Episode governance | `DischargeEpisode`, `EpisodeTransition`, política de activación, avisos y tareas | Implementado: `EpisodeGovernancePolicy/View` compone responsabilidades, protocolo, autorización técnica, obligaciones y blockers sin persistencia nueva; DEC-002 mantiene cierre denegado |
 | Human authorization | `AlertReviewService`, guards de tarea y triggers | Política explícita de autorización con actor, rol, decisión, motivo y referencia de evidencia |
 | Task/accountability | `Task`, `TaskEvent`, `NursingWorkQueue` | Añadir lifecycle y responsabilidad; SLA solo desde configuración aprobada |
 | Process safety | Ventanas/outcomes, avisos, tareas y timestamps | Proyección determinista de pasos vencidos/omitidos que propone trabajo humano |
@@ -73,6 +73,12 @@ EpisodeGovernanceView
 La vista no decide diagnóstico, riesgo, tratamiento o eficacia. Los blockers
 derivan de reglas técnicas y configuraciones locales versionadas. Ante política
 ausente o pendiente, el resultado es no autorizado.
+
+La implementación actual consulta únicamente IDs, estados, revisiones y
+referencias versionadas dentro del `EpisodeUnitOfWork`. Avisos no terminales y
+tareas abiertas permanecen en `Alert`/`AlertReview` y `Task`/`TaskEvent`; la vista
+no copia explicación, resumen ni contenido clínico. DEC-002 se publica como
+`LOCAL_POLICY_PENDING` y no existe un camino de mutación de cierre en esta rama.
 
 ### Canonical signal
 

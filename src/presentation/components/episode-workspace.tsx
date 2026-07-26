@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { EpisodeAlerts } from "@/presentation/components/episode-alerts";
 import type {
   EpisodeDetail,
+  EpisodeGovernanceView,
   ProfessionalQueueEntry,
   ProfessionalQueueResponse,
 } from "@/presentation/components/professional-types";
@@ -37,6 +38,7 @@ interface SummaryData {
 
 export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) {
   const [episode, setEpisode] = useState<EpisodeDetail | null>(null);
+  const [governance, setGovernance] = useState<EpisodeGovernanceView | null>(null);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [tab, setTab] = useState<WorkspaceTab>("summary");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -56,6 +58,7 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
         if (!episodeResponse.ok || !queueResponse.ok) throw new Error();
         const episodePayload = (await episodeResponse.json()) as {
           readonly episode: EpisodeDetail;
+          readonly governance: EpisodeGovernanceView;
         };
         const queuePayload = (await queueResponse.json()) as ProfessionalQueueResponse;
         const planPayload = planResponse.ok
@@ -68,6 +71,7 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
           : null;
         if (!active) return;
         setEpisode(episodePayload.episode);
+        setGovernance(episodePayload.governance);
         setSummary({
           queueEntry: queuePayload.entries.find((entry) => entry.episode.id === episodeId) ?? null,
           activePlanVersion: planPayload?.plan?.activeVersionNumber ?? null,
@@ -85,7 +89,7 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
   }, [episodeId]);
 
   if (state === "loading") return <LoadingState label="Abriendo el episodio…" />;
-  if (state === "error" || !episode || !summary) {
+  if (state === "error" || !episode || !governance || !summary) {
     return <ErrorState>El episodio no está disponible para esta identidad profesional.</ErrorState>;
   }
 
@@ -112,8 +116,12 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
         cache: "no-store",
       });
       if (!detailResponse.ok) throw new Error();
-      const payload = (await detailResponse.json()) as { readonly episode: EpisodeDetail };
+      const payload = (await detailResponse.json()) as {
+        readonly episode: EpisodeDetail;
+        readonly governance: EpisodeGovernanceView;
+      };
       setEpisode(payload.episode);
+      setGovernance(payload.governance);
       setTransitionMessage(
         `Transición a ${episodeStatusLabels[targetStatus].toLowerCase()} registrada y auditada.`,
       );
@@ -219,6 +227,28 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
             </div>
           </div>
           <div className="summary-grid">
+            <article>
+              <span>Gobernanza del episodio</span>
+              <strong>
+                Cierre{" "}
+                {governance.transitionDecision.authorization === "AUTHORIZED"
+                  ? "autorizado"
+                  : "no autorizado"}
+              </strong>
+              <span>
+                {governance.blockers.length} bloqueo(s) organizativo(s) ·{" "}
+                {governance.openObligations.length} obligación(es) abierta(s)
+              </span>
+              <ul>
+                {governance.blockers.map((blocker) => (
+                  <li key={blocker.code}>
+                    {blocker.code === "DEC_002_EPISODE_CLOSURE_POLICY_PENDING"
+                      ? "DEC-002 pendiente: política institucional de cierre no aprobada"
+                      : blocker.code}
+                  </li>
+                ))}
+              </ul>
+            </article>
             <article>
               <span>Plan de Seguridad</span>
               <strong>
