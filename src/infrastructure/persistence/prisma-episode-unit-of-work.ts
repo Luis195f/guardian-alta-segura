@@ -52,7 +52,7 @@ function toEpisodeRecord(episode: EpisodeWithIdentity): EpisodeRecord {
   };
 }
 
-class PrismaEpisodeTransaction implements EpisodeTransaction {
+export class PrismaEpisodeTransaction implements EpisodeTransaction {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   async isActiveUserWithRole(userId: string, role: Role): Promise<boolean> {

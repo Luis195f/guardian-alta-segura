@@ -26,6 +26,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Activar una versión aprobada | Sí, sin acceso al contenido del episodio | No | No | No | No | No |
 | Evaluar reglas activas y revisar avisos | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
 | Consultar cola y crear/asignar/resolver tareas | No | Sí, episodio asignado; assignment no concede autoridad exclusiva | Sí, episodio asignado; assignment no concede autoridad exclusiva | No | No | No |
+| Consultar evidencia técnica de gobernanza | No | Sí, episodio asignado; solo referencias minimizadas | Sí, episodio asignado; solo referencias minimizadas | No | No | No |
 | Registrar/revisar Domicilio Seguro | No | Sí, episodio asignado | Sí, episodio asignado | No | No; requiere scope futuro explícito | No |
 | Gestionar autorización de cuidador | No | No | No | Propio dentro del protocolo | No | No |
 | Crear/cambiar invitación y scope de cuidador | No | No | No | Propio, con autorización `caregiver:portal` vigente y limitado al episodio | No | No |
@@ -57,6 +58,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 - `patient` no puede aprobar reglas, firmar cierres profesionales ni ampliar permisos fuera del protocolo.
 - `Todos` en REQ-12 significa que cada categoría necesita autenticación; no concede a ningún rol todas las capacidades de la matriz.
 - Una tarea vinculada a aviso requiere revisión humana previa, autorización fail-closed del acting actor y una petición profesional explícita; la revisión por sí sola no crea tareas ni decisiones asistenciales. Reviewer y acting actor pueden ser personas distintas según las responsabilidades actuales.
+- La vista de evidencia reutiliza `discharge-episode-read`, revalida rol activo y responsabilidad actual y no crea un rol auditor. No amplía el acceso de `admin`, `support`, `patient` o `caregiver`.
 - Aprobar y activar una regla son capacidades separadas; ninguna de ellas crea avisos ni actuaciones por sí sola.
 - Los cambios de rol, permisos, scopes, sesiones y accesos críticos producen auditoría inmutable y minimizada.
 

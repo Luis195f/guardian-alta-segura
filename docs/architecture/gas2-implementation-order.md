@@ -86,6 +86,21 @@ escalado.
 `DEC-017` continúa `Pendiente`. El paquete es `DECISION SUPPORT EVIDENCE`, no una
 decisión ni autorización para abrir `feat/gas2-task-sla-escalation`.
 
+## Vista de evidencia de gobernanza completada
+
+El incremento:
+
+```text
+feat/gas2-governance-evidence-view
+```
+
+implementa `EpisodeGovernanceEvidenceView` como proyección read-only sobre las
+fuentes existentes. Reutiliza gobernanza, provenance V1, revisión humana,
+accountability y auditoría; aplica autorización profesional por recurso, límites
+explícitos y minimización. No crea tabla, migración, dependencia, exportación,
+observabilidad productiva ni process safety. La ausencia de decisión histórica
+de autorización por instancia se declara, no se rellena.
+
 ## Revisión de la secuencia inicial
 
 | Orden | Rama inicial | Decisión | Rama recomendada / condición |
@@ -94,6 +109,7 @@ decisión ni autorización para abrir `feat/gas2-task-sla-escalation`.
 | 2 | `feat/gas2-signal-provenance` | Mantener con alcance menor | `feat/gas2-signal-provenance-boundary`; completada con value objects, mappers y lineage sobre evidencia actual |
 | 3 | `refactor/gas2-human-authorization-policy` | Mantener | Completada; reutiliza `AlertReview` y guards, sin `ReviewGate` persistente |
 | 4 | `feat/gas2-accountability-sla` | Dividir por bloqueo | `feat/gas2-task-accountability` completada como proyección; SLA/escalado solo después de DEC-017 |
+| 4.1 | Vista de evidencia gobernada | Añadir sin persistencia | `feat/gas2-governance-evidence-view`; completada como proyección read-only sobre fuentes actuales |
 | 5 | `feat/gas2-process-safety` | Mantener condicionado | Esperar semántica operativa aprobada cuando dependa de assignment/SLA; sin scoring ni acción autónoma |
 | 6 | `feat/gas2-integration-boundary` | Mantener condicionado | Contratos solo al seleccionar una integración real; no crear registry especulativo |
 | 7 | `feat/gas2-fhir-boundary` | Eliminar del plan comprometido | Crear `feat/gas2-fhir-anti-corruption` únicamente si existe perfil/requisito institucional |
@@ -205,9 +221,9 @@ Cada rama debe:
 
 ## Resultado
 
-La secuencia ha completado gobernanza, procedencia, autorización humana y
-accountability técnica sin una segunda arquitectura. El paquete de apoyo a
-DEC-017 está preparado y el siguiente gate es
+La secuencia ha completado gobernanza, procedencia, autorización humana,
+accountability técnica y su evidence view gobernada sin una segunda arquitectura.
+El paquete de apoyo a DEC-017 está preparado y el siguiente gate es
 `READY_FOR_INSTITUTIONAL_DECISION`: la responsabilidad institucional,
 SLA/escalado y cualquier process safety dependiente de reglas de asignación o
 tiempos siguen esperando una aprobación real de DEC-017. Las integraciones

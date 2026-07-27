@@ -30,7 +30,7 @@ clínica; exige primero contrato, autoridad y evidencia.
 | H | FHIR anti-corruption layer | `MISSING` | `BUILD` condicionado | Separación dominio/aplicación/adapters y modelo interno no FHIR | Solo construir DTOs/mappers/validación cuando exista requisito y perfil institucional. No exponer modelos FHIR al dominio ni construir un servidor FHIR completo. |
 | I | Consent/caregiver authorization | `EXISTS` | `EXTEND` | Políticas, registros legales, revocación append-only, scope versionado por episodio, revalidación y auditoría de acceso | La mecánica existe para demo; faltan textos, representación, bases, retención e IdP aprobados. Extender por finalidad/conector solo tras DEC-003/004/005/013. |
 | J | RBAC / authorization | `PARTIAL` | `EXTEND` | Roles, principal, matriz deny-by-default, sesión en servidor, rol activo y pertenencia al episodio | Es sólida en demo, pero no hay IdP productivo, mapeo institucional, MFA ni acceso de emergencia. No ampliar roles como sustituto de políticas de recurso. |
-| K | Audit / evidence | `EXISTS` | `EXTEND` | `AuditEvent` append-only y minimizado; historias de dominio; `CaregiverAccessAudit`; correlation ID | Falta una consulta/evidence view gobernada, retención aprobada y exportación operativa. No duplicar en `AuditLog`. |
+| K | Audit / evidence | `EXISTS` | `REUSE` | `EpisodeGovernanceEvidenceView` read-only sobre `AuditEvent`, historias de dominio, gobernanza, provenance, reviews y accountability; correlation ID y cobertura limitada explícita | La consulta gobernada está implementada sin tabla ni payload clínico. Retención y exportación operativa siguen pendientes; no duplicar en `AuditLog`. |
 | L | Protocol/rule versioning | `EXISTS` | `REUSE` | Versiones de identidad, políticas legales, check-in, reglas/aprobaciones, Plan de Seguridad y Domicilio Seguro | Reutilizar patrones por contexto. No crear una tabla universal de protocolos que diluya autoridades e invariantes. |
 | M | Operational observability | `PARTIAL` | `EXTEND` | Healthcheck, logs sanitizados, correlation ID y métricas agregadas de cola | Faltan métricas, SLO, tracing, alertado, runbooks e incidentes sin PHI. DEC-014/015/016 condicionan operación productiva. |
 
@@ -48,6 +48,7 @@ clínica; exige primero contrato, autoridad y evidencia.
 - consentimiento/autorización de cuidador fail-closed;
 - RBAC deny-by-default para el demo;
 - auditoría técnica minimizada;
+- vista de evidencia técnica gobernada, minimizada y side-effect-free;
 - versionado contextual de políticas, reglas, protocolos y documentos.
 
 ### Debe evolucionar

@@ -61,4 +61,28 @@ test("crea, lista, detalla y activa un episodio sintético con timeline", async 
   await page.getByRole("tab", { name: "Historial" }).click();
   await expect(page.getByRole("heading", { name: "Historial del episodio" })).toBeVisible();
   await expect(page.getByText("Activo", { exact: true }).last()).toBeVisible();
+
+  await page.getByRole("tab", { name: "Evidencia / Trazabilidad" }).click();
+  await expect(page.getByRole("heading", { name: "Evidencia / Trazabilidad" })).toBeVisible();
+  await expect(page.getByText(/Proyección read-only/)).toBeVisible();
+  await expect(page.getByText(/No certifica seguridad clínica/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Referencias de auditoría" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /exportar/i })).toHaveCount(0);
+  const mutationResponse = await page.request.post(
+    `/api/demo/discharge-episodes/${episodeId}/governance-evidence`,
+    { data: {} },
+  );
+  expect(mutationResponse.status()).toBe(405);
+});
+
+test("un rol patient no puede consultar la evidencia profesional", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
+
+  const response = await page.request.get(
+    "/api/demo/discharge-episodes/synthetic-inaccessible/governance-evidence",
+  );
+  expect(response.status()).toBe(403);
 });
