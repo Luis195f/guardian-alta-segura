@@ -1,4 +1,15 @@
 import type { AlertProvenanceReadResult } from "@/domain/provenance/signal-provenance";
+import type { EpisodeGovernanceEvidenceView } from "@/domain/governance/governance-evidence";
+
+type Serialized<T> = T extends Date
+  ? string
+  : T extends readonly (infer Item)[]
+    ? readonly Serialized<Item>[]
+    : T extends object
+      ? { readonly [Key in keyof T]: Serialized<T[Key]> }
+      : T;
+
+export type EpisodeGovernanceEvidenceResponse = Serialized<EpisodeGovernanceEvidenceView>;
 
 export type Professional = { readonly id: string; readonly syntheticAlias: string };
 

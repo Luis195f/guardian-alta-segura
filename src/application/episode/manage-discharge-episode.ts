@@ -18,7 +18,11 @@ import {
   type EpisodeStatus,
   type ProgramLengthDays,
 } from "@/domain/episode/discharge-episode";
-import type { EpisodeRecord, EpisodeUnitOfWork } from "@/application/ports/episode-unit-of-work";
+import type {
+  EpisodeRecord,
+  EpisodeTransaction,
+  EpisodeUnitOfWork,
+} from "@/application/ports/episode-unit-of-work";
 
 export class EpisodeDeniedError extends Error {}
 export class EpisodeInvalidError extends Error {}
@@ -84,8 +88,8 @@ async function assertActiveProfessionals(
   }
 }
 
-async function governanceInput(
-  transaction: Parameters<Parameters<EpisodeUnitOfWork["run"]>[0]>[0],
+export async function buildEpisodeGovernanceInput(
+  transaction: EpisodeTransaction,
   episode: EpisodeRecord,
   correlationId: string,
   evaluatedAt: Date,
@@ -130,7 +134,7 @@ function isGovernanceViewConsistent(
   return true;
 }
 
-async function evaluateGovernance(
+export async function evaluateEpisodeGovernance(
   policy: EpisodeGovernancePolicy | null,
   input: EpisodeGovernanceInput,
 ): Promise<EpisodeGovernanceView> {
@@ -174,9 +178,9 @@ export class GetEpisodeGovernanceViewService {
       if (!(await transaction.isActiveUserWithRole(input.actor.userId, actorRole))) {
         throw new EpisodeDeniedError("Actor role is no longer active");
       }
-      return evaluateGovernance(
+      return evaluateEpisodeGovernance(
         this.governancePolicy,
-        await governanceInput(transaction, episode, input.correlationId, evaluatedAt),
+        await buildEpisodeGovernanceInput(transaction, episode, input.correlationId, evaluatedAt),
       );
     });
   }
@@ -373,9 +377,9 @@ export class TransitionDischargeEpisodeService {
         throw new EpisodeIdentityNotVerifiedError("Identity policy does not permit activation");
       }
       if (input.targetStatus === "CLOSED") {
-        const governance = await evaluateGovernance(
+        const governance = await evaluateEpisodeGovernance(
           this.governancePolicy,
-          await governanceInput(transaction, episode, input.correlationId, occurredAt),
+          await buildEpisodeGovernanceInput(transaction, episode, input.correlationId, occurredAt),
         );
         const blockerCodes = governance.blockers.map(({ code }) => code);
         if (

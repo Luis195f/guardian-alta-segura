@@ -20,7 +20,7 @@ separado.
 | `CORE GUARDIAN` | Accountability | Mantener como IP/core | Proyectar creator, assignee, actor, resolver, transferencias y elegibilidad actual desde `Task`/`TaskEvent`; no inferir quién debería actuar sin política aprobada |
 | `CORE GUARDIAN` | SLA y escalado | Mantener como IP/core tras DEC-017 | Evaluar configuración versionada y explicable; nunca inferir prioridad clínica |
 | `CORE GUARDIAN` | Process safety | Mantener como IP/core | Detectar determinísticamente pasos organizativos omitidos y crear solo trabajo para revisión humana |
-| `CORE GUARDIAN` | Audit/evidence | Mantener como IP/core | Conservar metadatos minimizados, historias append-only, correlation ID y vistas de evidencia autorizadas |
+| `CORE GUARDIAN` | Audit/evidence | Mantener como IP/core | `EpisodeGovernanceEvidenceView` implementada: proyectar metadatos minimizados, historias append-only y correlation ID sin otra tabla ni payload clínico |
 | `CORE GUARDIAN` | Connector contracts | Mantener como IP/core | Definir ports, autenticidad, idempotencia, validación, cuarentena, errores y versionado de contrato |
 | `INTEGRATE` | HCE/EHR | Sistema externo | Consumir o publicar solo mediante contrato y autorización institucional; no replicar la HCE |
 | `INTEGRATE` | LAGUN | Proveedor potencial | No asumir API, contrato, acceso, payload, finalidad, DPA ni capacidad clínica |
@@ -70,6 +70,11 @@ datos existentes:
 Solo se justifica persistencia adicional cuando haya un lifecycle propio,
 idempotencia de mensajes, acknowledgement, historial obligatorio o concurrencia
 que no pueda representarse de forma segura con los eventos actuales.
+
+La evidencia correlacionada del episodio ya se implementa como proyección
+read-only con límites y truncamiento explícitos. No justifica persistir una
+decisión histórica de autorización que el contrato actual no conserva ni crear
+un segundo log.
 
 ## Frontera de datos
 

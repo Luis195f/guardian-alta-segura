@@ -20,7 +20,8 @@ flowchart TB
   HUMAN["Human authorization<br/>implementado sobre AlertReview y casos de uso"]
   TASK["Task / accountability<br/>proyección implementada sobre Task + TaskEvent"]
   PROCESS["Process safety<br/>nueva proyección determinista"]
-  EVIDENCE["Audit / observability<br/>extender AuditEvent + correlation ID"]
+  EVIDENCE["Governance evidence<br/>implementada sobre AuditEvent + historias"]
+  OBS["Operational observability<br/>condicionada por DEC-014"]
 
   EXT --> ADAPTERS
   ADAPTERS --> CONNECTOR
@@ -31,6 +32,7 @@ flowchart TB
   HUMAN --> TASK
   TASK --> PROCESS
   PROCESS --> EVIDENCE
+  EVIDENCE --> OBS
 
   HUMAN -. "sin autorización: no acción" .-> EVIDENCE
   CONNECTOR -. "payload inválido: abstención/cuarentena" .-> EVIDENCE
@@ -51,7 +53,8 @@ obligue a copiar todos los datos entre tablas.
 | Human authorization | `DefaultHumanAuthorizationPolicy`, `ReviewAlertService`, guards de tarea y triggers | Implementado para `CREATE_TASK_FROM_REVIEWED_ALERT`: decisión pura con actor actual, reason codes y referencia minimizada de evidencia |
 | Task/accountability | `Task`, `TaskEvent`, `TaskAccountabilityProjection`, `NursingWorkQueue` | Accountability técnica implementada como proyección minimizada y fail-closed del lifecycle, assignment y elegibilidad actual; responsabilidad institucional no validada y condicionada a DEC-017 |
 | Process safety | Ventanas/outcomes, avisos, tareas y timestamps | Proyección determinista de pasos vencidos/omitidos que propone trabajo humano |
-| Audit/observability | `AuditEvent`, historias, `CaregiverAccessAudit`, correlation ID y health | Vistas de evidencia, métricas sin PHI, SLO/runbooks y salud por conector |
+| Governance evidence | `AuditEvent`, historias, gobernanza, provenance, reviews, accountability y correlation ID | Implementado como `EpisodeGovernanceEvidenceView` efímera, minimizada, autorizada y con cobertura explícita |
+| Operational observability | Health, logs sanitizados y correlation ID | Métricas sin PHI, SLO/runbooks y salud por conector solo tras DEC-014 y contratos reales |
 
 ## Contratos de dominio objetivo
 

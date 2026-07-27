@@ -33,6 +33,13 @@ roles y mutación. No añade tabla, migración o dependencia.
 conditioned on DEC-017`: no existe acceptance, SLA ni política institucional de
 asignación.
 
+`GOVERNANCE EVIDENCE VIEW = implemented`: `EpisodeGovernanceEvidenceView`
+compone por referencia el episodio/timeline, `EpisodeGovernanceView`, provenance
+V1, revisiones humanas, `TaskAccountabilityProjection` y `AuditEvent`. Es
+read-only, minimizada, limitada explícitamente y no persistida. Distingue
+integridad técnica de seguridad clínica; la decisión histórica por instancia de
+autorización humana y el rol histórico del reviewer se declaran no disponibles.
+
 ## Stack real
 
 | Área | Implementación verificada |
@@ -89,6 +96,7 @@ episodio. Los unit of work Prisma agrupan mutación, historia y auditoría.
 | Domicilio Seguro | `src/domain/home-safety`, `src/application/home-safety` | Registro informativo versionado con procedencia y marca de revisión humana |
 | SBAR | `src/application/sbar`, `src/infrastructure/persistence/prisma-sbar-preview.ts` | Preview determinista, minimizado y no firmado |
 | Auditoría | `src/domain/audit` y escrituras desde los unit of work | `AuditEvent` técnico minimizado, además de historias de dominio y auditoría específica de cuidador |
+| Evidencia de gobernanza | `src/domain/governance`, `src/application/governance`, reader Prisma y panel del episodio | Proyección read-only autorizada sobre fuentes existentes, con integridad y cobertura explícitas |
 
 Los nombres anteriores son contextos funcionales observados, no bounded contexts
 formalmente aislados por paquetes o despliegues. Comparten una base de datos y un
@@ -322,6 +330,17 @@ tiempo, sin copiar contenido clínico. Es append-only por trigger. Los historial
 de episodio, Plan de Seguridad, check-in, aviso y tarea aportan evidencia de
 dominio. `CaregiverAccessAudit` registra accesos y denegaciones específicas.
 
+La vista de evidencia referencia únicamente `AuditEvent` cuyo recurso es el
+episodio consultado o una evaluación, aviso o tarea seleccionados de ese mismo
+episodio. No crea eventos de lectura. `EpisodeTransition`, `Alert`,
+`AlertReview`, `Task`, `TaskEvent` y `AuditEvent` se consultan con límite público
+de 100 referencias por colección más detección de truncamiento. Un truncamiento
+produce `PARTIAL`, nunca completitud silenciosa, pero no oculta contradicciones
+ya observadas en el prefijo. Evidencia, elegibilidad y hechos de gobernanza
+proceden de una única transacción PostgreSQL `REPEATABLE READ`. El lineage
+canónico se contrasta con `RuleEvaluation` y `Alert`; el hash se mantiene interno
+y la fila fuente no se revalida durante esta lectura.
+
 La observabilidad operativa es parcial:
 
 - existe `GET /api/health`;
@@ -353,9 +372,9 @@ integraciones implementadas.
 | `pnpm format:check` | PASS |
 | `pnpm lint` | PASS |
 | `pnpm typecheck` | PASS |
-| `pnpm test:unit` | PASS — 28 archivos, 264 pruebas |
-| `pnpm test:integration` | PASS — 9 archivos, 65 pruebas |
-| `pnpm test:e2e` | PASS — 43 pruebas |
+| `pnpm test:unit` | PASS — 30 archivos, 290 pruebas |
+| `pnpm test:integration` | PASS — 10 archivos, 69 pruebas |
+| `pnpm test:e2e` | PASS — 44 pruebas |
 | `pnpm build` | PASS — 18 páginas generadas y rutas dinámicas compiladas |
 | `pnpm traceability:check` | PASS — REQ-01 a REQ-14 |
 | `pnpm db:migrate:status` | PASS — 11 migraciones; esquema actualizado |

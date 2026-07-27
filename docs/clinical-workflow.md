@@ -65,6 +65,26 @@ Existen dos caminos distintos: `señal → evaluación → aviso → revisión h
 
 La vista de accountability separa quién creó, quién está asignado, quién ejecutó cada evento, quién resolvió y quiénes son responsables del episodio. Una creación ya asignada usa el evento `CREATED`; no duplica `ASSIGNED`. Intentos de contacto, notas y resolución no transfieren assignment. Una tarea sin assignee permanece `UNASSIGNED`; assignment no significa acceptance ni autoridad exclusiva. Si el assignee pierde después su rol técnico, la historia se conserva, la vista lo marca como no autorizado actualmente y no reasigna ni escala automáticamente.
 
+### 10.1. Evidencia técnica de gobernanza
+
+El profesional responsable puede consultar dentro del episodio una proyección
+read-only de referencias de episodio/timeline, gobernanza, provenance, reviews,
+accountability y auditoría. La consulta no crea eventos, no cambia estados y no
+copia respuestas, explicaciones, resúmenes, notas, motivos ni contenido de
+planes.
+
+Una tarea humana directa muestra evidencia de señal como `NOT_APPLICABLE`. Una
+tarea derivada exige la cadena fuente → evaluación → aviso → review → tarea y
+falla como `INCONSISTENT` ante contradicciones persistidas. La existencia del
+enforcement contract de autorización no se confunde con una decisión histórica
+por instancia: esa decisión y el rol histórico del reviewer se muestran como
+`UNAVAILABLE` porque no están persistidos.
+
+`COMPLETE`, `PARTIAL`, `INCONSISTENT`, `NOT_APPLICABLE` y `UNAVAILABLE` describen
+solo disponibilidad/coherencia técnica. No expresan seguridad clínica,
+cumplimiento, riesgo ni conformidad. Las colecciones están limitadas y cualquier
+truncamiento se declara.
+
 ### 11. Botón de crisis
 
 El botón abre el marcador nativo únicamente cuando existe un recurso oficial aprobado localmente y verificado por TI. Dirección Médica es la autoridad final única sobre el destino. El paso 5 del Plan de Seguridad no es una fuente de configuración: mientras DEC-010 y DEC-011 sigan pendientes, rechaza URI `tel:` y secuencias con apariencia de teléfono. No se inventa teléfono, destino ni consejo.

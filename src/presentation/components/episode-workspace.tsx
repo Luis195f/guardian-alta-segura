@@ -17,6 +17,7 @@ import { HomeSafetyPanel } from "@/presentation/components/home-safety-panel";
 import { SbarPreviewPanel } from "@/presentation/components/sbar-preview-panel";
 import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
 import { ErrorState, LoadingState } from "@/presentation/components/ui-states";
+import { GovernanceEvidencePanel } from "@/presentation/components/governance-evidence-panel";
 
 const tabs = [
   ["summary", "Resumen"],
@@ -26,6 +27,7 @@ const tabs = [
   ["follow-up", "Seguimiento"],
   ["home-safety", "Domicilio Seguro"],
   ["sbar", "SBAR"],
+  ["evidence", "Evidencia / Trazabilidad"],
   ["history", "Historial"],
 ] as const;
 type WorkspaceTab = (typeof tabs)[number][0];
@@ -322,6 +324,7 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
       {tab === "follow-up" && <NursingWorkQueuePanel enabled episodeId={episode.id} />}
       {tab === "home-safety" && <HomeSafetyPanel episodeId={episode.id} enabled />}
       {tab === "sbar" && <SbarPreviewPanel episodeId={episode.id} enabled />}
+      {tab === "evidence" && <GovernanceEvidencePanel episodeId={episode.id} />}
       {tab === "history" && (
         <section className="workspace-panel">
           <p className="eyebrow">Trazabilidad</p>
