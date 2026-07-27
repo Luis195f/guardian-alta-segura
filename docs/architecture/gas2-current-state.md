@@ -24,6 +24,15 @@ La autorización humana añade una policy pura sobre `AlertReview`, actor actual
 responsabilidad del episodio. No persiste otra decisión, no ejecuta tareas y no
 modifica Prisma, migraciones o dependencias.
 
+`TECHNICAL TASK ACCOUNTABILITY = implemented`: una proyección pura sobre
+`Task`/`TaskEvent` reconstruye la historia y la autorización mutante toma locks
+en orden episodio, conjunto de `User` participantes ordenado globalmente por ID,
+roles y mutación. No añade tabla, migración o dependencia.
+
+`INSTITUTIONAL RESPONSIBILITY / ACCOUNTABILITY POLICY = not validated,
+conditioned on DEC-017`: no existe acceptance, SLA ni política institucional de
+asignación.
+
 ## Stack real
 
 | Área | Implementación verificada |
@@ -169,8 +178,16 @@ y resolución. La responsabilidad actual se expresa mediante:
 - `assignedToId`, `createdById` y `resolvedById` en la tarea;
 - actor, rol y tiempo en transiciones, revisiones y eventos.
 
-No existe una cadena de responsabilidad formal, suplencia, aceptación de tarea,
-equipo, guardia, escalado o SLA.
+`TaskAccountabilityProjection` reconstruye la cadena técnica de asignación desde
+`CREATED`, `ASSIGNED` y `REASSIGNED`; conserva actor/rol/tiempo, valida revisión,
+estado, igualdad entre `Task.createdAt` y el `CREATED.occurredAt`, extremos y
+proyección final, y separa creator, assignee, actor, resolver y responsables del
+episodio. `CONTACT_ATTEMPT`, `NOTE_RECORDED` y `RESOLVED` no transfieren
+assignment. Una tarea sin assignee es `UNASSIGNED`, no un error.
+
+No existe acceptance, suplencia, equipo, guardia, escalado, SLA ni una regla
+institucional sobre quién debería actuar. Assignment describe el holder técnico
+actual y no concede autoridad exclusiva para mutar.
 
 ### Consentimiento y cuidador
 
@@ -267,7 +284,8 @@ mutar esa misma fila para conservar el orden.
 |---|---|
 | Revision control | `Task.revision`, `expectedRevision` y actualización condicional |
 | Locking de tarea | No hay lock pesimista de tarea; se usa control optimista con unicidad y transacción |
-| Autorización vs revocación | La mutación bloquea las filas `User` y `RoleAssignment` activa del actor; la revocación concurrente se serializa contra ese lock |
+| Acting actor vs revocación | La mutación bloquea las filas `User` y `RoleAssignment` activa del actor; la revocación concurrente se serializa contra ese lock |
+| Identidades y revocación | Las mutaciones bloquean episodio, `User` participantes únicos en orden global y después `RoleAssignment`; si revocación gana primero se deniega, y si la mutación gana primero la revocación espera |
 | Idempotencia | Clave única por actor + fingerprint para creación y cada evento |
 | Conflicto de asignación | Un evento por `taskId/resultingRevision`; una carrera tiene un ganador |
 | Conflicto de resolución | Tarea resuelta es terminal; revisión obsoleta devuelve conflicto |
@@ -275,18 +293,27 @@ mutar esa misma fila para conservar el orden.
 | Integridad | Triggers impiden borrar tareas/eventos, mutar origen o cambiar proyección sin evento coincidente |
 | Vínculo a aviso | Clave compuesta episodio/aviso y trigger que exige revisión humana previa |
 
-Las pruebas de integración cubren carreras de asignación contra resolución, nota
-contra resolución, reasignación contra resolución, creación concurrente
-idempotente, rol revocado e inserciones SQL con semántica falsa. Las E2E cubren
-doble resolución y creación HTTP concurrente.
+Las pruebas de integración cubren ambos órdenes de create-assigned/assign/reassign
+contra revocación del target, ambos órdenes de revocación del acting actor, el
+cruce actor/target A→B y B→A dentro del mismo episodio y entre episodios,
+self-assignment y paralelismo entre participantes disjuntos. También cubren
+carreras de asignación contra resolución, nota contra resolución, reasignación
+contra resolución, creación concurrente idempotente, rol revocado e inserciones
+SQL con semántica falsa. Después de una revocación válida posterior, la
+proyección conserva el evento y marca
+`CURRENT_ASSIGNEE_NOT_CURRENTLY_AUTHORIZED` sin convertirlo en inconsistencia
+estructural. Las E2E cubren doble resolución, creación HTTP concurrente y el
+contrato minimizado de accountability.
 
 La prueba de integración del episodio cubre además dos transiciones concurrentes
 con la misma `expectedVersion`: una sola actualiza episodio, timeline y auditoría.
 No se simula una carrera de cierres porque DEC-002 impide legítimamente alcanzar
 la mutación.
 
-No existe orden global entre episodios o módulos, cursor de eventos, inbox/outbox
-ni garantía de entrega a sistemas externos.
+El orden global de `User` participantes cubre exclusivamente las mutaciones de la
+workqueue, incluso entre episodios. No se extiende automáticamente a otros
+módulos; tampoco existe cursor de eventos, inbox/outbox ni garantía de entrega a
+sistemas externos.
 
 ## Auditoría y observabilidad
 
@@ -326,8 +353,8 @@ integraciones implementadas.
 | `pnpm format:check` | PASS |
 | `pnpm lint` | PASS |
 | `pnpm typecheck` | PASS |
-| `pnpm test:unit` | PASS — 27 archivos, 247 pruebas |
-| `pnpm test:integration` | PASS — 9 archivos, 57 pruebas |
+| `pnpm test:unit` | PASS — 28 archivos, 264 pruebas |
+| `pnpm test:integration` | PASS — 9 archivos, 65 pruebas |
 | `pnpm test:e2e` | PASS — 43 pruebas |
 | `pnpm build` | PASS — 18 páginas generadas y rutas dinámicas compiladas |
 | `pnpm traceability:check` | PASS — REQ-01 a REQ-14 |
@@ -342,7 +369,7 @@ fallos.
 Guardián Alta Segura ya contiene un núcleo modular y trazable para continuidad
 postalta sintética. GAS 2.0 debe ser una evolución de ese núcleo, no un nuevo
 árbol de código ni un segundo modelo de datos. Las fronteras fundacionales de
-gobernanza de episodio, procedencia y autorización humana ya están compuestas
-sobre los módulos actuales. La brecha prioritaria siguiente es responsabilidad
-de tareas; SLA y proceso seguro permanecen condicionados a las decisiones
-locales, especialmente DEC-017.
+gobernanza de episodio, procedencia, autorización humana y accountability técnica
+ya están compuestas sobre los módulos actuales. La responsabilidad institucional,
+SLA/escalado y cualquier process safety dependiente de reglas operativas
+permanecen no validados y condicionados a DEC-017.

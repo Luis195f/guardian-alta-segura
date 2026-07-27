@@ -18,7 +18,7 @@ flowchart TB
   PROV["Provenance lineage<br/>implementado sobre RuleEvaluation y Alert"]
   EPISODE["Episode governance<br/>EpisodeGovernancePolicy/View sobre fuentes actuales"]
   HUMAN["Human authorization<br/>implementado sobre AlertReview y casos de uso"]
-  TASK["Task / accountability<br/>extender Task + TaskEvent + workqueue"]
+  TASK["Task / accountability<br/>proyección implementada sobre Task + TaskEvent"]
   PROCESS["Process safety<br/>nueva proyección determinista"]
   EVIDENCE["Audit / observability<br/>extender AuditEvent + correlation ID"]
 
@@ -49,7 +49,7 @@ obligue a copiar todos los datos entre tablas.
 | Provenance | `RuleEvaluation`, `Alert`, check-ins y procedencia documental | Implementado: lineage fuente → evaluación → aviso sobre IDs y tiempos existentes, con lectura histórica compatible y sin copiar contenido |
 | Episode governance | `DischargeEpisode`, `EpisodeTransition`, política de activación, avisos y tareas | Implementado: `EpisodeGovernancePolicy/View` compone responsabilidades, protocolo, autorización técnica, obligaciones y blockers sin persistencia nueva; DEC-002 mantiene cierre denegado |
 | Human authorization | `DefaultHumanAuthorizationPolicy`, `ReviewAlertService`, guards de tarea y triggers | Implementado para `CREATE_TASK_FROM_REVIEWED_ALERT`: decisión pura con actor actual, reason codes y referencia minimizada de evidencia |
-| Task/accountability | `Task`, `TaskEvent`, `NursingWorkQueue` | Añadir lifecycle y responsabilidad; SLA solo desde configuración aprobada |
+| Task/accountability | `Task`, `TaskEvent`, `TaskAccountabilityProjection`, `NursingWorkQueue` | Accountability técnica implementada como proyección minimizada y fail-closed del lifecycle, assignment y elegibilidad actual; responsabilidad institucional no validada y condicionada a DEC-017 |
 | Process safety | Ventanas/outcomes, avisos, tareas y timestamps | Proyección determinista de pasos vencidos/omitidos que propone trabajo humano |
 | Audit/observability | `AuditEvent`, historias, `CaregiverAccessAudit`, correlation ID y health | Vistas de evidencia, métricas sin PHI, SLO/runbooks y salud por conector |
 
@@ -137,11 +137,23 @@ aviso revisado. Una tarea sin aviso sigue siendo iniciación humana directa. El
 estado `actioned` es administrativo y no prueba la existencia de `Task` o
 `TaskEvent`.
 
-### Accountability y SLA
+### Accountability técnica implementada; responsabilidad institucional pendiente
 
-`Task` y `TaskEvent` siguen siendo la fuente de verdad. Una evolución puede añadir
-configuración versionada de lifecycle, prioridad administrativa, tiempos objetivo
-y escalado. Los valores no se codifican antes de DEC-017.
+`Task` y `TaskEvent` siguen siendo la fuente de verdad. La proyección actual
+separa creator, assignee, event actor, resolver y responsables del episodio;
+reconstruye assignment/reassignment por `resultingRevision`, marca cadenas
+incoherentes y verifica la elegibilidad técnica actual sin copiar notas o
+contenido clínico. La revocación posterior no reescribe historia ni dispara
+reasignación. Assignment no implica acceptance ni autoridad exclusiva.
+
+`TECHNICAL TASK ACCOUNTABILITY = implemented`.
+`INSTITUTIONAL RESPONSIBILITY / ACCOUNTABILITY POLICY = not validated,
+conditioned on DEC-017`. La proyección no determina quién debería actuar ni
+modela equipo, turno, suplencia o acceptance.
+
+Una evolución posterior puede añadir configuración versionada de prioridad
+administrativa, tiempos objetivo y escalado. Los valores no se codifican antes de
+DEC-017.
 
 La expiración o infracción de SLA:
 

@@ -44,6 +44,7 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
   readonly events: NursingTaskEventRecord[] = [];
   readonly audits: NewAuditEvent[] = [];
   readonly revokedUsers = new Set<string>();
+  readonly participantLockCalls: string[][] = [];
   readonly episode = {
     id: "episode-1",
     isSynthetic: true,
@@ -61,8 +62,11 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
       (userId === "clinician-1" && role === "clinician")
     );
   }
-  async getEpisode(episodeId: string) {
+  async lockEpisode(episodeId: string) {
     return episodeId === this.episode.id ? this.episode : null;
+  }
+  async lockParticipantUsers(userIds: readonly string[]) {
+    this.participantLockCalls.push([...new Set(userIds)].sort());
   }
   async getAlert(alertId: string) {
     if (alertId === "alert-1") {
@@ -107,8 +111,12 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
     }
     return null;
   }
-  async isAuthorizedAssignee(userId: string, episodeId: string) {
-    return episodeId === this.episode.id && ["nurse-1", "clinician-1"].includes(userId);
+  async lockAuthorizedAssignee(userId: string, episodeId: string) {
+    return (
+      episodeId === this.episode.id &&
+      !this.revokedUsers.has(userId) &&
+      ["nurse-1", "clinician-1"].includes(userId)
+    );
   }
   async getTask(taskId: string) {
     return this.tasks.get(taskId) ?? null;
@@ -160,10 +168,16 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
       id: `event-${this.events.length + 1}`,
       taskId: input.task.id,
       type: input.type,
+      fromState: input.task.currentState,
+      toState: input.type === "resolved" ? "resolved" : "open",
+      fromAssignedToId: input.task.assignedToId,
+      toAssignedToId: input.toAssignedToId,
       actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
       idempotencyKey: input.idempotencyKey,
       requestFingerprint: input.requestFingerprint,
       resultingRevision: input.task.revision + 1,
+      occurredAt: input.occurredAt,
     };
     const resolved = input.type === "resolved";
     const task: NursingTaskRecord = {
@@ -464,5 +478,94 @@ describe("nursing task application services", () => {
       "TASK_NOTE_RECORDED",
     ]);
     expect(JSON.stringify(store.audits)).not.toContain("Nota sintética");
+  });
+
+  it("creación, asignación y reasignación exigen un target actualmente autorizado", async () => {
+    const store = new MemoryWorkQueue();
+    store.revokedUsers.add("clinician-1");
+    await expect(
+      new CreateNursingTaskService(store).execute({
+        actor: actor(),
+        episodeId: "episode-1",
+        alertId: null,
+        summary: "No asignar al target revocado",
+        assignedToId: "clinician-1",
+        idempotencyKey: "task:revoked-create",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+
+    const created = await new CreateNursingTaskService(store).execute({
+      actor: actor(),
+      episodeId: "episode-1",
+      alertId: null,
+      summary: "Tarea inicialmente sin asignar",
+      assignedToId: null,
+      idempotencyKey: "task:revoked-target-base",
+      correlationId: randomUUID(),
+    });
+    await expect(
+      new UpdateNursingTaskService(store).execute({
+        actor: actor(),
+        taskId: created.taskId,
+        expectedRevision: created.revision,
+        action: { kind: "assign", assignedToId: "clinician-1" },
+        idempotencyKey: "task:revoked-assign",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+
+    store.revokedUsers.delete("clinician-1");
+    const assigned = await new UpdateNursingTaskService(store).execute({
+      actor: actor(),
+      taskId: created.taskId,
+      expectedRevision: created.revision,
+      action: { kind: "assign", assignedToId: "nurse-1" },
+      idempotencyKey: "task:assign-before-reassign",
+      correlationId: randomUUID(),
+    });
+    store.revokedUsers.add("clinician-1");
+    await expect(
+      new UpdateNursingTaskService(store).execute({
+        actor: actor(),
+        taskId: assigned.taskId,
+        expectedRevision: assigned.revision,
+        action: { kind: "assign", assignedToId: "clinician-1" },
+        idempotencyKey: "task:revoked-reassign",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+    expect(store.participantLockCalls).toContainEqual(["clinician-1", "nurse-1"]);
+  });
+
+  it("retry idempotente de assignment no duplica eventos ni revalida retroactivamente el target", async () => {
+    const store = new MemoryWorkQueue();
+    const created = await new CreateNursingTaskService(store).execute({
+      actor: actor(),
+      episodeId: "episode-1",
+      alertId: null,
+      summary: "Tarea para retry de asignación",
+      assignedToId: null,
+      idempotencyKey: "task:assignment-retry-base",
+      correlationId: randomUUID(),
+    });
+    const input = {
+      actor: actor(),
+      taskId: created.taskId,
+      expectedRevision: 1,
+      action: { kind: "assign", assignedToId: "clinician-1" } as const,
+      idempotencyKey: "task:assignment-retry",
+      correlationId: randomUUID(),
+    };
+    const service = new UpdateNursingTaskService(store);
+    const assigned = await service.execute(input);
+    store.revokedUsers.add("clinician-1");
+    const retry = await service.execute(input);
+    expect(retry).toMatchObject({
+      taskId: assigned.taskId,
+      revision: assigned.revision,
+      idempotent: true,
+    });
+    expect(store.events).toHaveLength(1);
   });
 });

@@ -63,6 +63,8 @@ En la demo técnica, toda tarea se vincula obligatoriamente al episodio y puede 
 
 Existen dos caminos distintos: `señal → evaluación → aviso → revisión humana → autorización → POST explícito de tarea`, y `profesional → POST explícito de tarea manual sin aviso`. El segundo no recibe procedencia ni review ficticias. `actioned` es un estado administrativo del aviso y no acredita por sí solo una tarea o actuación; esa prueba exige `Task`/`TaskEvent`.
 
+La vista de accountability separa quién creó, quién está asignado, quién ejecutó cada evento, quién resolvió y quiénes son responsables del episodio. Una creación ya asignada usa el evento `CREATED`; no duplica `ASSIGNED`. Intentos de contacto, notas y resolución no transfieren assignment. Una tarea sin assignee permanece `UNASSIGNED`; assignment no significa acceptance ni autoridad exclusiva. Si el assignee pierde después su rol técnico, la historia se conserva, la vista lo marca como no autorizado actualmente y no reasigna ni escala automáticamente.
+
 ### 11. Botón de crisis
 
 El botón abre el marcador nativo únicamente cuando existe un recurso oficial aprobado localmente y verificado por TI. Dirección Médica es la autoridad final única sobre el destino. El paso 5 del Plan de Seguridad no es una fuente de configuración: mientras DEC-010 y DEC-011 sigan pendientes, rechaza URI `tel:` y secuencias con apariencia de teléfono. No se inventa teléfono, destino ni consejo.

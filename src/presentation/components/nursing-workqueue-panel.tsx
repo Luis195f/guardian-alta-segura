@@ -12,18 +12,33 @@ type QueueTask = {
   readonly state: "open" | "resolved";
   readonly revision: number;
   readonly assignedTo: Professional | null;
+  readonly createdBy: Professional;
+  readonly resolvedBy: Professional | null;
   readonly resolvedAt: string | null;
   readonly resolutionReason: string | null;
   readonly createdAt: string;
+  readonly accountability: {
+    readonly origin: {
+      readonly kind: "DIRECT_HUMAN_INITIATION" | "REVIEWED_ALERT_DERIVED";
+      readonly alertId: string | null;
+    };
+    readonly assignmentStatus: "UNASSIGNED" | "ASSIGNED" | "RESOLVED";
+    readonly currentAssigneeEligibility:
+      "NOT_APPLICABLE" | "CURRENTLY_AUTHORIZED" | "NOT_CURRENTLY_AUTHORIZED";
+    readonly consistencyStatus: "VALID" | "INCONSISTENT";
+    readonly blockers: readonly string[];
+  };
   readonly events: readonly {
     readonly id: string;
     readonly type: string;
+    readonly actorRole: string;
     readonly note: string | null;
     readonly contactOutcome: string | null;
     readonly resolutionReason: string | null;
     readonly resultingRevision: number;
     readonly occurredAt: string;
     readonly actor: { readonly syntheticAlias: string };
+    readonly fromAssignedTo: Professional | null;
     readonly toAssignedTo: Professional | null;
   }[];
 };
@@ -132,8 +147,8 @@ function TaskActions({
   if (task.state === "resolved") {
     return (
       <p>
-        Resuelta por acción humana el {new Date(task.resolvedAt!).toLocaleString("es-ES")}. Motivo:{" "}
-        {task.resolutionReason}
+        Resuelta por {task.resolvedBy?.syntheticAlias ?? "actor histórico no disponible"} el{" "}
+        {new Date(task.resolvedAt!).toLocaleString("es-ES")}. Motivo: {task.resolutionReason}
       </p>
     );
   }
@@ -584,9 +599,24 @@ export function NursingWorkQueuePanel({
                         {task.summary} · {task.state} · rev. {task.revision}
                       </strong>
                       <p>
-                        Asignada a: {task.assignedTo?.syntheticAlias ?? "sin asignar"}
-                        {task.alertId ? " · vinculada a aviso" : ""}
+                        Creada por: {task.createdBy.syntheticAlias} · Asignación operativa:{" "}
+                        {task.assignedTo?.syntheticAlias ?? "sin asignar"} · Origen:{" "}
+                        {task.accountability.origin.kind === "REVIEWED_ALERT_DERIVED"
+                          ? "aviso revisado"
+                          : "iniciación humana directa"}
                       </p>
+                      {task.accountability.currentAssigneeEligibility ===
+                        "NOT_CURRENTLY_AUTHORIZED" && (
+                        <p role="status">
+                          El assignee actual ya no está técnicamente autorizado. La historia se
+                          conserva y no se ha reasignado automáticamente.
+                        </p>
+                      )}
+                      {task.accountability.consistencyStatus === "INCONSISTENT" && (
+                        <p role="alert">
+                          Accountability inconsistente: {task.accountability.blockers.join(", ")}
+                        </p>
+                      )}
                       <TaskActions
                         task={task}
                         professionals={episodeProfessionals}
@@ -598,9 +628,15 @@ export function NursingWorkQueuePanel({
                         <ol>
                           {task.events.map((item) => (
                             <li key={item.id}>
-                              rev. {item.resultingRevision} · {item.type} ·{" "}
-                              {item.actor.syntheticAlias} ·{" "}
+                              rev. {item.resultingRevision} · {item.type} · actor{" "}
+                              {item.actor.syntheticAlias} ({item.actorRole}) ·{" "}
                               {new Date(item.occurredAt).toLocaleString("es-ES")}
+                              {item.toAssignedTo &&
+                              (item.type === "created" ||
+                                item.type === "assigned" ||
+                                item.type === "reassigned")
+                                ? ` · asignada a ${item.toAssignedTo.syntheticAlias}`
+                                : ""}
                               {item.contactOutcome ? ` · ${item.contactOutcome}` : ""}
                               {item.note ? ` · ${item.note}` : ""}
                               {item.resolutionReason ? ` · ${item.resolutionReason}` : ""}

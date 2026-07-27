@@ -175,6 +175,7 @@ async function setup() {
     nurse,
     clinician,
     otherNurse,
+    otherClinician,
     activeEpisode,
     pausedEpisode,
     isolatedEpisode,
@@ -225,6 +226,111 @@ async function createAlert(users: Awaited<ReturnType<typeof setup>>) {
     evaluatedAt: new Date("2026-07-20T10:00:00.000Z"),
   });
   return evaluated.alertId!;
+}
+
+type TargetAssignmentOperation = "create-assigned" | "assign" | "reassign";
+
+async function waitForNamedLock(applicationName: string): Promise<boolean> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const [activity] = await prisma.$queryRaw<Array<{ readonly waiting: boolean }>>(Prisma.sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_stat_activity
+        WHERE application_name = ${applicationName}
+          AND wait_event_type = 'Lock'
+      ) AS waiting
+    `);
+    if (activity?.waiting) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return false;
+}
+
+async function waitForTargetAuthorizationLock(): Promise<boolean> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const [activity] = await prisma.$queryRaw<Array<{ readonly waiting: boolean }>>(Prisma.sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_stat_activity
+        WHERE wait_event_type = 'Lock'
+          AND query LIKE '%FROM "discharge_episodes" AS episode%'
+          AND query LIKE '%FOR UPDATE OF episode, u, ra%'
+      ) AS waiting
+    `);
+    if (activity?.waiting) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return false;
+}
+
+async function waitForActorAuthorizationLock(): Promise<boolean> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const [activity] = await prisma.$queryRaw<Array<{ readonly waiting: boolean }>>(Prisma.sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_stat_activity
+        WHERE wait_event_type = 'Lock'
+          AND query LIKE '%FROM "users" AS u%'
+          AND query LIKE '%FOR UPDATE OF u, ra%'
+      ) AS waiting
+    `);
+    if (activity?.waiting) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return false;
+}
+
+async function prepareTargetAssignment(
+  operation: TargetAssignmentOperation,
+  users: Awaited<ReturnType<typeof setup>>,
+  unitOfWork: NursingWorkQueueUnitOfWork,
+) {
+  const actor = principal(users.nurse.id, "nurse");
+  if (operation === "create-assigned") {
+    const idempotencyKey = `queue-target-create:${randomUUID()}`;
+    return {
+      existingTaskId: null,
+      mutation: () =>
+        new CreateNursingTaskService(unitOfWork).execute({
+          actor,
+          episodeId: users.activeEpisode.id,
+          alertId: null,
+          summary: "Creación asignada serializada contra revocación",
+          assignedToId: users.clinician.id,
+          idempotencyKey,
+          correlationId: randomUUID(),
+        }),
+    };
+  }
+
+  const initiallyAssignedToId = operation === "reassign" ? users.nurse.id : null;
+  const task = await new CreateNursingTaskService(new PrismaNursingWorkQueueUnitOfWork()).execute({
+    actor,
+    episodeId: users.activeEpisode.id,
+    alertId: null,
+    summary:
+      operation === "assign"
+        ? "Asignación serializada contra revocación"
+        : "Reasignación serializada contra revocación",
+    assignedToId: initiallyAssignedToId,
+    idempotencyKey: `queue-target-base:${randomUUID()}`,
+    correlationId: randomUUID(),
+  });
+  return {
+    existingTaskId: task.taskId,
+    mutation: () =>
+      new UpdateNursingTaskService(unitOfWork).execute({
+        actor,
+        taskId: task.taskId,
+        expectedRevision: task.revision,
+        action: { kind: "assign", assignedToId: users.clinician.id },
+        idempotencyKey: `queue-target-update:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+  };
 }
 
 describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
@@ -346,18 +452,18 @@ describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
       new PrismaNursingWorkQueueUnitOfWork(),
     ).execute(createInput);
     expect(retry).toMatchObject({ taskId: task.taskId, idempotent: true });
-    await expect(
-      prisma.task.findUniqueOrThrow({
-        where: { id: task.taskId },
-        include: { events: true },
-      }),
-    ).resolves.toMatchObject({
+    const storedTask = await prisma.task.findUniqueOrThrow({
+      where: { id: task.taskId },
+      include: { events: true },
+    });
+    expect(storedTask).toMatchObject({
       episodeId: users.activeEpisode.id,
       alertId,
       currentState: "OPEN",
       createdById: users.nurse.id,
       events: [expect.objectContaining({ type: "CREATED", actorUserId: users.nurse.id })],
     });
+    expect(storedTask.events[0]?.occurredAt).toEqual(storedTask.createdAt);
     await expect(prisma.task.count({ where: { alertId } })).resolves.toBe(1);
     await expect(
       prisma.auditEvent.count({
@@ -469,9 +575,7 @@ describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
       prisma.roleAssignment.findUniqueOrThrow({ where: { id: roleAssignment.id } }),
     ]);
     expect(revokedAssignment.revokedAt).not.toBeNull();
-    expect(storedTask.createdAt.getTime()).toBeLessThanOrEqual(
-      revokedAssignment.revokedAt!.getTime(),
-    );
+    expect(storedTask.id).toBe(created.taskId);
     await expect(
       new CreateNursingTaskService(new PrismaNursingWorkQueueUnitOfWork()).execute({
         actor: principal(users.nurse.id, "nurse"),
@@ -484,6 +588,520 @@ describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
       }),
     ).rejects.toBeInstanceOf(NursingTaskDeniedError);
   });
+
+  it("deniega la mutación si la revocación del acting actor obtiene primero el lock", async () => {
+    const users = await setup();
+    const unitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const task = await new CreateNursingTaskService(unitOfWork).execute({
+      actor: principal(users.nurse.id, "nurse"),
+      episodeId: users.activeEpisode.id,
+      alertId: null,
+      summary: "Tarea sintética para revocación-first del actor",
+      assignedToId: null,
+      idempotencyKey: `queue-actor-revocation-first-base:${randomUUID()}`,
+      correlationId: randomUUID(),
+    });
+    const roleAssignment = await prisma.roleAssignment.findFirstOrThrow({
+      where: { userId: users.nurse.id, role: "nurse", revokedAt: null },
+      select: { id: true },
+    });
+
+    let revocationWritten!: () => void;
+    const revocationHasWritten = new Promise<void>((resolve) => {
+      revocationWritten = resolve;
+    });
+    let commitRevocation!: () => void;
+    const revocationMayCommit = new Promise<void>((resolve) => {
+      commitRevocation = resolve;
+    });
+    const revocation = prisma.$transaction(async (transaction) => {
+      const updated = await transaction.$executeRaw(
+        Prisma.sql`
+          UPDATE "role_assignments"
+          SET "revoked_at" = clock_timestamp()
+          WHERE "id" = ${roleAssignment.id}
+            AND "revoked_at" IS NULL
+        `,
+      );
+      revocationWritten();
+      await revocationMayCommit;
+      return updated;
+    });
+    await revocationHasWritten;
+
+    const mutation = new UpdateNursingTaskService(unitOfWork).execute({
+      actor: principal(users.nurse.id, "nurse"),
+      taskId: task.taskId,
+      expectedRevision: task.revision,
+      action: { kind: "note", note: "Contenido sintético no persistido en logs" },
+      idempotencyKey: `queue-actor-revocation-first:${randomUUID()}`,
+      correlationId: randomUUID(),
+    });
+    expect(await waitForActorAuthorizationLock()).toBe(true);
+    commitRevocation();
+    await expect(revocation).resolves.toBe(1);
+    await expect(mutation).rejects.toBeInstanceOf(NursingTaskDeniedError);
+    await expect(
+      prisma.task.findUniqueOrThrow({
+        where: { id: task.taskId },
+        include: { events: true },
+      }),
+    ).resolves.toMatchObject({
+      revision: 1,
+      events: [expect.objectContaining({ type: "CREATED" })],
+    });
+  });
+
+  it("serializa el cruce actor/assignee A→B y B→A en tareas distintas del mismo episodio", async () => {
+    const users = await setup();
+    const baseUnitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const [taskForNurse, taskForClinician] = await Promise.all([
+      new CreateNursingTaskService(baseUnitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        episodeId: users.activeEpisode.id,
+        alertId: null,
+        summary: "Cruce sintético iniciado por enfermería",
+        assignedToId: null,
+        idempotencyKey: `queue-cross-base-nurse:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      new CreateNursingTaskService(baseUnitOfWork).execute({
+        actor: principal(users.clinician.id, "clinician"),
+        episodeId: users.activeEpisode.id,
+        alertId: null,
+        summary: "Cruce sintético iniciado por medicina",
+        assignedToId: null,
+        idempotencyKey: `queue-cross-base-clinician:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+
+    let episodeLocksReached = 0;
+    let releaseEpisodeBarrier!: () => void;
+    const bothTransactionsReady = new Promise<void>((resolve) => {
+      releaseEpisodeBarrier = resolve;
+    });
+    const interleavedUnitOfWork: NursingWorkQueueUnitOfWork = {
+      run: <T>(operationInTransaction: (transaction: NursingWorkQueueTransaction) => Promise<T>) =>
+        baseUnitOfWork.run((transaction) =>
+          operationInTransaction(
+            new Proxy(transaction, {
+              get(target, property, receiver) {
+                if (property === "lockEpisode") {
+                  return async (episodeId: string) => {
+                    episodeLocksReached += 1;
+                    if (episodeLocksReached === 2) releaseEpisodeBarrier();
+                    await bothTransactionsReady;
+                    return target.lockEpisode(episodeId);
+                  };
+                }
+                const value = Reflect.get(target, property, receiver) as unknown;
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            }),
+          ),
+        ),
+    };
+
+    const results = await Promise.allSettled([
+      new UpdateNursingTaskService(interleavedUnitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        taskId: taskForNurse.taskId,
+        expectedRevision: taskForNurse.revision,
+        action: { kind: "assign", assignedToId: users.clinician.id },
+        idempotencyKey: `queue-cross-nurse-to-clinician:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      new UpdateNursingTaskService(interleavedUnitOfWork).execute({
+        actor: principal(users.clinician.id, "clinician"),
+        taskId: taskForClinician.taskId,
+        expectedRevision: taskForClinician.revision,
+        action: { kind: "assign", assignedToId: users.nurse.id },
+        idempotencyKey: `queue-cross-clinician-to-nurse:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+
+    expect(
+      results.flatMap((result) =>
+        result.status === "rejected"
+          ? [
+              result.reason instanceof Error
+                ? `${result.reason.name}: ${result.reason.message}`
+                : String(result.reason),
+            ]
+          : [],
+      ),
+    ).toEqual([]);
+    await expect(
+      prisma.task.findUniqueOrThrow({ where: { id: taskForNurse.taskId } }),
+    ).resolves.toMatchObject({ revision: 2, assignedToId: users.clinician.id });
+    await expect(
+      prisma.task.findUniqueOrThrow({ where: { id: taskForClinician.taskId } }),
+    ).resolves.toMatchObject({ revision: 2, assignedToId: users.nurse.id });
+  }, 15_000);
+
+  it("evita deadlock cross-episode cuando E1 hace A→B y E2 hace B→A", async () => {
+    const users = await setup();
+    const baseUnitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const [taskInEpisodeOne, taskInEpisodeTwo] = await Promise.all([
+      new CreateNursingTaskService(baseUnitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        episodeId: users.activeEpisode.id,
+        alertId: null,
+        summary: "Cruce cross-episode sintético E1",
+        assignedToId: null,
+        idempotencyKey: `queue-cross-episode-base-one:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      new CreateNursingTaskService(baseUnitOfWork).execute({
+        actor: principal(users.clinician.id, "clinician"),
+        episodeId: users.pausedEpisode.id,
+        alertId: null,
+        summary: "Cruce cross-episode sintético E2",
+        assignedToId: null,
+        idempotencyKey: `queue-cross-episode-base-two:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+
+    let participantLocksReached = 0;
+    let releaseParticipantBarrier!: () => void;
+    const bothMutationsReady = new Promise<void>((resolve) => {
+      releaseParticipantBarrier = resolve;
+    });
+    const interleavedUnitOfWork: NursingWorkQueueUnitOfWork = {
+      run: <T>(operationInTransaction: (transaction: NursingWorkQueueTransaction) => Promise<T>) =>
+        baseUnitOfWork.run((transaction) =>
+          operationInTransaction(
+            new Proxy(transaction, {
+              get(target, property, receiver) {
+                if (property === "lockParticipantUsers") {
+                  return async (userIds: readonly string[]) => {
+                    participantLocksReached += 1;
+                    if (participantLocksReached === 2) releaseParticipantBarrier();
+                    await bothMutationsReady;
+                    return target.lockParticipantUsers(userIds);
+                  };
+                }
+                const value = Reflect.get(target, property, receiver) as unknown;
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            }),
+          ),
+        ),
+    };
+
+    const results = await Promise.allSettled([
+      new UpdateNursingTaskService(interleavedUnitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        taskId: taskInEpisodeOne.taskId,
+        expectedRevision: taskInEpisodeOne.revision,
+        action: { kind: "assign", assignedToId: users.clinician.id },
+        idempotencyKey: `queue-cross-episode-one:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      new UpdateNursingTaskService(interleavedUnitOfWork).execute({
+        actor: principal(users.clinician.id, "clinician"),
+        taskId: taskInEpisodeTwo.taskId,
+        expectedRevision: taskInEpisodeTwo.revision,
+        action: { kind: "assign", assignedToId: users.nurse.id },
+        idempotencyKey: `queue-cross-episode-two:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+
+    expect(
+      results.flatMap((result) =>
+        result.status === "rejected"
+          ? [
+              result.reason instanceof Error
+                ? `${result.reason.name}: ${result.reason.message}`
+                : String(result.reason),
+            ]
+          : [],
+      ),
+    ).toEqual([]);
+    await expect(
+      prisma.task.findUniqueOrThrow({ where: { id: taskInEpisodeOne.taskId } }),
+    ).resolves.toMatchObject({ revision: 2, assignedToId: users.clinician.id });
+    await expect(
+      prisma.task.findUniqueOrThrow({ where: { id: taskInEpisodeTwo.taskId } }),
+    ).resolves.toMatchObject({ revision: 2, assignedToId: users.nurse.id });
+  }, 15_000);
+
+  it("permite actor igual a target y devuelve conflicto técnico al repetir assignment", async () => {
+    const users = await setup();
+    const unitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const task = await new CreateNursingTaskService(unitOfWork).execute({
+      actor: principal(users.nurse.id, "nurse"),
+      episodeId: users.activeEpisode.id,
+      alertId: null,
+      summary: "Self-assignment sintético sin ciclo de locks",
+      assignedToId: null,
+      idempotencyKey: `queue-self-assignment-base:${randomUUID()}`,
+      correlationId: randomUUID(),
+    });
+    const assigned = await new UpdateNursingTaskService(unitOfWork).execute({
+      actor: principal(users.nurse.id, "nurse"),
+      taskId: task.taskId,
+      expectedRevision: task.revision,
+      action: { kind: "assign", assignedToId: users.nurse.id },
+      idempotencyKey: `queue-self-assignment:${randomUUID()}`,
+      correlationId: randomUUID(),
+    });
+    expect(assigned).toMatchObject({ revision: 2, assignedToId: users.nurse.id });
+    await expect(
+      new UpdateNursingTaskService(unitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        taskId: task.taskId,
+        expectedRevision: assigned.revision,
+        action: { kind: "assign", assignedToId: users.nurse.id },
+        idempotencyKey: `queue-self-assignment-repeat:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskConflictError);
+  });
+
+  it("mantiene paralelismo entre episodios con identidades participantes disjuntas", async () => {
+    const users = await setup();
+    const baseUnitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const [firstTask, secondTask] = await Promise.all([
+      new CreateNursingTaskService(baseUnitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        episodeId: users.activeEpisode.id,
+        alertId: null,
+        summary: "Paralelismo sintético E1",
+        assignedToId: null,
+        idempotencyKey: `queue-parallel-base-one:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      new CreateNursingTaskService(baseUnitOfWork).execute({
+        actor: principal(users.otherNurse.id, "nurse"),
+        episodeId: users.isolatedEpisode.id,
+        alertId: null,
+        summary: "Paralelismo sintético E2",
+        assignedToId: null,
+        idempotencyKey: `queue-parallel-base-two:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+
+    let participantLocksHeld = 0;
+    let releaseParallelBarrier!: () => void;
+    const bothParticipantSetsLocked = new Promise<void>((resolve) => {
+      releaseParallelBarrier = resolve;
+    });
+    const interleavedUnitOfWork: NursingWorkQueueUnitOfWork = {
+      run: <T>(operationInTransaction: (transaction: NursingWorkQueueTransaction) => Promise<T>) =>
+        baseUnitOfWork.run((transaction) =>
+          operationInTransaction(
+            new Proxy(transaction, {
+              get(target, property, receiver) {
+                if (property === "lockParticipantUsers") {
+                  return async (userIds: readonly string[]) => {
+                    await target.lockParticipantUsers(userIds);
+                    participantLocksHeld += 1;
+                    if (participantLocksHeld === 2) releaseParallelBarrier();
+                    await bothParticipantSetsLocked;
+                  };
+                }
+                const value = Reflect.get(target, property, receiver) as unknown;
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            }),
+          ),
+        ),
+    };
+
+    const [first, second] = await Promise.all([
+      new UpdateNursingTaskService(interleavedUnitOfWork).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        taskId: firstTask.taskId,
+        expectedRevision: firstTask.revision,
+        action: { kind: "assign", assignedToId: users.clinician.id },
+        idempotencyKey: `queue-parallel-one:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      new UpdateNursingTaskService(interleavedUnitOfWork).execute({
+        actor: principal(users.otherNurse.id, "nurse"),
+        taskId: secondTask.taskId,
+        expectedRevision: secondTask.revision,
+        action: { kind: "assign", assignedToId: users.otherClinician.id },
+        idempotencyKey: `queue-parallel-two:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+    expect(participantLocksHeld).toBe(2);
+    expect(first).toMatchObject({ revision: 2, assignedToId: users.clinician.id });
+    expect(second).toMatchObject({ revision: 2, assignedToId: users.otherClinician.id });
+  }, 15_000);
+
+  it.each([
+    ["create-assigned", "CREATED"],
+    ["assign", "ASSIGNED"],
+    ["reassign", "REASSIGNED"],
+  ] as const)(
+    "serializa %s contra revocación del assignee objetivo en ambos órdenes",
+    async (operation, expectedEventType) => {
+      const assignmentFirstUsers = await setup();
+      const assignmentFirstRole = await prisma.roleAssignment.findFirstOrThrow({
+        where: {
+          userId: assignmentFirstUsers.clinician.id,
+          role: "clinician",
+          revokedAt: null,
+        },
+        select: { id: true },
+      });
+      let targetLocked!: () => void;
+      const targetLockReached = new Promise<void>((resolve) => {
+        targetLocked = resolve;
+      });
+      let continueAssignment!: () => void;
+      const assignmentMayContinue = new Promise<void>((resolve) => {
+        continueAssignment = resolve;
+      });
+      const baseUnitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+      const pausedAfterTargetLock: NursingWorkQueueUnitOfWork = {
+        run: <T>(
+          operationInTransaction: (transaction: NursingWorkQueueTransaction) => Promise<T>,
+        ) =>
+          baseUnitOfWork.run((transaction) =>
+            operationInTransaction(
+              new Proxy(transaction, {
+                get(target, property, receiver) {
+                  if (property === "lockAuthorizedAssignee") {
+                    return async (userId: string, episodeId: string) => {
+                      const authorized = await target.lockAuthorizedAssignee(userId, episodeId);
+                      targetLocked();
+                      await assignmentMayContinue;
+                      return authorized;
+                    };
+                  }
+                  const value = Reflect.get(target, property, receiver) as unknown;
+                  return typeof value === "function" ? value.bind(target) : value;
+                },
+              }),
+            ),
+          ),
+      };
+      const assignmentFirst = await prepareTargetAssignment(
+        operation,
+        assignmentFirstUsers,
+        pausedAfterTargetLock,
+      );
+      const mutation = assignmentFirst.mutation();
+      await targetLockReached;
+
+      const revocationApplicationName = `gas-target-revocation-${randomUUID()}`;
+      const revocation = prisma.$transaction(async (transaction) => {
+        await transaction.$queryRaw(
+          Prisma.sql`SELECT set_config('application_name', ${revocationApplicationName}, true)`,
+        );
+        return transaction.$executeRaw(
+          Prisma.sql`
+            UPDATE "role_assignments"
+            SET "revoked_at" = clock_timestamp()
+            WHERE "id" = ${assignmentFirstRole.id}
+              AND "revoked_at" IS NULL
+          `,
+        );
+      });
+      expect(await waitForNamedLock(revocationApplicationName)).toBe(true);
+      continueAssignment();
+      const mutated = await mutation;
+      const revokedRows = await revocation;
+      expect(revokedRows).toBe(1);
+      const assignedTask = await prisma.task.findUniqueOrThrow({
+        where: { id: mutated.taskId },
+        include: { events: { orderBy: { resultingRevision: "asc" } } },
+      });
+      expect(assignedTask.assignedToId).toBe(assignmentFirstUsers.clinician.id);
+      expect(assignedTask.events.at(-1)?.type).toBe(expectedEventType);
+      await expect(
+        prisma.roleAssignment.findUniqueOrThrow({
+          where: { id: assignmentFirstRole.id },
+        }),
+      ).resolves.toMatchObject({ revokedAt: expect.any(Date) });
+      const queueAfterRevocation = await listNursingWorkQueue(
+        principal(assignmentFirstUsers.nurse.id, "nurse"),
+        {},
+      );
+      const projectedTask = queueAfterRevocation!.entries
+        .flatMap(({ tasks }) => tasks)
+        .find(({ id }) => id === mutated.taskId)!;
+      expect(projectedTask.accountability).toMatchObject({
+        currentAssigneeId: assignmentFirstUsers.clinician.id,
+        currentAssigneeEligibility: "NOT_CURRENTLY_AUTHORIZED",
+        consistencyStatus: "VALID",
+        blockers: ["CURRENT_ASSIGNEE_NOT_CURRENTLY_AUTHORIZED"],
+      });
+
+      const revocationFirstUsers = await setup();
+      const revocationFirstRole = await prisma.roleAssignment.findFirstOrThrow({
+        where: {
+          userId: revocationFirstUsers.clinician.id,
+          role: "clinician",
+          revokedAt: null,
+        },
+        select: { id: true },
+      });
+      const revocationFirstBase = new PrismaNursingWorkQueueUnitOfWork();
+      const revocationFirst = await prepareTargetAssignment(
+        operation,
+        revocationFirstUsers,
+        revocationFirstBase,
+      );
+      let revocationWritten!: () => void;
+      const revocationHasWritten = new Promise<void>((resolve) => {
+        revocationWritten = resolve;
+      });
+      let commitRevocation!: () => void;
+      const revocationMayCommit = new Promise<void>((resolve) => {
+        commitRevocation = resolve;
+      });
+      const blockingRevocation = prisma.$transaction(async (transaction) => {
+        const updated = await transaction.$executeRaw(
+          Prisma.sql`
+            UPDATE "role_assignments"
+            SET "revoked_at" = clock_timestamp()
+            WHERE "id" = ${revocationFirstRole.id}
+              AND "revoked_at" IS NULL
+          `,
+        );
+        revocationWritten();
+        await revocationMayCommit;
+        return updated;
+      });
+      await revocationHasWritten;
+      const deniedMutation = revocationFirst.mutation();
+      expect(await waitForTargetAuthorizationLock()).toBe(true);
+      commitRevocation();
+      await expect(blockingRevocation).resolves.toBe(1);
+      await expect(deniedMutation).rejects.toBeInstanceOf(NursingTaskDeniedError);
+      if (revocationFirst.existingTaskId === null) {
+        await expect(
+          prisma.task.count({
+            where: {
+              episodeId: revocationFirstUsers.activeEpisode.id,
+              assignedToId: revocationFirstUsers.clinician.id,
+            },
+          }),
+        ).resolves.toBe(0);
+      } else {
+        await expect(
+          prisma.task.findUniqueOrThrow({
+            where: { id: revocationFirst.existingTaskId },
+            include: { events: true },
+          }),
+        ).resolves.toMatchObject({
+          revision: 1,
+          assignedToId: operation === "reassign" ? revocationFirstUsers.nurse.id : null,
+          events: [expect.objectContaining({ type: "CREATED" })],
+        });
+      }
+    },
+  );
 
   it("resuelve carreras de asignación y resolución sin actualización perdida", async () => {
     const users = await setup();
