@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   NursingTaskEventRecord,
@@ -17,8 +17,20 @@ import {
 } from "@/application/workqueue/manage-nursing-tasks";
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
+import type { HumanAuthorizationPolicy } from "@/domain/authorization/human-authorization";
 
 const fixedNow = new Date("2026-07-20T10:00:00.000Z");
+const permissivePolicy: HumanAuthorizationPolicy = {
+  evaluate: () => ({
+    status: "AUTHORIZED",
+    action: "CREATE_TASK_FROM_REVIEWED_ALERT",
+    episodeId: "episode-1",
+    actorId: "permissive-policy-does-not-check-actor",
+    evaluatedAt: fixedNow,
+    evidence: null,
+    blockers: [],
+  }),
+};
 
 function actor(
   userId = "nurse-1",
@@ -31,6 +43,7 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
   readonly tasks = new Map<string, NursingTaskRecord>();
   readonly events: NursingTaskEventRecord[] = [];
   readonly audits: NewAuditEvent[] = [];
+  readonly revokedUsers = new Set<string>();
   readonly episode = {
     id: "episode-1",
     isSynthetic: true,
@@ -41,9 +54,10 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
   run<T>(operation: (transaction: NursingWorkQueueTransaction) => Promise<T>) {
     return operation(this);
   }
-  async isActiveUserWithRole(userId: string, role: string) {
+  async lockActiveUserWithRole(userId: string, role: string) {
+    if (this.revokedUsers.has(userId)) return false;
     return (
-      (userId === "nurse-1" && role === "nurse") ||
+      (["nurse-1", "nurse-other"].includes(userId) && role === "nurse") ||
       (userId === "clinician-1" && role === "clinician")
     );
   }
@@ -56,7 +70,14 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
         id: alertId,
         episodeId: this.episode.id,
         state: "reviewed" as const,
-        hasHumanReview: true,
+        ruleVersionId: "rule-version-1",
+        ruleVersionNumber: 1,
+        review: {
+          id: "review-1",
+          alertId,
+          reviewedById: "clinician-1",
+          reviewedAt: new Date("2026-07-20T09:00:00.000Z"),
+        },
       };
     }
     if (alertId === "alert-open") {
@@ -64,7 +85,24 @@ class MemoryWorkQueue implements NursingWorkQueueUnitOfWork, NursingWorkQueueTra
         id: alertId,
         episodeId: this.episode.id,
         state: "open" as const,
-        hasHumanReview: false,
+        ruleVersionId: "rule-version-1",
+        ruleVersionNumber: 1,
+        review: null,
+      };
+    }
+    if (alertId === "alert-invalid-review") {
+      return {
+        id: alertId,
+        episodeId: this.episode.id,
+        state: "reviewed" as const,
+        ruleVersionId: "rule-version-1",
+        ruleVersionNumber: 1,
+        review: {
+          id: "review-invalid",
+          alertId: "alert-other",
+          reviewedById: "clinician-1",
+          reviewedAt: new Date("2026-07-20T09:00:00.000Z"),
+        },
       };
     }
     return null;
@@ -188,6 +226,80 @@ describe("nursing task application services", () => {
     expect(store.tasks.size).toBe(1);
   });
 
+  it("usa la revisión real como evidencia y permite reviewer distinto del acting actor", async () => {
+    const store = new MemoryWorkQueue();
+    store.revokedUsers.add("clinician-1");
+    const result = await new CreateNursingTaskService(store, () => fixedNow).execute({
+      actor: actor("nurse-1", ["nurse"]),
+      episodeId: "episode-1",
+      alertId: "alert-1",
+      summary: "Seguimiento explícito por otro profesional",
+      assignedToId: null,
+      idempotencyKey: "task:reviewer-different",
+      correlationId: randomUUID(),
+    });
+    expect(result).toMatchObject({ state: "open", idempotent: false });
+    expect(store.tasks.get(result.taskId)?.createdById).toBe("nurse-1");
+  });
+
+  it("una policy permisiva no permite que un profesional activo pero no responsable cree una tarea", async () => {
+    const store = new MemoryWorkQueue();
+    const evaluate = vi.fn(permissivePolicy.evaluate);
+    await expect(
+      new CreateNursingTaskService(store, () => fixedNow, { evaluate }).execute({
+        actor: actor("nurse-other", ["nurse"]),
+        episodeId: "episode-1",
+        alertId: "alert-1",
+        summary: "No debe ampliar acceso por policy inyectada",
+        assignedToId: null,
+        idempotencyKey: "task:permissive-not-responsible",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(store.tasks.size).toBe(0);
+  });
+
+  it("una policy permisiva no permite actuar con un rol revocado", async () => {
+    const store = new MemoryWorkQueue();
+    store.revokedUsers.add("nurse-1");
+    const evaluate = vi.fn(permissivePolicy.evaluate);
+    await expect(
+      new CreateNursingTaskService(store, () => fixedNow, { evaluate }).execute({
+        actor: actor("nurse-1", ["nurse"]),
+        episodeId: "episode-1",
+        alertId: "alert-1",
+        summary: "No debe sustituir RBAC por autorización humana",
+        assignedToId: null,
+        idempotencyKey: "task:permissive-revoked",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(store.tasks.size).toBe(0);
+  });
+
+  it("una policy permisiva preserva la creación explícita para un actor autorizado y responsable", async () => {
+    const store = new MemoryWorkQueue();
+    const evaluate = vi.fn(permissivePolicy.evaluate);
+    const result = await new CreateNursingTaskService(store, () => fixedNow, { evaluate }).execute({
+      actor: actor("nurse-1", ["nurse"]),
+      episodeId: "episode-1",
+      alertId: "alert-1",
+      summary: "Acción explícita tras guards independientes",
+      assignedToId: null,
+      idempotencyKey: "task:permissive-authorized",
+      correlationId: randomUUID(),
+    });
+    expect(evaluate).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ state: "open", idempotent: false });
+    expect(store.tasks.get(result.taskId)).toMatchObject({
+      episodeId: "episode-1",
+      alertId: "alert-1",
+      createdById: "nurse-1",
+    });
+  });
+
   it("deniega a un profesional no responsable y una vinculación cruzada de aviso", async () => {
     const store = new MemoryWorkQueue();
     const service = new CreateNursingTaskService(store);
@@ -228,10 +340,38 @@ describe("nursing task application services", () => {
       service.execute({
         actor: actor(),
         episodeId: "episode-1",
+        alertId: "alert-invalid-review",
+        summary: "Evidencia de revisión inconsistente",
+        assignedToId: null,
+        idempotencyKey: "task:denied-review",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskConflictError);
+    await expect(
+      service.execute({
+        actor: actor(),
+        episodeId: "episode-1",
         alertId: null,
         summary: "Asignación fuera de responsables",
         assignedToId: "nurse-other",
         idempotencyKey: "task:denied-004",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+    expect(store.tasks.size).toBe(0);
+  });
+
+  it("revalida la autorización actual del acting actor aunque exista revisión histórica", async () => {
+    const store = new MemoryWorkQueue();
+    store.revokedUsers.add("nurse-1");
+    await expect(
+      new CreateNursingTaskService(store).execute({
+        actor: actor("nurse-1", ["nurse"]),
+        episodeId: "episode-1",
+        alertId: "alert-1",
+        summary: "No debe aceptar al actor revocado",
+        assignedToId: null,
+        idempotencyKey: "task:actor-revoked",
         correlationId: randomUUID(),
       }),
     ).rejects.toBeInstanceOf(NursingTaskDeniedError);

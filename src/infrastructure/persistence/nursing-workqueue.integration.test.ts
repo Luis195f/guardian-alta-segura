@@ -16,6 +16,10 @@ import {
   NursingTaskDeniedError,
   UpdateNursingTaskService,
 } from "@/application/workqueue/manage-nursing-tasks";
+import type {
+  NursingWorkQueueTransaction,
+  NursingWorkQueueUnitOfWork,
+} from "@/application/ports/nursing-workqueue-unit-of-work";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { SYNTHETIC_RULE_FIXTURES } from "@/domain/alerts/synthetic-rule-fixtures";
 import { prisma } from "@/infrastructure/persistence/prisma";
@@ -296,34 +300,189 @@ describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
         },
       }),
     ).rejects.toThrow(/linked alert requires prior human review/);
-    await new ReviewAlertService(new PrismaExplainableAlertsUnitOfWork()).execute({
-      actor: principal(users.nurse.id, "nurse"),
+    const review = await new ReviewAlertService(new PrismaExplainableAlertsUnitOfWork()).execute({
+      actor: principal(users.clinician.id, "clinician"),
       alertId,
       nextState: "reviewed",
       correlationId: randomUUID(),
     });
     await expect(prisma.task.count({ where: { alertId } })).resolves.toBe(0);
-    const task = await new CreateNursingTaskService(new PrismaNursingWorkQueueUnitOfWork()).execute(
-      {
-        actor: principal(users.nurse.id, "nurse"),
-        episodeId: users.activeEpisode.id,
-        alertId,
-        summary: "Tarea humana vinculada al aviso revisado",
-        assignedToId: users.nurse.id,
-        idempotencyKey: `queue-task:${randomUUID()}`,
-        correlationId: randomUUID(),
-      },
-    );
+    await prisma.roleAssignment.updateMany({
+      where: { userId: users.clinician.id, role: "clinician", revokedAt: null },
+      data: { revokedAt: new Date("2026-07-20T10:00:00.000Z") },
+    });
     await expect(
-      prisma.task.findUniqueOrThrow({ where: { id: task.taskId } }),
+      prisma.alertReview.findUniqueOrThrow({ where: { id: review.reviewId } }),
+    ).resolves.toMatchObject({
+      alertId,
+      reviewedById: users.clinician.id,
+    });
+    await expect(
+      prisma.task.create({
+        data: {
+          episodeId: users.pausedEpisode.id,
+          alertId,
+          summary: "Inserción cruzada tras revisión",
+          createdById: users.nurse.id,
+          creationIdempotencyKey: `queue-cross-episode:${randomUUID()}`,
+          creationFingerprint: "e".repeat(64),
+        },
+      }),
+    ).rejects.toThrow();
+    const taskKey = `queue-task:${randomUUID()}`;
+    const createInput = {
+      actor: principal(users.nurse.id, "nurse"),
+      episodeId: users.activeEpisode.id,
+      alertId,
+      summary: "Tarea humana vinculada al aviso revisado",
+      assignedToId: users.nurse.id,
+      idempotencyKey: taskKey,
+      correlationId: randomUUID(),
+    } as const;
+    const task = await new CreateNursingTaskService(new PrismaNursingWorkQueueUnitOfWork()).execute(
+      createInput,
+    );
+    const retry = await new CreateNursingTaskService(
+      new PrismaNursingWorkQueueUnitOfWork(),
+    ).execute(createInput);
+    expect(retry).toMatchObject({ taskId: task.taskId, idempotent: true });
+    await expect(
+      prisma.task.findUniqueOrThrow({
+        where: { id: task.taskId },
+        include: { events: true },
+      }),
     ).resolves.toMatchObject({
       episodeId: users.activeEpisode.id,
       alertId,
       currentState: "OPEN",
+      createdById: users.nurse.id,
+      events: [expect.objectContaining({ type: "CREATED", actorUserId: users.nurse.id })],
     });
+    await expect(prisma.task.count({ where: { alertId } })).resolves.toBe(1);
+    await expect(
+      prisma.auditEvent.count({
+        where: { resourceType: "Task", resourceId: task.taskId },
+      }),
+    ).resolves.toBe(2);
     await expect(
       prisma.dischargeEpisode.findUniqueOrThrow({ where: { id: users.activeEpisode.id } }),
     ).resolves.toMatchObject({ status: "ACTIVE" });
+  });
+
+  it("serializa la creación derivada contra la revocación concurrente del acting actor", async () => {
+    const users = await setup();
+    const alertId = await createAlert(users);
+    await new ReviewAlertService(new PrismaExplainableAlertsUnitOfWork()).execute({
+      actor: principal(users.clinician.id, "clinician"),
+      alertId,
+      nextState: "reviewed",
+      correlationId: randomUUID(),
+    });
+    const roleAssignment = await prisma.roleAssignment.findFirstOrThrow({
+      where: { userId: users.nurse.id, role: "nurse", revokedAt: null },
+      select: { id: true },
+    });
+
+    let authorizationReached!: () => void;
+    const afterAuthorization = new Promise<void>((resolve) => {
+      authorizationReached = resolve;
+    });
+    let continueCreation!: () => void;
+    const creationMayContinue = new Promise<void>((resolve) => {
+      continueCreation = resolve;
+    });
+    const baseUnitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const interleavedUnitOfWork: NursingWorkQueueUnitOfWork = {
+      run: <T>(operation: (transaction: NursingWorkQueueTransaction) => Promise<T>) =>
+        baseUnitOfWork.run((transaction) =>
+          operation(
+            new Proxy(transaction, {
+              get(target, property, receiver) {
+                if (property === "getAlert") {
+                  return async (requestedAlertId: string) => {
+                    authorizationReached();
+                    await creationMayContinue;
+                    return target.getAlert(requestedAlertId);
+                  };
+                }
+                const value = Reflect.get(target, property, receiver) as unknown;
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            }),
+          ),
+        ),
+    };
+    const creation = new CreateNursingTaskService(interleavedUnitOfWork).execute({
+      actor: principal(users.nurse.id, "nurse"),
+      episodeId: users.activeEpisode.id,
+      alertId,
+      summary: "Tarea serializada contra revocación sintética",
+      assignedToId: null,
+      idempotencyKey: `queue-revocation-race:${randomUUID()}`,
+      correlationId: randomUUID(),
+    });
+    await afterAuthorization;
+
+    const applicationName = `gas-role-revocation-${randomUUID()}`;
+    const revocation = prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT set_config('application_name', ${applicationName}, true)`,
+      );
+      return transaction.$executeRaw(
+        Prisma.sql`
+          UPDATE "role_assignments"
+          SET "revoked_at" = clock_timestamp()
+          WHERE "id" = ${roleAssignment.id}
+            AND "revoked_at" IS NULL
+        `,
+      );
+    });
+    const waitDeadline = Date.now() + 5_000;
+    let revocationWaitingOnLock = false;
+    while (Date.now() < waitDeadline) {
+      const [activity] = await prisma.$queryRaw<Array<{ readonly waiting: boolean }>>(Prisma.sql`
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_stat_activity
+          WHERE application_name = ${applicationName}
+            AND wait_event_type = 'Lock'
+        ) AS waiting
+      `);
+      if (activity?.waiting) {
+        revocationWaitingOnLock = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const assignmentWhileRevocationWaited = await prisma.roleAssignment.findUniqueOrThrow({
+      where: { id: roleAssignment.id },
+    });
+    const taskCountWhileRevocationWaited = await prisma.task.count({ where: { alertId } });
+    continueCreation();
+    expect(revocationWaitingOnLock).toBe(true);
+    expect(assignmentWhileRevocationWaited).toMatchObject({ revokedAt: null });
+    expect(taskCountWhileRevocationWaited).toBe(0);
+    const [created, revokedRows] = await Promise.all([creation, revocation]);
+    expect(revokedRows).toBe(1);
+    const [storedTask, revokedAssignment] = await Promise.all([
+      prisma.task.findUniqueOrThrow({ where: { id: created.taskId } }),
+      prisma.roleAssignment.findUniqueOrThrow({ where: { id: roleAssignment.id } }),
+    ]);
+    expect(revokedAssignment.revokedAt).not.toBeNull();
+    expect(storedTask.createdAt.getTime()).toBeLessThanOrEqual(
+      revokedAssignment.revokedAt!.getTime(),
+    );
+    await expect(
+      new CreateNursingTaskService(new PrismaNursingWorkQueueUnitOfWork()).execute({
+        actor: principal(users.nurse.id, "nurse"),
+        episodeId: users.activeEpisode.id,
+        alertId,
+        summary: "Nueva acción posterior a la revocación",
+        assignedToId: null,
+        idempotencyKey: `queue-after-revocation:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
   });
 
   it("resuelve carreras de asignación y resolución sin actualización perdida", async () => {

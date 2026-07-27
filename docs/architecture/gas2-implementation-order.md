@@ -46,14 +46,28 @@ fuente → `RuleEvaluation` → `Alert`. Reutiliza el array JSON existente con l
 histórica compatible; no crea conectores, tabla `SignalRecord`, migración o
 dependencia.
 
-## Siguiente rama exacta
+## Tercera rama fundacional completada
 
-Tras completar gobernanza de episodio y procedencia, la siguiente rama continúa
-siendo:
+La tercera rama es:
 
 ```text
 refactor/gas2-human-authorization-policy
 ```
+
+Formaliza `CREATE_TASK_FROM_REVIEWED_ALERT` como policy pura sobre
+`AlertReview`, rol activo y responsabilidad actual. No crea `ReviewGate`, tabla,
+migración, dependencia ni automatización.
+
+## Siguiente rama exacta
+
+Tras completar gobernanza, procedencia y autorización humana, la siguiente rama
+continúa siendo:
+
+```text
+feat/gas2-task-accountability
+```
+
+No incluye SLA o escalado mientras DEC-017 permanezca pendiente.
 
 ## Revisión de la secuencia inicial
 
@@ -61,7 +75,7 @@ refactor/gas2-human-authorization-policy
 |---:|---|---|---|
 | 1 | `feat/gas2-episode-governance` | Modificar | `refactor/gas2-episode-governance-policy`; ya existe el agregado |
 | 2 | `feat/gas2-signal-provenance` | Mantener con alcance menor | `feat/gas2-signal-provenance-boundary`; completada con value objects, mappers y lineage sobre evidencia actual |
-| 3 | `refactor/gas2-human-authorization-policy` | Mantener | Después de provenance; reutilizar `AlertReview` y guards, sin `ReviewGate` persistente |
+| 3 | `refactor/gas2-human-authorization-policy` | Mantener | Completada; reutiliza `AlertReview` y guards, sin `ReviewGate` persistente |
 | 4 | `feat/gas2-accountability-sla` | Dividir por bloqueo | `feat/gas2-task-accountability`; SLA/escalado solo después de DEC-017 |
 | 5 | `feat/gas2-process-safety` | Mantener condicionado | Proyección determinista tras lifecycle/SLA; sin scoring ni acción autónoma |
 | 6 | `feat/gas2-integration-boundary` | Mantener condicionado | Contratos solo al seleccionar una integración real; no crear registry especulativo |
@@ -87,9 +101,10 @@ ni una tabla `SignalRecord` universal.
 
 ### 3. `refactor/gas2-human-authorization-policy`
 
-Extrae el contrato común de actor, asignación, objeto/version revisados, decisión
-y acción permitida. Mantiene `AlertReview` y `TaskEvent` como historias reales.
-Añade pruebas negativas que demuestren que ninguna señal salta el gate.
+Completada. Extrae el contrato común de actor, asignación, objeto/version
+revisados, decisión y acción permitida. Mantiene `AlertReview` y `TaskEvent` como
+historias reales. Las pruebas negativas demuestran que ninguna señal salta el
+gate y que reviewer y acting actor no se confunden.
 
 ### 4. `feat/gas2-task-accountability`
 

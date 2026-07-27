@@ -75,16 +75,22 @@ function toPrismaContactOutcome(outcome: ContactAttemptOutcome | null) {
 class PrismaNursingWorkQueueTransaction implements NursingWorkQueueTransaction {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
-  async isActiveUserWithRole(userId: string, role: Role): Promise<boolean> {
-    return (
-      (await this.transaction.user.count({
-        where: {
-          id: userId,
-          isActive: true,
-          roleAssignments: { some: { role, revokedAt: null } },
-        },
-      })) === 1
+  async lockActiveUserWithRole(userId: string, role: Role): Promise<boolean> {
+    const activeAssignments = await this.transaction.$queryRaw<Array<{ readonly id: string }>>(
+      Prisma.sql`
+        SELECT ra."id"
+        FROM "users" AS u
+        INNER JOIN "role_assignments" AS ra ON ra."user_id" = u."id"
+        WHERE u."id" = ${userId}
+          AND u."is_active" = TRUE
+          AND ra."role" = ${role}::"Role"
+          AND ra."revoked_at" IS NULL
+        ORDER BY ra."assigned_at" ASC, ra."id" ASC
+        LIMIT 1
+        FOR UPDATE OF u, ra
+      `,
     );
+    return activeAssignments.length === 1;
   }
 
   async getEpisode(episodeId: string) {
@@ -114,7 +120,18 @@ class PrismaNursingWorkQueueTransaction implements NursingWorkQueueTransaction {
         id: true,
         episodeId: true,
         currentState: true,
-        _count: { select: { reviews: true } },
+        ruleVersionId: true,
+        ruleVersionNumber: true,
+        reviews: {
+          orderBy: [{ reviewedAt: "asc" }, { id: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            alertId: true,
+            reviewedById: true,
+            reviewedAt: true,
+          },
+        },
       },
     });
     return alert
@@ -123,7 +140,9 @@ class PrismaNursingWorkQueueTransaction implements NursingWorkQueueTransaction {
           episodeId: alert.episodeId,
           state: alert.currentState.toLowerCase().replaceAll("_", "-") as
             "open" | "reviewed" | "actioned" | "resolved" | "dismissed-with-reason",
-          hasHumanReview: alert._count.reviews > 0,
+          ruleVersionId: alert.ruleVersionId,
+          ruleVersionNumber: alert.ruleVersionNumber,
+          review: alert.reviews[0] ?? null,
         }
       : null;
   }

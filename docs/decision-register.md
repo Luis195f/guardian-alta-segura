@@ -55,7 +55,9 @@ No se usa `Aprobada` para inferir cumplimiento RGPD, conformidad MDR, validació
 ## Decisiones técnicas provisionales de REQ-09
 
 - La cola solo muestra episodios donde el actor es responsable de enfermería o clínico y revalida el rol activo tanto en lectura como en mutación. `admin`, `patient`, `caregiver` y `support` no reciben acceso clínico implícito.
-- Toda tarea tiene episodio; el aviso es opcional y, si existe, una clave compuesta impide vincularlo a otro episodio y un guard exige revisión humana previa. La tarea solo nace desde `CreateNursingTaskService`, invocado por un `POST` profesional explícito.
+- Toda tarea tiene episodio; el aviso es opcional y, si existe, una clave compuesta impide vincularlo a otro episodio. `DefaultHumanAuthorizationPolicy` exige una `AlertReview` real, estado compatible, rol profesional activo y responsabilidad actual para `CREATE_TASK_FROM_REVIEWED_ALERT`; el trigger PostgreSQL conserva la defensa. La tarea solo nace desde `CreateNursingTaskService`, invocado por un `POST` profesional explícito.
+- La review histórica y el acting actor actual son distintos. `AlertReview` no persiste un snapshot fiable del rol histórico y no se infiere desde el rol actual. La revocación posterior del reviewer conserva la historia; la del acting actor deniega una nueva tarea.
+- Una tarea sin aviso es iniciación humana directa, no signal-derived. `actioned` no demuestra una tarea o actuación; esa evidencia reside en `Task`/`TaskEvent`.
 - Los eventos de tarea son append-only. Cada mutación exige `expectedRevision` e `Idempotency-Key`; un índice por tarea/revisión hace que una carrera tenga un único ganador.
 - La cola solo publica métricas técnicas agregadas. No se implementan prioridad ni SLA mientras DEC-017 siga pendiente.
 - Revisar un aviso no crea tareas. Resolver una tarea no resuelve automáticamente el aviso, no cierra el episodio y no genera SBAR, comunicación, derivación o recomendación clínica.

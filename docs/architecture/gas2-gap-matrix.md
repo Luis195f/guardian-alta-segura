@@ -22,7 +22,7 @@ clínica; exige primero contrato, autoridad y evidencia.
 |---|---|---|---|---|---|
 | A | Episode Contract / episode governance | `EXISTS` | `REUSE` | `DischargeEpisode`, `EpisodeTransition`, versión optimista, responsables, protocolo fijo y `EpisodeGovernancePolicy/View` sobre avisos y tareas actuales | La proyección técnica está implementada sin tabla paralela. DEC-002 pendiente mantiene el cierre `NOT_AUTHORIZED`; avisos y tareas son obligaciones organizativas, no reglas clínicas definitivas. Una futura apertura exige decisión local y diseño de consistencia concurrente explícito. |
 | B | Signal Provenance | `EXISTS` | `REUSE` | `CanonicalProvenanceLineageV1`, mappers de fuentes internas, `RuleEvaluation` con snapshot/hash y `Alert.inputReferences` compatible | Boundary v1 tipado y fail-closed. Las fuentes internas soportadas se resuelven contra PostgreSQL y se verifica referencia, tipo y pertenencia al episodio; el contexto de observación declarado por la regla queda diferenciado y no implica verificación semántica del valor. Autenticidad, contratos y semántica de fuentes externas siguen aplazados. |
-| C | Human Authorization Gate | `PARTIAL` | `REFACTOR` | `AlertReview`, transiciones append-only, guard de tarea en aplicación y SQL, actores humanos en casos de uso | El gate no es una política transversal. `actioned` no exige referencia de acción y las tareas sin aviso no comparten una decisión estructurada. Mantener siempre actor humano. |
+| C | Human Authorization Gate | `EXISTS` | `REUSE` | `DefaultHumanAuthorizationPolicy`, `AlertReview`, guard transaccional de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | La única acción soportada es `CREATE_TASK_FROM_REVIEWED_ALERT`; decisión pura, minimizada y fail-closed. `actioned` sigue sin acreditar una acción y las tareas sin aviso permanecen como iniciación humana directa, no signal-derived. El rol histórico del reviewer no está ligado de forma fiable a la review. |
 | D | Accountability / responsibility chain | `PARTIAL` | `EXTEND` | Responsables del episodio, `reviewOwner`, creador/asignado/resolutor de tarea y actores de eventos | Faltan aceptación, equipo/turno, suplencia, escalado, transferencia y evidencia de quién debe actuar ahora. No se justifica un graph database. |
 | E | Task lifecycle + SLA + escalation | `PARTIAL` | `EXTEND` | `Task`, `TaskEvent`, estado open/resolved, revisión, idempotencia, asignación, contacto, nota y resolución | Faltan prioridad operativa aprobada, `dueAt`, SLA versionado, acuse, escalado y vencimiento. DEC-017 es bloqueante. |
 | F | Process Safety / missed-process detection | `MISSING` | `BUILD` | Ventanas y outcomes de check-in, tiempos de revisión, tareas abiertas y antigüedad agregada | No hay evaluación explícita de procesos omitidos, scheduler ni anomalía. Empezar como proyección/regla determinista sobre eventos existentes; no crear scoring clínico. |
@@ -52,7 +52,6 @@ clínica; exige primero contrato, autoridad y evidencia.
 
 ### Debe evolucionar
 
-- política reutilizable de autorización humana;
 - responsabilidad y SLA sobre `Task`/`TaskEvent`;
 - observabilidad a partir de correlation ID y eventos existentes;
 - ports/adapters para futuras integraciones.

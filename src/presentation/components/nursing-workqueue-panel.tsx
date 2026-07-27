@@ -501,7 +501,10 @@ export function NursingWorkQueuePanel({
                   {entry.openAlerts.map((alert) => (
                     <li key={alert.id}>
                       <strong>
-                        {alert.ruleName} · v{alert.ruleVersionNumber} · {alert.state}
+                        {alert.ruleName} · v{alert.ruleVersionNumber} ·{" "}
+                        {alert.state === "actioned"
+                          ? "actioned administrativo (no acredita una tarea)"
+                          : alert.state}
                       </strong>
                       <p>{alert.explanation}</p>
                       <small>Origen: {provenanceSummary(alert.provenance)}</small>

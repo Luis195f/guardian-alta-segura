@@ -23,7 +23,7 @@ type AlertResponse = {
 const STATE_LABELS: Readonly<Record<AlertItem["state"], string>> = {
   open: "Pendiente de revisión",
   reviewed: "Revisado",
-  actioned: "Actuación humana registrada",
+  actioned: "Estado «actioned» registrado; no acredita por sí solo una actuación vinculada",
   resolved: "Resuelto por revisión humana",
   "dismissed-with-reason": "Descartado con motivo",
 };

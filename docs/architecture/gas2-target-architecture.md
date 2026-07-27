@@ -17,7 +17,7 @@ flowchart TB
   SIGNAL["Canonical evidence references<br/>implementado: value objects v1"]
   PROV["Provenance lineage<br/>implementado sobre RuleEvaluation y Alert"]
   EPISODE["Episode governance<br/>EpisodeGovernancePolicy/View sobre fuentes actuales"]
-  HUMAN["Human authorization<br/>refactor sobre AlertReview y casos de uso"]
+  HUMAN["Human authorization<br/>implementado sobre AlertReview y casos de uso"]
   TASK["Task / accountability<br/>extender Task + TaskEvent + workqueue"]
   PROCESS["Process safety<br/>nueva proyección determinista"]
   EVIDENCE["Audit / observability<br/>extender AuditEvent + correlation ID"]
@@ -48,7 +48,7 @@ obligue a copiar todos los datos entre tablas.
 | Canonical signal boundary | Tipos de inputs de reglas y referencias de origen | Implementado para fuentes internas como referencias discriminadas v1; cualquier envelope de ingestión externa sigue aplazado hasta disponer de contrato real |
 | Provenance | `RuleEvaluation`, `Alert`, check-ins y procedencia documental | Implementado: lineage fuente → evaluación → aviso sobre IDs y tiempos existentes, con lectura histórica compatible y sin copiar contenido |
 | Episode governance | `DischargeEpisode`, `EpisodeTransition`, política de activación, avisos y tareas | Implementado: `EpisodeGovernancePolicy/View` compone responsabilidades, protocolo, autorización técnica, obligaciones y blockers sin persistencia nueva; DEC-002 mantiene cierre denegado |
-| Human authorization | `AlertReviewService`, guards de tarea y triggers | Política explícita de autorización con actor, rol, decisión, motivo y referencia de evidencia |
+| Human authorization | `DefaultHumanAuthorizationPolicy`, `ReviewAlertService`, guards de tarea y triggers | Implementado para `CREATE_TASK_FROM_REVIEWED_ALERT`: decisión pura con actor actual, reason codes y referencia minimizada de evidencia |
 | Task/accountability | `Task`, `TaskEvent`, `NursingWorkQueue` | Añadir lifecycle y responsabilidad; SLA solo desde configuración aprobada |
 | Process safety | Ventanas/outcomes, avisos, tareas y timestamps | Proyección determinista de pasos vencidos/omitidos que propone trabajo humano |
 | Audit/observability | `AuditEvent`, historias, `CaregiverAccessAudit`, correlation ID y health | Vistas de evidencia, métricas sin PHI, SLO/runbooks y salud por conector |
@@ -116,7 +116,7 @@ aprobados.
 
 ### Human authorization
 
-Una autorización humana reutilizable debe demostrar:
+La autorización humana reutilizable implementada demuestra:
 
 - actor autenticado y rol activo;
 - pertenencia o responsabilidad sobre el episodio;
@@ -126,8 +126,16 @@ Una autorización humana reutilizable debe demostrar:
 - acción permitida y vínculo con la evidencia;
 - ausencia de ejecución automática si falta cualquiera de los anteriores.
 
-`AlertReview` sigue siendo la historia del aviso. El nuevo contrato no debe copiar
-sus filas; debe permitir que los casos de uso verifiquen su evidencia.
+`AlertReview` sigue siendo la historia del aviso. La policy no copia sus filas ni
+persiste una decisión: proyecta IDs, `reviewedAt`, referencia real de
+`RuleVersion`, actor actual y reason codes. `Alert` no tiene versión propia. El rol
+histórico no está ligado de forma inequívoca a cada review y se declara
+`HISTORICAL_REVIEWER_ROLE_NOT_PERSISTED`; nunca se sustituye por el rol actual.
+
+El único caso protegido en este alcance es la creación explícita de tarea desde
+aviso revisado. Una tarea sin aviso sigue siendo iniciación humana directa. El
+estado `actioned` es administrativo y no prueba la existencia de `Task` o
+`TaskEvent`.
 
 ### Accountability y SLA
 

@@ -8,6 +8,11 @@ import type { AuditAction } from "@/domain/audit/audit-event";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
 import {
+  DefaultHumanAuthorizationPolicy,
+  type HumanAuthorizationDecision,
+  type HumanAuthorizationPolicy,
+} from "@/domain/authorization/human-authorization";
+import {
   CONTACT_ATTEMPT_OUTCOMES,
   type ContactAttemptOutcome,
   normalizeBriefNote,
@@ -26,6 +31,21 @@ export class NursingTaskConflictError extends Error {}
 
 type ProfessionalRole = "nurse" | "clinician";
 
+async function currentProfessionalRole(
+  transaction: NursingWorkQueueTransaction,
+  actor: AuthenticatedPrincipal,
+): Promise<ProfessionalRole | null> {
+  for (const role of ["nurse", "clinician"] as const) {
+    if (
+      actor.roles.includes(role) &&
+      (await transaction.lockActiveUserWithRole(actor.userId, role))
+    ) {
+      return role;
+    }
+  }
+  return null;
+}
+
 async function authorizeEpisode(
   transaction: NursingWorkQueueTransaction,
   actor: AuthenticatedPrincipal,
@@ -40,15 +60,26 @@ async function authorizeEpisode(
   ) {
     throw new NursingTaskDeniedError();
   }
-  for (const role of ["nurse", "clinician"] as const) {
-    if (
-      actor.roles.includes(role) &&
-      (await transaction.isActiveUserWithRole(actor.userId, role))
-    ) {
-      return { episode, role };
-    }
-  }
+  const role = await currentProfessionalRole(transaction, actor);
+  if (role) return { episode, role };
   throw new NursingTaskDeniedError();
+}
+
+function enforceHumanAuthorization(decision: HumanAuthorizationDecision): void {
+  if (decision.status === "AUTHORIZED") return;
+  if (decision.blockers.includes("ALERT_NOT_FOUND")) {
+    throw new NursingTaskNotFoundError();
+  }
+  if (
+    decision.blockers.some((blocker) =>
+      ["ACTOR_NOT_AUTHENTICATED", "ACTOR_NOT_AUTHORIZED", "ACTOR_NOT_RESPONSIBLE"].includes(
+        blocker,
+      ),
+    )
+  ) {
+    throw new NursingTaskDeniedError();
+  }
+  throw new NursingTaskConflictError();
 }
 
 function taskResult(task: NursingTaskRecord, idempotent: boolean) {
@@ -67,6 +98,7 @@ export class CreateNursingTaskService {
   constructor(
     private readonly unitOfWork: NursingWorkQueueUnitOfWork,
     private readonly now: () => Date = () => new Date(),
+    private readonly humanAuthorizationPolicy: HumanAuthorizationPolicy = new DefaultHumanAuthorizationPolicy(),
   ) {}
 
   execute(input: {
@@ -88,13 +120,20 @@ export class CreateNursingTaskService {
     });
 
     return this.unitOfWork.run(async (transaction) => {
-      const { role } = await authorizeEpisode(transaction, input.actor, input.episodeId);
+      const { episode, role } = await authorizeEpisode(transaction, input.actor, input.episodeId);
+      const evaluatedAt = this.now();
       if (input.alertId) {
         const alert = await transaction.getAlert(input.alertId);
-        if (!alert || alert.episodeId !== input.episodeId) throw new NursingTaskNotFoundError();
-        if (alert.state === "open" || !alert.hasHumanReview) {
-          throw new NursingTaskConflictError();
-        }
+        const decision = this.humanAuthorizationPolicy.evaluate({
+          action: "CREATE_TASK_FROM_REVIEWED_ALERT",
+          actor: input.actor,
+          activeRole: role,
+          episode,
+          alert,
+          review: alert?.review ?? null,
+          evaluatedAt,
+        });
+        enforceHumanAuthorization(decision);
       }
       if (
         input.assignedToId &&
@@ -114,7 +153,7 @@ export class CreateNursingTaskService {
         return taskResult(existing, true);
       }
 
-      const createdAt = this.now();
+      const createdAt = evaluatedAt;
       const claimed = await transaction.claimTask({
         episodeId: input.episodeId,
         alertId: input.alertId,
