@@ -25,6 +25,14 @@ La numeración, el título, el responsable y el estado de REQ-01 a REQ-14 son ca
 
 El paso 5 del Plan de Seguridad puede documentar profesionales y el hecho de que existe un protocolo pendiente, pero no configura ni publica números oficiales. La futura configuración versionada de REQ-10 será la única fuente de recursos de crisis accionables y deberá estar aprobada por Dirección Médica (DEC-010) y verificada por TI (DEC-011). Hasta entonces, cualquier URI `tel:` o secuencia con apariencia de teléfono se rechaza en ese paso y no existe botón de marcación.
 
+### Evidencia documental de apoyo a REQ-01 / DEC-002
+
+El [paquete institucional DEC-002](decisions/dec-002-episode-closure-decision-pack.md)
+se registra como `DECISION SUPPORT EVIDENCE` para preparar la decisión sobre
+duración y cierre. No modifica el módulo futuro de REQ-01, no aprueba DEC-002 ni
+habilita especificación o implementación; el estado canónico continúa
+`Pendiente`.
+
 ## Seguimiento técnico de la fundación (no canónico)
 
 Este seguimiento no modifica el `Estado` canónico, no resuelve las decisiones institucionales y no constituye validación. La evidencia corresponde a las ramas técnicas indicadas y usa exclusivamente datos sintéticos.

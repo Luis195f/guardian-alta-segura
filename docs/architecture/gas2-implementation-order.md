@@ -101,6 +101,38 @@ explícitos y minimización. No crea tabla, migración, dependencia, exportació
 observabilidad productiva ni process safety. La ausencia de decisión histórica
 de autorización por instancia se declara, no se rellena.
 
+## Paquete de decisión DEC-002 preparado
+
+La rama exclusivamente documental:
+
+```text
+docs/gas2-dec002-episode-closure-decision-pack
+```
+
+prepara baseline, opciones neutrales, minimum blocking decision set, análisis
+TOCTOU, formulario, agenda y resumen ejecutivo para Dirección Médica. No
+selecciona duración, autoridad, motivo, tratamiento de Alerts/Tasks, override o
+reopening y no habilita cierre.
+
+`DEC-002` continúa `Pendiente`. El paquete es `DECISION SUPPORT EVIDENCE` y sitúa
+el trabajo en `READY_FOR_INSTITUTIONAL_DECISION`; no autoriza especificación
+técnica ni implementación. Tras una aprobación formal todavía se exige revisión
+de dominio y concurrencia antes de `READY_FOR_IMPLEMENTATION`.
+
+`Decision pack document status = FINAL` y
+`Decision form template status = FINAL` describen artefactos documentales. Una
+futura instancia del workbook usa `DRAFT / UNDER_REVIEW / FINAL`; DEC-002 conserva
+una única cabecera canónica y los valores `READY_FOR_*` siguen siendo gates.
+
+Una futura `Aprobada` debe quedar cualificada por policy version, approved scope,
+approval evidence reference, exclusiones/diferidos explícitos y unresolved items
+que continúan bloqueados. Nada fuera del approved scope se desbloquea; si la
+institución no admite aprobación scoped, solo cabe `Aprobada` para todo el scope
+canónico aplicable de duración y cierre. Además,
+`INCONSISTENT → NON_OVERRIDABLE_TECHNICAL_FAIL_CLOSED`: no es policy clínica
+seleccionable ni admite override, mientras los otros cuatro estados de integridad
+pueden recibir tratamiento institucional sin convertirse en safe/unsafe.
+
 ## Revisión de la secuencia inicial
 
 | Orden | Rama inicial | Decisión | Rama recomendada / condición |
