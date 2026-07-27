@@ -58,7 +58,7 @@ Formaliza `CREATE_TASK_FROM_REVIEWED_ALERT` como policy pura sobre
 `AlertReview`, rol activo y responsabilidad actual. No crea `ReviewGate`, tabla,
 migración, dependencia ni automatización.
 
-## Incremento actual
+## Cuarto incremento fundacional completado
 
 Tras completar gobernanza, procedencia y autorización humana, el incremento
 implementado es:
@@ -69,6 +69,22 @@ feat/gas2-task-accountability
 
 `TECHNICAL TASK ACCOUNTABILITY = implemented`. `INSTITUTIONAL RESPONSIBILITY /
 ACCOUNTABILITY POLICY = not validated, conditioned on DEC-017`.
+
+## Paquete de decisión DEC-017 preparado
+
+La rama documental:
+
+```text
+docs/gas2-dec017-decision-pack
+```
+
+prepara evidencia, opciones neutrales, preguntas, formulario, agenda y resumen
+ejecutivo para Dirección de Enfermería. No implementa ni selecciona taxonomía,
+prioridad, acceptance, tiempos, SLA, resultados institucionales de contacto o
+escalado.
+
+`DEC-017` continúa `Pendiente`. El paquete es `DECISION SUPPORT EVIDENCE`, no una
+decisión ni autorización para abrir `feat/gas2-task-sla-escalation`.
 
 ## Revisión de la secuencia inicial
 
@@ -190,8 +206,17 @@ Cada rama debe:
 ## Resultado
 
 La secuencia ha completado gobernanza, procedencia, autorización humana y
-accountability técnica sin una segunda arquitectura. El siguiente gate operativo
-es `STOP — INSTITUTIONAL DECISION REQUIRED`: la responsabilidad institucional,
+accountability técnica sin una segunda arquitectura. El paquete de apoyo a
+DEC-017 está preparado y el siguiente gate es
+`READY_FOR_INSTITUTIONAL_DECISION`: la responsabilidad institucional,
 SLA/escalado y cualquier process safety dependiente de reglas de asignación o
-tiempos esperan DEC-017. Las integraciones siguen aplazadas hasta disponer de
-contratos reales.
+tiempos siguen esperando una aprobación real de DEC-017. Las integraciones
+continúan aplazadas hasta disponer de contratos reales.
+
+`READY_FOR_INSTITUTIONAL_DECISION` es un gate de preparación, no un estado
+canónico de DEC-017. La secuencia posterior es evidencia/aprobación institucional
+→ `READY_FOR_TECHNICAL_SPECIFICATION` → revisión de diseño técnico →
+`READY_FOR_IMPLEMENTATION`. El estado canónico actual continúa `Pendiente`.
+`READY_FOR_TECHNICAL_SPECIFICATION` requiere
+`Canonical DEC-017 status = Aprobada` para la policy version y el approved scope
+que se pretende especificar; otro estado no habilita ese gate para esa versión.

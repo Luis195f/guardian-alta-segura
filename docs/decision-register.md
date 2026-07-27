@@ -24,6 +24,14 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | DEC-016 | Gobierno institucional | Alcance, población, entorno, periodo, formación, soporte, rollback y continuidad de negocio del piloto | REQ-01 a REQ-14 | Gerencia del Hospital como Responsable del Tratamiento | Expediente de gate de Piloto Clínico completo | Pendiente | NO-GO para pacientes y datos reales |
 | DEC-017 | Protocolo/operación | Taxonomía, prioridades administrativas, SLA, tiempos objetivo, resultados de contacto y reglas de asignación de tareas | REQ-09 | Dirección de Enfermería | Configuración versionada, explicable y validada localmente | Pendiente | Prioridades, SLA y valores operativos definitivos no se codifican |
 
+### Evidencia de apoyo a DEC-017
+
+El [paquete institucional de decisión sobre política operativa de
+tareas](decisions/dec-017-task-policy-decision-pack.md) documenta el baseline
+técnico, subdecisiones, opciones neutrales, dependencias, impacto y formulario
+para Dirección de Enfermería. Es `DECISION SUPPORT EVIDENCE`: no selecciona
+valores, no acredita aprobación y no modifica el estado `Pendiente` de DEC-017.
+
 ## Estados permitidos
 
 - `Pendiente`: falta una decisión o evidencia suficiente.
