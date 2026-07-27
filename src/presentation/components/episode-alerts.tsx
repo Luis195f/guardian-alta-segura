@@ -100,7 +100,11 @@ export function EpisodeAlerts({
             <li key={alert.id}>
               <div className="review-list-header">
                 <span className={`status-chip status-${alert.state}`}>
-                  {alert.state === "open" ? "PENDIENTE DE REVISIÓN" : "REVISADO"}
+                  {alert.state === "open"
+                    ? "PENDIENTE DE REVISIÓN"
+                    : alert.state === "actioned"
+                      ? "ACTIONED ADMINISTRATIVO; NO ACREDITA ACCIÓN"
+                      : "REVISADO"}
                 </span>
                 <time dateTime={alert.triggeredAt}>
                   {new Date(alert.triggeredAt).toLocaleString("es-ES")}

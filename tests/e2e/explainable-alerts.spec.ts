@@ -291,7 +291,7 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
     0,
   );
 
-  const review = await nurse.post(`/api/demo/alerts/${evaluated.alertId}/reviews`, {
+  const review = await clinician.post(`/api/demo/alerts/${evaluated.alertId}/reviews`, {
     data: { nextState: "reviewed" },
   });
   expect(review.status()).toBe(201);
@@ -304,6 +304,15 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
     },
   });
   expect(taskAfterReview.status()).toBe(201);
+  const createdTask = (await taskAfterReview.json()) as { readonly taskId: string };
+  const [storedReview, storedTask] = await Promise.all([
+    prisma.alertReview.findFirstOrThrow({
+      where: { alertId: evaluated.alertId },
+      orderBy: { reviewedAt: "asc" },
+    }),
+    prisma.task.findUniqueOrThrow({ where: { id: createdTask.taskId } }),
+  ]);
+  expect(storedReview.reviewedById).not.toBe(storedTask.createdById);
   await expect(prisma.alertReview.count({ where: { alertId: evaluated.alertId } })).resolves.toBe(
     1,
   );

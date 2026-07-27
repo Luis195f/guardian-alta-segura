@@ -46,7 +46,7 @@ separado.
 |---|---|---|---|
 | `EpisodeContract` | Alto | `DischargeEpisode`, `EpisodeTransition`, `EpisodeGovernancePolicy/View`, responsables, protocolo, avisos y tareas | No crear tabla ni agregado paralelo. Reutilizar la política/vista de gobernanza compuesta ya implementada. |
 | `SignalRecord` | Alto si se usa como copia universal | `CanonicalProvenanceLineageV1`, `RuleEvaluation`, `Alert.inputReferences`, check-ins, procedencia de Plan/Domicilio y observaciones | No crear: el value object v1 ya resuelve el linaje interno. Persistir mensajes externos solo cuando exista contrato y necesidad de reintento/linaje. |
-| `ReviewGate` | Alto | `AlertReview`, `ReviewAlertService`, guard de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | Extraer una política reutilizable sin duplicar revisión ni estado. |
+| `ReviewGate` | Alto | `DefaultHumanAuthorizationPolicy`, `AlertReview`, `ReviewAlertService`, guard de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | No crear tabla. La policy reutilizable ya proyecta decisión y evidencia sin duplicar revisión ni estado. |
 | `TaskCase` | Muy alto | `Task`, `TaskEvent` y `NursingWorkQueue` | Extender el lifecycle actual. No crear otra cola o tabla de casos. |
 | `AccountabilityGraph` | Alto | Responsables del episodio, `reviewOwner`, asignado/creador/resolutor y actores de eventos | Empezar con una proyección relacional. Graph DB solo con consultas y escala demostradas. |
 | `ProcessAnomaly` | Medio | Ventanas/outcomes de check-in, revisiones de aviso, tareas y timestamps | Calcular una proyección determinista. Persistir un hallazgo solo si necesita acknowledgement/historia y tras definir semántica. |

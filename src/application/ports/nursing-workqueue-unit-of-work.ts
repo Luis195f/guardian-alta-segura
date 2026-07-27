@@ -17,7 +17,14 @@ export interface WorkQueueAlertRecord {
   readonly id: string;
   readonly episodeId: string;
   readonly state: "open" | "reviewed" | "actioned" | "resolved" | "dismissed-with-reason";
-  readonly hasHumanReview: boolean;
+  readonly ruleVersionId: string;
+  readonly ruleVersionNumber: number;
+  readonly review: {
+    readonly id: string;
+    readonly alertId: string;
+    readonly reviewedById: string;
+    readonly reviewedAt: Date;
+  } | null;
 }
 
 export interface NursingTaskRecord {
@@ -48,7 +55,7 @@ export interface NursingTaskEventRecord {
 }
 
 export interface NursingWorkQueueTransaction {
-  isActiveUserWithRole(userId: string, role: Role): Promise<boolean>;
+  lockActiveUserWithRole(userId: string, role: Role): Promise<boolean>;
   getEpisode(episodeId: string): Promise<WorkQueueEpisodeRecord | null>;
   getAlert(alertId: string): Promise<WorkQueueAlertRecord | null>;
   isAuthorizedAssignee(userId: string, episodeId: string): Promise<boolean>;

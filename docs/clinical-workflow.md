@@ -53,11 +53,15 @@ Solo reglas deterministas, versionadas, trazables y aprobadas localmente pueden 
 
 Una persona profesional autorizada revisa el aviso y registra actor, fecha, resultado y motivo cuando corresponda. «Revisado» no significa «resuelto» ni activa por sí solo un contacto, una derivación, una firma o el cierre del episodio.
 
+La revisión es evidencia histórica; no es permiso actual ni acción. Para crear una tarea derivada, la policy de autorización humana combina esa evidencia con el rol activo, la responsabilidad de episodio y el actor que solicita ahora la operación. Reviewer y acting actor pueden ser personas distintas. El rol histórico del reviewer no se infiere desde su rol actual.
+
 ### 10. Tareas vinculadas
 
 Después de la revisión humana, la interfaz puede permitir crear una tarea vinculada al aviso y al episodio. Crear o asignar la tarea es una decisión humana y no equivale a una actuación clínica automática. El origen y los cambios de estado quedan auditados sin copiar contenido clínico innecesario.
 
 En la demo técnica, toda tarea se vincula obligatoriamente al episodio y puede vincularse opcionalmente a un aviso. Revisar un aviso nunca crea una tarea. La asignación, reasignación, intento de contacto, nota breve y resolución se registran mediante acciones explícitas con historial append-only; la resolución exige actor, motivo y timestamp. La revisión optimista e idempotencia evitan resolución doble y actualización perdida. Resolver una tarea no cierra el episodio ni genera SBAR, derivación, comunicación o recomendación.
+
+Existen dos caminos distintos: `señal → evaluación → aviso → revisión humana → autorización → POST explícito de tarea`, y `profesional → POST explícito de tarea manual sin aviso`. El segundo no recibe procedencia ni review ficticias. `actioned` es un estado administrativo del aviso y no acredita por sí solo una tarea o actuación; esa prueba exige `Task`/`TaskEvent`.
 
 ### 11. Botón de crisis
 

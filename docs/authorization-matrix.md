@@ -54,7 +54,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 - `caregiver` solo ve módulos, secciones y acciones enumerados en el último scope de la autorización y episodio de su sesión; cambiar otro episodio no propaga permisos. Revocar invalida de inmediato todas las sesiones y el logout invalida la sesión persistida correspondiente.
 - `patient` no puede aprobar reglas, firmar cierres profesionales ni ampliar permisos fuera del protocolo.
 - `Todos` en REQ-12 significa que cada categoría necesita autenticación; no concede a ningún rol todas las capacidades de la matriz.
-- Una tarea vinculada a aviso requiere revisión humana previa y una petición profesional explícita; la revisión por sí sola no crea tareas ni decisiones asistenciales.
+- Una tarea vinculada a aviso requiere revisión humana previa, autorización fail-closed del acting actor y una petición profesional explícita; la revisión por sí sola no crea tareas ni decisiones asistenciales. Reviewer y acting actor pueden ser personas distintas según las responsabilidades actuales.
 - Aprobar y activar una regla son capacidades separadas; ninguna de ellas crea avisos ni actuaciones por sí sola.
 - Los cambios de rol, permisos, scopes, sesiones y accesos críticos producen auditoría inmutable y minimizada.
 

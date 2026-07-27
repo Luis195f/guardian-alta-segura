@@ -5,9 +5,11 @@
 Auditoría diferencial iniciada el 25 de julio de 2026 sobre la rama
 `audit/gas2-architecture-delta`, en el commit base `88be7da`, y actualizada tras
 implementar `refactor/gas2-episode-governance-policy` y
-`feat/gas2-signal-provenance-boundary`. Las conclusiones se basan en el código,
-esquema, migraciones, pruebas, CI y documentación presentes en el repositorio. No
-acreditan validación clínica, jurídica, institucional, RGPD o MDR.
+`feat/gas2-signal-provenance-boundary`, y tras formalizar
+`refactor/gas2-human-authorization-policy`. Las conclusiones se basan en el
+código, esquema, migraciones, pruebas, CI y documentación presentes en el
+repositorio. No acreditan validación clínica, jurídica, institucional, RGPD o
+MDR.
 
 El refactor añade una proyección y política de gobernanza sin modificar Prisma,
 añadir dependencias ni crear arquitectura paralela. Solo cambia la consulta
@@ -17,6 +19,10 @@ de cierre ni actuación clínica automática.
 El boundary de procedencia añade contratos/mappers v1 y una lectura compatible
 de `Alert.inputReferences`, también sin cambiar Prisma o dependencias. No añade
 otra fuente clínica, conectores, FHIR ni acciones automáticas.
+
+La autorización humana añade una policy pura sobre `AlertReview`, actor actual y
+responsabilidad del episodio. No persiste otra decisión, no ejecuta tareas y no
+modifica Prisma, migraciones o dependencias.
 
 ## Stack real
 
@@ -208,12 +214,15 @@ sequenceDiagram
   participant R as Evaluación determinista
   participant A as Alert
   participant H as AlertReview humano
+  participant G as HumanAuthorizationPolicy
   participant T as Task/TaskEvent
 
   P->>R: POST explícito con regla, inputs y procedencia
   R->>A: crea Alert open solo si matched
   P->>H: revisión humana explícita
   H->>A: transición append-only
+  P->>G: solicita CREATE_TASK_FROM_REVIEWED_ALERT
+  G-->>P: AUTHORIZED o NOT_AUTHORIZED + evidencia/códigos
   P->>T: POST explícito para crear tarea
   P->>T: asignar/contactar/anotar/resolver
 ```
@@ -224,24 +233,41 @@ explícita. En concreto:
 - evaluar una regla no crea tareas, comunicaciones, derivaciones, cierres, SBAR o
   firmas;
 - revisar un aviso no crea una tarea;
-- crear una tarea vinculada exige que el aviso no esté `open` y tenga al menos una
-  revisión humana;
+- crear una tarea vinculada exige que el aviso no esté `open`, tenga una revisión
+  humana real, que el guard independiente autorice rol activo y responsabilidad
+  actual y que después la policy autorice la acción derivada;
 - la restricción anterior existe en aplicación y en un trigger PostgreSQL;
 - resolver una tarea no resuelve el aviso ni cierra el episodio;
 - una observación de cuidador no crea aviso o tarea.
 
-La garantía no es todavía un gate transversal reutilizable. `AlertReview` puede
-registrar el estado administrativo `actioned` sin referencia estructurada a la
-acción, y una tarea independiente puede crearse sin aviso. Ambos caminos siguen
-siendo humanos, pero limitan la evidencia de una cadena uniforme
-señal-decisión-acción.
+La garantía está formalizada para la única acción downstream real de este
+alcance: `CREATE_TASK_FROM_REVIEWED_ALERT`. La decisión es pura, minimizada y no
+persistida. `AlertReview` conserva la review y `Task`/`TaskEvent` la acción.
+Reviewer y acting actor pueden diferir; el rol histórico del reviewer no está
+ligado de forma inequívoca a la review y no se infiere. `actioned` sigue siendo un
+estado administrativo sin referencia estructurada a una acción y no acredita por
+sí solo una tarea. Una tarea sin aviso permanece como iniciación humana directa,
+no como acción derivada de señal. La evidencia de autorización conserva solo
+identificadores técnicos minimizados, timestamps y referencias de versión; no
+copia payload clínico ni texto libre y el demo usa identidades sintéticas.
+
+Los estados elegibles `reviewed`, `actioned`, `resolved` y
+`dismissed-with-reason` preservan el comportamiento técnico actual del demo. No
+son una política institucional aprobada para crear tareas; DEC-017 sigue
+pendiente.
+
+El demo expone asignación administrativa de roles, pero no un endpoint de
+revocación de `RoleAssignment`. La carrera de seguridad se verifica contra la
+actualización PostgreSQL real de `revokedAt`; cualquier workflow futuro deberá
+mutar esa misma fila para conservar el orden.
 
 ## Concurrencia de la cola de enfermería
 
 | Protección | Implementación verificada |
 |---|---|
 | Revision control | `Task.revision`, `expectedRevision` y actualización condicional |
-| Locking | No hay lock pesimista de tarea; se usa control optimista con unicidad y transacción |
+| Locking de tarea | No hay lock pesimista de tarea; se usa control optimista con unicidad y transacción |
+| Autorización vs revocación | La mutación bloquea las filas `User` y `RoleAssignment` activa del actor; la revocación concurrente se serializa contra ese lock |
 | Idempotencia | Clave única por actor + fingerprint para creación y cada evento |
 | Conflicto de asignación | Un evento por `taskId/resultingRevision`; una carrera tiene un ganador |
 | Conflicto de resolución | Tarea resuelta es terminal; revisión obsoleta devuelve conflicto |
@@ -300,8 +326,8 @@ integraciones implementadas.
 | `pnpm format:check` | PASS |
 | `pnpm lint` | PASS |
 | `pnpm typecheck` | PASS |
-| `pnpm test:unit` | PASS — 26 archivos, 222 pruebas |
-| `pnpm test:integration` | PASS — 9 archivos, 56 pruebas |
+| `pnpm test:unit` | PASS — 27 archivos, 247 pruebas |
+| `pnpm test:integration` | PASS — 9 archivos, 57 pruebas |
 | `pnpm test:e2e` | PASS — 43 pruebas |
 | `pnpm build` | PASS — 18 páginas generadas y rutas dinámicas compiladas |
 | `pnpm traceability:check` | PASS — REQ-01 a REQ-14 |
@@ -316,7 +342,7 @@ fallos.
 Guardián Alta Segura ya contiene un núcleo modular y trazable para continuidad
 postalta sintética. GAS 2.0 debe ser una evolución de ese núcleo, no un nuevo
 árbol de código ni un segundo modelo de datos. Las fronteras fundacionales de
-gobernanza de episodio y procedencia ya están compuestas sobre los módulos
-actuales. Las brechas prioritarias siguientes son formalizar autorización humana
-y responsabilidad, y añadir SLA/proceso seguro una vez resueltas las decisiones
-locales.
+gobernanza de episodio, procedencia y autorización humana ya están compuestas
+sobre los módulos actuales. La brecha prioritaria siguiente es responsabilidad
+de tareas; SLA y proceso seguro permanecen condicionados a las decisiones
+locales, especialmente DEC-017.
