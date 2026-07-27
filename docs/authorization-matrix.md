@@ -25,7 +25,7 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 | Aprobar una versión de regla | No | No | Sí, referencia local explícita | No | No | No |
 | Activar una versión aprobada | Sí, sin acceso al contenido del episodio | No | No | No | No | No |
 | Evaluar reglas activas y revisar avisos | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
-| Consultar cola y crear/asignar/resolver tareas | No | Sí, episodio asignado | Sí, episodio asignado | No | No | No |
+| Consultar cola y crear/asignar/resolver tareas | No | Sí, episodio asignado; assignment no concede autoridad exclusiva | Sí, episodio asignado; assignment no concede autoridad exclusiva | No | No | No |
 | Registrar/revisar Domicilio Seguro | No | Sí, episodio asignado | Sí, episodio asignado | No | No; requiere scope futuro explícito | No |
 | Gestionar autorización de cuidador | No | No | No | Propio dentro del protocolo | No | No |
 | Crear/cambiar invitación y scope de cuidador | No | No | No | Propio, con autorización `caregiver:portal` vigente y limitado al episodio | No | No |
@@ -49,6 +49,8 @@ Esta matriz define límites de diseño para los roles técnicos `admin`, `nurse`
 ## Controles obligatorios
 
 - Un rol no concede acceso global: también se comprueban relación con el episodio, alcance, vigencia y finalidad.
+- El assignee actual no sustituye la autorización de recurso: creator, assignee, event actor, resolver y responsables del episodio pueden ser personas distintas.
+- Una asignación nueva exige target activo, rol profesional vigente y responsabilidad actual del episodio; las mutaciones bloquean primero el episodio, después los `User` participantes únicos ordenados globalmente por ID y finalmente sus roles, serializando revocación y cruces de identidad incluso entre episodios.
 - `admin` gestiona la plataforma, pero no hereda acceso clínico por su función técnica.
 - `support` no puede impersonar a otro rol ni consultar notas, respuestas, planes, SBAR o exportaciones clínicas.
 - `caregiver` solo ve módulos, secciones y acciones enumerados en el último scope de la autorización y episodio de su sesión; cambiar otro episodio no propaga permisos. Revocar invalida de inmediato todas las sesiones y el logout invalida la sesión persistida correspondiente.

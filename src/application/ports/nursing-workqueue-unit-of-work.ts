@@ -48,17 +48,24 @@ export interface NursingTaskEventRecord {
   readonly id: string;
   readonly taskId: string;
   readonly type: TaskEventType;
+  readonly fromState: TaskState | null;
+  readonly toState: TaskState;
+  readonly fromAssignedToId: string | null;
+  readonly toAssignedToId: string | null;
   readonly actorUserId: string;
+  readonly actorRole: Role;
   readonly idempotencyKey: string;
   readonly requestFingerprint: string;
   readonly resultingRevision: number;
+  readonly occurredAt: Date;
 }
 
 export interface NursingWorkQueueTransaction {
+  lockEpisode(episodeId: string): Promise<WorkQueueEpisodeRecord | null>;
+  lockParticipantUsers(userIds: readonly string[]): Promise<void>;
   lockActiveUserWithRole(userId: string, role: Role): Promise<boolean>;
-  getEpisode(episodeId: string): Promise<WorkQueueEpisodeRecord | null>;
   getAlert(alertId: string): Promise<WorkQueueAlertRecord | null>;
-  isAuthorizedAssignee(userId: string, episodeId: string): Promise<boolean>;
+  lockAuthorizedAssignee(userId: string, episodeId: string): Promise<boolean>;
   getTask(taskId: string): Promise<NursingTaskRecord | null>;
   findTaskByCreationIdempotency(
     createdById: string,

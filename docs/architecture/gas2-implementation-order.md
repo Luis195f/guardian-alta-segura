@@ -58,16 +58,17 @@ Formaliza `CREATE_TASK_FROM_REVIEWED_ALERT` como policy pura sobre
 `AlertReview`, rol activo y responsabilidad actual. No crea `ReviewGate`, tabla,
 migración, dependencia ni automatización.
 
-## Siguiente rama exacta
+## Incremento actual
 
-Tras completar gobernanza, procedencia y autorización humana, la siguiente rama
-continúa siendo:
+Tras completar gobernanza, procedencia y autorización humana, el incremento
+implementado es:
 
 ```text
 feat/gas2-task-accountability
 ```
 
-No incluye SLA o escalado mientras DEC-017 permanezca pendiente.
+`TECHNICAL TASK ACCOUNTABILITY = implemented`. `INSTITUTIONAL RESPONSIBILITY /
+ACCOUNTABILITY POLICY = not validated, conditioned on DEC-017`.
 
 ## Revisión de la secuencia inicial
 
@@ -76,8 +77,8 @@ No incluye SLA o escalado mientras DEC-017 permanezca pendiente.
 | 1 | `feat/gas2-episode-governance` | Modificar | `refactor/gas2-episode-governance-policy`; ya existe el agregado |
 | 2 | `feat/gas2-signal-provenance` | Mantener con alcance menor | `feat/gas2-signal-provenance-boundary`; completada con value objects, mappers y lineage sobre evidencia actual |
 | 3 | `refactor/gas2-human-authorization-policy` | Mantener | Completada; reutiliza `AlertReview` y guards, sin `ReviewGate` persistente |
-| 4 | `feat/gas2-accountability-sla` | Dividir por bloqueo | `feat/gas2-task-accountability`; SLA/escalado solo después de DEC-017 |
-| 5 | `feat/gas2-process-safety` | Mantener condicionado | Proyección determinista tras lifecycle/SLA; sin scoring ni acción autónoma |
+| 4 | `feat/gas2-accountability-sla` | Dividir por bloqueo | `feat/gas2-task-accountability` completada como proyección; SLA/escalado solo después de DEC-017 |
+| 5 | `feat/gas2-process-safety` | Mantener condicionado | Esperar semántica operativa aprobada cuando dependa de assignment/SLA; sin scoring ni acción autónoma |
 | 6 | `feat/gas2-integration-boundary` | Mantener condicionado | Contratos solo al seleccionar una integración real; no crear registry especulativo |
 | 7 | `feat/gas2-fhir-boundary` | Eliminar del plan comprometido | Crear `feat/gas2-fhir-anti-corruption` únicamente si existe perfil/requisito institucional |
 | 8 | `security/gas2-hardening` | Fusionar | Threat model y hardening dentro de cada rama; rama separada solo para hallazgos transversales concretos |
@@ -108,9 +109,13 @@ gate y que reviewer y acting actor no se confunden.
 
 ### 4. `feat/gas2-task-accountability`
 
-Extiende `Task`/`TaskEvent` para expresar propiedad operativa y transferencia
-cuando exista semántica aprobada. No crea `TaskCase` ni
-`AccountabilityGraph`. La parte SLA queda bloqueada por DEC-017.
+Completada técnicamente como `TaskAccountabilityProjection` sobre
+`Task`/`TaskEvent`. Reconstruye assignment/reassignment, separa
+creator/assignee/actor/resolver, valida consistencia y verifica elegibilidad
+técnica actual. Serializa por episodio y después por el conjunto de identidades
+participantes ordenado globalmente, sin migración. No crea `TaskCase` ni
+`AccountabilityGraph`. No valida quién debería actuar: acceptance, política
+institucional, SLA y escalado quedan bloqueados por DEC-017.
 
 ### 5. Rama SLA tras DEC-017
 
@@ -125,9 +130,10 @@ Los valores deben proceder de evidencia local; no se usan defaults clínicos.
 
 ### 6. `feat/gas2-process-safety`
 
-Evalúa missed-process a partir de ventanas de check-in, revisiones, tareas y SLA.
-Primera implementación preferida: proyección determinista y explicable. Persistir
-hallazgos solo si necesitan acknowledgement e historia propia.
+No debe iniciarse mientras una anomalía dependa de reglas de assignment, tiempos o
+SLA todavía pendientes en DEC-017. Un incremento futuro independiente tendría que
+demostrar semántica técnica ya aprobada; primera implementación preferida:
+proyección determinista y explicable, sin scoring ni acción autónoma.
 
 ### 7. `feat/gas2-integration-boundary`
 
@@ -183,8 +189,9 @@ Cada rama debe:
 
 ## Resultado
 
-La secuencia reduce diez ramas inicialmente propuestas a tres trabajos inmediatos
-fundacionales, dos evoluciones condicionadas por DEC-017 y varias integraciones
-aplazadas hasta disponer de contratos reales. Evita financiar una segunda
-arquitectura y concentra la IP en gobernanza, procedencia, autorización humana,
-responsabilidad y seguridad de proceso.
+La secuencia ha completado gobernanza, procedencia, autorización humana y
+accountability técnica sin una segunda arquitectura. El siguiente gate operativo
+es `STOP — INSTITUTIONAL DECISION REQUIRED`: la responsabilidad institucional,
+SLA/escalado y cualquier process safety dependiente de reglas de asignación o
+tiempos esperan DEC-017. Las integraciones siguen aplazadas hasta disponer de
+contratos reales.

@@ -104,13 +104,38 @@ test("flujo HTTP crea y procesa tareas solo mediante acciones humanas trazables"
   const queue = (await queueResponse.json()) as {
     readonly entries: readonly {
       readonly episode: { readonly id: string };
-      readonly tasks: readonly { readonly id: string; readonly state: string }[];
+      readonly tasks: readonly {
+        readonly id: string;
+        readonly state: string;
+        readonly accountability: {
+          readonly origin: { readonly kind: string };
+          readonly createdById: string;
+          readonly currentAssigneeId: string | null;
+          readonly assignmentStatus: string;
+          readonly consistencyStatus: string;
+          readonly blockers: readonly string[];
+        };
+      }[];
     }[];
     readonly metrics: { readonly openTaskCount: number };
   };
   const entry = queue.entries.find(({ episode }) => episode.id === episodeId);
   expect(entry?.tasks).toContainEqual(
-    expect.objectContaining({ id: created.taskId, state: "open" }),
+    expect.objectContaining({
+      id: created.taskId,
+      state: "open",
+      accountability: expect.objectContaining({
+        origin: { kind: "DIRECT_HUMAN_INITIATION", alertId: null },
+        createdById: nurseId,
+        currentAssigneeId: nurseId,
+        assignmentStatus: "ASSIGNED",
+        consistencyStatus: "VALID",
+        blockers: [],
+      }),
+    }),
+  );
+  expect(JSON.stringify(entry?.tasks[0]?.accountability)).not.toMatch(
+    /summary|note|resolutionReason|priority|deadline|sla|escalation/i,
   );
   expect(queue.metrics.openTaskCount).toBeGreaterThanOrEqual(1);
 

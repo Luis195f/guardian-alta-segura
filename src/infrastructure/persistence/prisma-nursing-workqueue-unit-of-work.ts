@@ -8,12 +8,14 @@ import type {
   NursingTaskRecord,
   NursingWorkQueueTransaction,
   NursingWorkQueueUnitOfWork,
+  WorkQueueEpisodeRecord,
 } from "@/application/ports/nursing-workqueue-unit-of-work";
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
 import { readAlertProvenance } from "@/domain/provenance/signal-provenance";
 import type { ContactAttemptOutcome, TaskEventType } from "@/domain/workqueue/nursing-task";
+import { projectTaskAccountability } from "@/domain/workqueue/task-accountability";
 import { prisma } from "@/infrastructure/persistence/prisma";
 
 const taskSelect = {
@@ -46,10 +48,16 @@ const eventSelect = {
   id: true,
   taskId: true,
   type: true,
+  fromState: true,
+  toState: true,
+  fromAssignedToId: true,
+  toAssignedToId: true,
   actorUserId: true,
+  actorRole: true,
   idempotencyKey: true,
   requestFingerprint: true,
   resultingRevision: true,
+  occurredAt: true,
 } satisfies Prisma.TaskEventSelect;
 
 type PrismaTaskEventRecord = Prisma.TaskEventGetPayload<{ select: typeof eventSelect }>;
@@ -59,7 +67,15 @@ function fromEventType(type: PrismaTaskEventRecord["type"]): TaskEventType {
 }
 
 function toEvent(event: PrismaTaskEventRecord): NursingTaskEventRecord {
-  return { ...event, type: fromEventType(event.type) };
+  return {
+    ...event,
+    type: fromEventType(event.type),
+    fromState:
+      event.fromState === null
+        ? null
+        : (event.fromState.toLowerCase() as NonNullable<NursingTaskEventRecord["fromState"]>),
+    toState: event.toState.toLowerCase() as NursingTaskEventRecord["toState"],
+  };
 }
 
 function toPrismaEventType(type: Exclude<TaskEventType, "created">) {
@@ -93,24 +109,31 @@ class PrismaNursingWorkQueueTransaction implements NursingWorkQueueTransaction {
     return activeAssignments.length === 1;
   }
 
-  async getEpisode(episodeId: string) {
-    const episode = await this.transaction.dischargeEpisode.findUnique({
-      where: { id: episodeId },
-      select: {
-        id: true,
-        responsibleNurseId: true,
-        responsibleClinicianId: true,
-        patient: { select: { isSynthetic: true } },
-      },
-    });
-    return episode
-      ? {
-          id: episode.id,
-          isSynthetic: episode.patient.isSynthetic,
-          responsibleNurseId: episode.responsibleNurseId,
-          responsibleClinicianId: episode.responsibleClinicianId,
-        }
-      : null;
+  async lockEpisode(episodeId: string) {
+    const episodes = await this.transaction.$queryRaw<WorkQueueEpisodeRecord[]>(Prisma.sql`
+      SELECT
+        episode."id",
+        patient."is_synthetic" AS "isSynthetic",
+        episode."responsible_nurse_id" AS "responsibleNurseId",
+        episode."responsible_clinician_id" AS "responsibleClinicianId"
+      FROM "discharge_episodes" AS episode
+      INNER JOIN "patients" AS patient ON patient."id" = episode."patient_id"
+      WHERE episode."id" = ${episodeId}
+      FOR UPDATE OF episode
+    `);
+    return episodes[0] ?? null;
+  }
+
+  async lockParticipantUsers(userIds: readonly string[]): Promise<void> {
+    const orderedUserIds = [...new Set(userIds)].sort();
+    if (orderedUserIds.length === 0) return;
+    await this.transaction.$queryRaw<Array<{ readonly id: string }>>(Prisma.sql`
+      SELECT u."id"
+      FROM "users" AS u
+      WHERE u."id" IN (${Prisma.join(orderedUserIds)})
+      ORDER BY u."id" ASC
+      FOR UPDATE OF u
+    `);
   }
 
   async getAlert(alertId: string) {
@@ -147,33 +170,33 @@ class PrismaNursingWorkQueueTransaction implements NursingWorkQueueTransaction {
       : null;
   }
 
-  async isAuthorizedAssignee(userId: string, episodeId: string): Promise<boolean> {
-    return (
-      (await this.transaction.dischargeEpisode.count({
-        where: {
-          id: episodeId,
-          OR: [{ responsibleNurseId: userId }, { responsibleClinicianId: userId }],
-          AND: {
-            OR: [
-              {
-                responsibleNurse: {
-                  id: userId,
-                  isActive: true,
-                  roleAssignments: { some: { role: "nurse", revokedAt: null } },
-                },
-              },
-              {
-                responsibleClinician: {
-                  id: userId,
-                  isActive: true,
-                  roleAssignments: { some: { role: "clinician", revokedAt: null } },
-                },
-              },
-            ],
-          },
-        },
-      })) === 1
+  async lockAuthorizedAssignee(userId: string, episodeId: string): Promise<boolean> {
+    const eligibleAssignments = await this.transaction.$queryRaw<Array<{ readonly id: string }>>(
+      Prisma.sql`
+        SELECT ra."id"
+        FROM "discharge_episodes" AS episode
+        INNER JOIN "users" AS u ON u."id" = ${userId}
+        INNER JOIN "role_assignments" AS ra ON ra."user_id" = u."id"
+        WHERE episode."id" = ${episodeId}
+          AND u."is_active" = TRUE
+          AND ra."revoked_at" IS NULL
+          AND (
+            (
+              episode."responsible_nurse_id" = u."id"
+              AND ra."role" = 'nurse'::"Role"
+            )
+            OR
+            (
+              episode."responsible_clinician_id" = u."id"
+              AND ra."role" = 'clinician'::"Role"
+            )
+          )
+        ORDER BY ra."assigned_at" ASC, ra."id" ASC
+        LIMIT 1
+        FOR UPDATE OF episode, u, ra
+      `,
     );
+    return eligibleAssignments.length === 1;
   }
 
   async getTask(taskId: string) {
@@ -441,18 +464,38 @@ export async function listNursingWorkQueue(
     tasks: {
       orderBy: { createdAt: "desc" as const },
       include: {
-        assignedTo: { select: { id: true, syntheticAlias: true } },
+        assignedTo: {
+          select: {
+            id: true,
+            syntheticAlias: true,
+            isActive: true,
+            roleAssignments: {
+              where: { revokedAt: null },
+              select: { role: true },
+            },
+          },
+        },
+        createdBy: { select: { id: true, syntheticAlias: true } },
+        resolvedBy: { select: { id: true, syntheticAlias: true } },
         events: {
           orderBy: { resultingRevision: "asc" as const },
           select: {
             id: true,
+            taskId: true,
             type: true,
+            fromState: true,
+            toState: true,
+            fromAssignedToId: true,
+            toAssignedToId: true,
             note: true,
             contactOutcome: true,
             resolutionReason: true,
+            actorUserId: true,
+            actorRole: true,
             resultingRevision: true,
             occurredAt: true,
-            actor: { select: { syntheticAlias: true } },
+            actor: { select: { id: true, syntheticAlias: true } },
+            fromAssignedTo: { select: { id: true, syntheticAlias: true } },
             toAssignedTo: { select: { id: true, syntheticAlias: true } },
           },
         },
@@ -530,22 +573,78 @@ export async function listNursingWorkQueue(
         triggeredAt: alert.triggeredAt,
         reviewedByHuman: alert._count.reviews > 0,
       })),
-      tasks: episode.tasks.map((task) => ({
-        id: task.id,
-        alertId: task.alertId,
-        summary: task.summary,
-        state: task.currentState.toLowerCase(),
-        revision: task.revision,
-        assignedTo: task.assignedTo,
-        resolvedAt: task.resolvedAt,
-        resolutionReason: task.resolutionReason,
-        createdAt: task.createdAt,
-        events: task.events.map((event) => ({
-          ...event,
-          type: event.type.toLowerCase().replaceAll("_", "-"),
-          contactOutcome: event.contactOutcome?.toLowerCase().replaceAll("_", "-") ?? null,
-        })),
-      })),
+      tasks: episode.tasks.map((task) => {
+        const currentAssigneeCurrentlyAuthorized =
+          task.assignedTo !== null &&
+          task.assignedTo.isActive &&
+          ((task.assignedTo.id === episode.responsibleNurseId &&
+            task.assignedTo.roleAssignments.some(({ role }) => role === "nurse")) ||
+            (task.assignedTo.id === episode.responsibleClinicianId &&
+              task.assignedTo.roleAssignments.some(({ role }) => role === "clinician")));
+        const accountabilityEvents = task.events.map((event) => ({
+          id: event.id,
+          taskId: event.taskId,
+          type: fromEventType(event.type),
+          fromState:
+            event.fromState === null
+              ? null
+              : (event.fromState.toLowerCase() as NursingTaskRecord["currentState"]),
+          toState: event.toState.toLowerCase() as NursingTaskRecord["currentState"],
+          fromAssignedToId: event.fromAssignedToId,
+          toAssignedToId: event.toAssignedToId,
+          actorUserId: event.actorUserId,
+          actorRole: event.actorRole,
+          resultingRevision: event.resultingRevision,
+          occurredAt: event.occurredAt,
+        }));
+        const accountability = projectTaskAccountability({
+          task: {
+            id: task.id,
+            episodeId: task.episodeId,
+            alertId: task.alertId,
+            currentState: task.currentState.toLowerCase() as NursingTaskRecord["currentState"],
+            assignedToId: task.assignedToId,
+            createdById: task.createdById,
+            revision: task.revision,
+            resolvedById: task.resolvedById,
+            resolvedAt: task.resolvedAt,
+            createdAt: task.createdAt,
+          },
+          events: accountabilityEvents,
+          currentAssigneeCurrentlyAuthorized,
+        });
+        return {
+          id: task.id,
+          alertId: task.alertId,
+          summary: task.summary,
+          state: task.currentState.toLowerCase(),
+          revision: task.revision,
+          assignedTo: task.assignedTo
+            ? { id: task.assignedTo.id, syntheticAlias: task.assignedTo.syntheticAlias }
+            : null,
+          createdBy: task.createdBy,
+          resolvedBy: task.resolvedBy,
+          resolvedAt: task.resolvedAt,
+          resolutionReason: task.resolutionReason,
+          createdAt: task.createdAt,
+          accountability,
+          events: task.events.map((event) => ({
+            id: event.id,
+            type: fromEventType(event.type),
+            fromAssignedToId: event.fromAssignedToId,
+            toAssignedToId: event.toAssignedToId,
+            actorRole: event.actorRole,
+            note: event.note,
+            contactOutcome: event.contactOutcome?.toLowerCase().replaceAll("_", "-") ?? null,
+            resolutionReason: event.resolutionReason,
+            resultingRevision: event.resultingRevision,
+            occurredAt: event.occurredAt,
+            actor: event.actor,
+            fromAssignedTo: event.fromAssignedTo,
+            toAssignedTo: event.toAssignedTo,
+          })),
+        };
+      }),
     };
   });
 

@@ -17,7 +17,7 @@ separado.
 | `CORE GUARDIAN` | Episode governance | Mantener como IP/core | Componer estado, responsables, versión de protocolo, autorizaciones, pendientes y blockers sobre `DischargeEpisode` y eventos existentes |
 | `CORE GUARDIAN` | Signal provenance | Mantener como IP/core | Implementado como `CanonicalProvenanceLineageV1`: identidad de fuente, tiempo, versión de esquema, referencias, derivación y hash por referencia, sin copiar el payload de origen |
 | `CORE GUARDIAN` | Human authorization | Mantener como IP/core | Exigir actor autorizado, decisión explícita, motivo cuando aplique y evidencia antes de cualquier acción posterior |
-| `CORE GUARDIAN` | Accountability | Mantener como IP/core | Resolver quién debe revisar/actuar, cómo se asigna, transfiere y deja evidencia |
+| `CORE GUARDIAN` | Accountability | Mantener como IP/core | Proyectar creator, assignee, actor, resolver, transferencias y elegibilidad actual desde `Task`/`TaskEvent`; no inferir quién debería actuar sin política aprobada |
 | `CORE GUARDIAN` | SLA y escalado | Mantener como IP/core tras DEC-017 | Evaluar configuración versionada y explicable; nunca inferir prioridad clínica |
 | `CORE GUARDIAN` | Process safety | Mantener como IP/core | Detectar determinísticamente pasos organizativos omitidos y crear solo trabajo para revisión humana |
 | `CORE GUARDIAN` | Audit/evidence | Mantener como IP/core | Conservar metadatos minimizados, historias append-only, correlation ID y vistas de evidencia autorizadas |
@@ -47,8 +47,8 @@ separado.
 | `EpisodeContract` | Alto | `DischargeEpisode`, `EpisodeTransition`, `EpisodeGovernancePolicy/View`, responsables, protocolo, avisos y tareas | No crear tabla ni agregado paralelo. Reutilizar la política/vista de gobernanza compuesta ya implementada. |
 | `SignalRecord` | Alto si se usa como copia universal | `CanonicalProvenanceLineageV1`, `RuleEvaluation`, `Alert.inputReferences`, check-ins, procedencia de Plan/Domicilio y observaciones | No crear: el value object v1 ya resuelve el linaje interno. Persistir mensajes externos solo cuando exista contrato y necesidad de reintento/linaje. |
 | `ReviewGate` | Alto | `DefaultHumanAuthorizationPolicy`, `AlertReview`, `ReviewAlertService`, guard de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | No crear tabla. La policy reutilizable ya proyecta decisión y evidencia sin duplicar revisión ni estado. |
-| `TaskCase` | Muy alto | `Task`, `TaskEvent` y `NursingWorkQueue` | Extender el lifecycle actual. No crear otra cola o tabla de casos. |
-| `AccountabilityGraph` | Alto | Responsables del episodio, `reviewOwner`, asignado/creador/resolutor y actores de eventos | Empezar con una proyección relacional. Graph DB solo con consultas y escala demostradas. |
+| `TaskCase` | Muy alto | `Task`, `TaskEvent`, `TaskAccountabilityProjection` y `NursingWorkQueue` | Reutilizar el lifecycle y la proyección actuales. No crear otra cola o tabla de casos. |
+| `AccountabilityGraph` | Alto | `TaskAccountabilityProjection`, responsables del episodio, `reviewOwner`, asignado/creador/resolutor y actores de eventos | No crear. La proyección relacional ya reconstruye la cadena; Graph DB solo con consultas y escala futuras demostradas. |
 | `ProcessAnomaly` | Medio | Ventanas/outcomes de check-in, revisiones de aviso, tareas y timestamps | Calcular una proyección determinista. Persistir un hallazgo solo si necesita acknowledgement/historia y tras definir semántica. |
 | `ConsentScope` | Muy alto | `PolicyVersion`, registros legales, `RevocationEvent` y `CaregiverAuthorizationScope` | Reutilizar decisiones legales por finalidad. No colapsar consentimiento, base legal y autorización de cuidador en una tabla genérica. |
 | `AuditLog` | Crítico | `AuditEvent`, `CaregiverAccessAudit` e historias de dominio | No crear. Añadir vistas/consultas autorizadas sobre la evidencia existente. |
@@ -60,7 +60,7 @@ Estas capacidades pueden comenzar como consultas o servicios de aplicación sobr
 datos existentes:
 
 - estado de gobernanza de un episodio;
-- cadena de responsabilidad actual;
+- cadena de assignment/reassignment y elegibilidad técnica actual;
 - antigüedad y vencimiento de tareas;
 - procesos de check-in vencidos sin outcome;
 - avisos pendientes de revisión;

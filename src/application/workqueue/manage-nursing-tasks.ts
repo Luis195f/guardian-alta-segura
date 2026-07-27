@@ -50,8 +50,9 @@ async function authorizeEpisode(
   transaction: NursingWorkQueueTransaction,
   actor: AuthenticatedPrincipal,
   episodeId: string,
+  targetUserId: string | null,
 ): Promise<{ readonly episode: WorkQueueEpisodeRecord; readonly role: ProfessionalRole }> {
-  const episode = await transaction.getEpisode(episodeId);
+  const episode = await transaction.lockEpisode(episodeId);
   if (!episode) throw new NursingTaskNotFoundError();
   if (!episode.isSynthetic) throw new NursingTaskDeniedError();
   if (
@@ -60,6 +61,9 @@ async function authorizeEpisode(
   ) {
     throw new NursingTaskDeniedError();
   }
+  await transaction.lockParticipantUsers(
+    targetUserId === null ? [actor.userId] : [actor.userId, targetUserId],
+  );
   const role = await currentProfessionalRole(transaction, actor);
   if (role) return { episode, role };
   throw new NursingTaskDeniedError();
@@ -120,7 +124,12 @@ export class CreateNursingTaskService {
     });
 
     return this.unitOfWork.run(async (transaction) => {
-      const { episode, role } = await authorizeEpisode(transaction, input.actor, input.episodeId);
+      const { episode, role } = await authorizeEpisode(
+        transaction,
+        input.actor,
+        input.episodeId,
+        input.assignedToId,
+      );
       const evaluatedAt = this.now();
       if (input.alertId) {
         const alert = await transaction.getAlert(input.alertId);
@@ -135,12 +144,6 @@ export class CreateNursingTaskService {
         });
         enforceHumanAuthorization(decision);
       }
-      if (
-        input.assignedToId &&
-        !(await transaction.isAuthorizedAssignee(input.assignedToId, input.episodeId))
-      ) {
-        throw new NursingTaskDeniedError();
-      }
 
       const existing = await transaction.findTaskByCreationIdempotency(
         input.actor.userId,
@@ -151,6 +154,12 @@ export class CreateNursingTaskService {
           throw new NursingTaskConflictError();
         }
         return taskResult(existing, true);
+      }
+      if (
+        input.assignedToId &&
+        !(await transaction.lockAuthorizedAssignee(input.assignedToId, input.episodeId))
+      ) {
+        throw new NursingTaskDeniedError();
       }
 
       const createdAt = evaluatedAt;
@@ -232,7 +241,12 @@ export class UpdateNursingTaskService {
     return this.unitOfWork.run(async (transaction) => {
       const task = await transaction.getTask(input.taskId);
       if (!task) throw new NursingTaskNotFoundError();
-      const { role } = await authorizeEpisode(transaction, input.actor, task.episodeId);
+      const { role } = await authorizeEpisode(
+        transaction,
+        input.actor,
+        task.episodeId,
+        input.action.kind === "assign" ? input.action.assignedToId : null,
+      );
 
       let type: "assigned" | "reassigned" | "contact-attempt" | "note-recorded" | "resolved";
       let toAssignedToId = task.assignedToId;
@@ -241,10 +255,6 @@ export class UpdateNursingTaskService {
       let resolutionReason: string | null = null;
 
       if (input.action.kind === "assign") {
-        if (!(await transaction.isAuthorizedAssignee(input.action.assignedToId, task.episodeId))) {
-          throw new NursingTaskDeniedError();
-        }
-        if (input.action.assignedToId === task.assignedToId) throw new NursingTaskConflictError();
         type = task.assignedToId ? "reassigned" : "assigned";
         toAssignedToId = input.action.assignedToId;
       } else if (input.action.kind === "contact-attempt") {
@@ -261,6 +271,46 @@ export class UpdateNursingTaskService {
         resolutionReason = normalizeResolutionReason(input.action.reason);
       }
 
+      const existing = await transaction.findEventByIdempotency(
+        input.actor.userId,
+        input.idempotencyKey,
+      );
+      if (existing) {
+        const replayType =
+          input.action.kind === "assign" &&
+          (existing.type === "assigned" || existing.type === "reassigned")
+            ? existing.type
+            : type;
+        const requestFingerprint = taskRequestFingerprint({
+          taskId: input.taskId,
+          expectedRevision: input.expectedRevision,
+          type: replayType,
+          toAssignedToId,
+          note,
+          contactOutcome,
+          resolutionReason,
+        });
+        if (existing.taskId !== task.id || existing.requestFingerprint !== requestFingerprint) {
+          throw new NursingTaskConflictError();
+        }
+        const current = await transaction.getTask(task.id);
+        if (!current) throw new NursingTaskNotFoundError();
+        return taskResult(current, true);
+      }
+      if (input.action.kind === "assign") {
+        if (
+          !(await transaction.lockAuthorizedAssignee(input.action.assignedToId, task.episodeId))
+        ) {
+          throw new NursingTaskDeniedError();
+        }
+        if (input.action.assignedToId === task.assignedToId) {
+          throw new NursingTaskConflictError();
+        }
+      }
+      if (task.currentState === "resolved" || task.revision !== input.expectedRevision) {
+        throw new NursingTaskConflictError();
+      }
+
       const requestFingerprint = taskRequestFingerprint({
         taskId: input.taskId,
         expectedRevision: input.expectedRevision,
@@ -270,22 +320,6 @@ export class UpdateNursingTaskService {
         contactOutcome,
         resolutionReason,
       });
-      const existing = await transaction.findEventByIdempotency(
-        input.actor.userId,
-        input.idempotencyKey,
-      );
-      if (existing) {
-        if (existing.taskId !== task.id || existing.requestFingerprint !== requestFingerprint) {
-          throw new NursingTaskConflictError();
-        }
-        const current = await transaction.getTask(task.id);
-        if (!current) throw new NursingTaskNotFoundError();
-        return taskResult(current, true);
-      }
-      if (task.currentState === "resolved" || task.revision !== input.expectedRevision) {
-        throw new NursingTaskConflictError();
-      }
-
       const occurredAt = this.now();
       const applied = await transaction.applyTaskEvent({
         task,
