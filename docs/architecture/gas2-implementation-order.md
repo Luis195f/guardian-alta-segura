@@ -133,6 +133,32 @@ canónico aplicable de duración y cierre. Además,
 seleccionable ni admite override, mientras los otros cuatro estados de integridad
 pueden recibir tratamiento institucional sin convertirse en safe/unsafe.
 
+## Paquete de decisión DEC-005 preparado
+
+La rama exclusivamente documental:
+
+```text
+docs/gas2-dec005-data-lifecycle-decision-pack
+```
+
+prepara inventario repository-grounded, source-of-truth mapping, opciones
+neutrales, lifecycle matrix, análisis append-only/relacional, derechos, exports,
+terceros, backups, formulario, agenda y resumen ejecutivo para el Responsable
+del Tratamiento. No selecciona periodos, criterios jurídicos, archivo,
+disposición, aplicabilidad de derechos o enforcement; tampoco implementa código,
+schema, migraciones, roles, exports, purge o scheduler.
+
+`DEC-005` continúa `Pendiente`. El paquete es `DECISION SUPPORT EVIDENCE` y sitúa
+el trabajo en `READY_FOR_INSTITUTIONAL_DECISION`; no autoriza especificación
+técnica ni implementación.
+
+Una futura `Aprobada` debe quedar cualificada por policy version, approved
+data-class scope, propósitos, triggers, criterios, archive/disposition, rights,
+exports, holds, evidence reference, effective/review dates, exclusiones y
+blockers. Después se exige revisión conjunta de privacidad y arquitectura de
+datos, más threat model relacional de deletion/export antes de
+`READY_FOR_IMPLEMENTATION`.
+
 ## Paquete de decisión DEC-013 preparado
 
 La rama exclusivamente documental:
@@ -316,9 +342,9 @@ Cada rama debe:
 
 La secuencia ha completado gobernanza, procedencia, autorización humana,
 accountability técnica y su evidence view gobernada sin una segunda arquitectura.
-Los paquetes de apoyo a DEC-002, DEC-013, DEC-014 y DEC-017 están preparados y
+Los paquetes de apoyo a DEC-002, DEC-005, DEC-013, DEC-014 y DEC-017 están preparados y
 sus gates son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados canónicos continúan
-`Pendiente`: cierre/duración, identidad/acceso, incident
+`Pendiente`: cierre/duración, ciclo de vida de datos, identidad/acceso, incident
 operations/observability y responsabilidad/SLA/escalado siguen esperando
 evidencia real de sus autoridades. Las integraciones continúan aplazadas hasta
 disponer de contratos reales.
