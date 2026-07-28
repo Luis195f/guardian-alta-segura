@@ -33,6 +33,17 @@ impacto y formulario para Dirección Médica. Es `DECISION SUPPORT EVIDENCE`: no
 selecciona una duración, motivo, autoridad o regla de cierre, no habilita
 `CLOSED` y no modifica el estado `Pendiente` de DEC-002.
 
+### Evidencia de apoyo a DEC-014
+
+El [paquete institucional de decisión sobre incidentes, soporte y observabilidad
+sanitizada](decisions/dec-014-incident-operations-decision-pack.md) documenta el
+baseline real de errores, logs, correlation ID, auditoría, health, métricas y
+soporte, junto con opciones neutrales, sanitización, segregación, handoffs y el
+gate posterior. Es `DECISION SUPPORT EVIDENCE`: no selecciona taxonomía,
+severidad, SLO, tiempos, acceso, escalado, canal, herramienta o vendor; no habilita
+soporte u observabilidad productivos y no modifica el estado `Pendiente` de
+DEC-014.
+
 ### Evidencia de apoyo a DEC-017
 
 El [paquete institucional de decisión sobre política operativa de
