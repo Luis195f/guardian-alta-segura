@@ -91,6 +91,16 @@ Este seguimiento no modifica el `Estado` canónico, no resuelve las decisiones i
 | REQ-13 | Correlation ID, errores/logs runtime sanitizados, ausencia de bodies en logs y pruebas unitarias de redacción del error handler. El output de error del seed de desarrollo/CI se basa ahora en allowlists y prueba que no refleja contenido de excepciones. Existe un decision pack documental; no existe módulo de incidentes, telemetría exportable o workflow productivo. | **Parcialmente implementado** | **No validado**: taxonomía, severidad técnica, segregación, escalado, sanitización end-to-end y procedimiento siguen pendientes en DEC-014. La remediación focalizada del seed y el paquete no son aprobación ni prueba productiva. |
 | REQ-14 | No existe censo ni modo de contingencia. El episodio conserva estado, versión e historial para no degradar trazabilidad, pero no se ofrece acceso alternativo durante una caída. | **No implementado** | **No validado**: DEC-015 permanece pendiente, Dirección de Enfermería conserva la autoridad y la contingencia continúa desactivada; no se seleccionan RTO, RPO, retención, tecnología ni procedimiento manual. |
 
+### Evidencia documental de apoyo al gate DEC-016
+
+El [expediente institucional DEC-016](decisions/dec-016-real-pilot-gate-decision-pack.md)
+y su [matriz de readiness](decisions/dec-016-pilot-readiness-matrix.md) mapean
+REQ-01 a REQ-14 al scope de un futuro piloto, separando estado canónico,
+implementación técnica, validación y autorización. Esta evidencia no modifica ID,
+título, responsable o estado canónico, no convierte el decision pack en
+implementación y mantiene `DEC-016 = Pendiente`, `REAL PILOT = NO_GO` y los datos
+reales bloqueados. El CSV no cambia porque ninguna fila canónica cambia.
+
 ## Reglas de mantenimiento
 
 1. Una modificación de ID, título, responsable, estado o semántica canónica requiere detener el cambio, no reasignar el ID.
