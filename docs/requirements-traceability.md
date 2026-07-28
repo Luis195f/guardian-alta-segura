@@ -33,6 +33,15 @@ duración y cierre. No modifica el módulo futuro de REQ-01, no aprueba DEC-002 
 habilita especificación o implementación; el estado canónico continúa
 `Pendiente`.
 
+### Evidencia documental de apoyo a REQ-13 / DEC-014
+
+El [paquete institucional DEC-014](decisions/dec-014-incident-operations-decision-pack.md)
+se registra como `DECISION SUPPORT EVIDENCE` para preparar definición,
+sanitización, segregación, escalado, handoffs y operación de incidentes. No
+implementa el módulo futuro de REQ-13, no constituye las pruebas productivas de
+sanitización, no aprueba DEC-014 ni habilita soporte u observabilidad; el estado
+canónico continúa `Pendiente`.
+
 ## Seguimiento técnico de la fundación (no canónico)
 
 Este seguimiento no modifica el `Estado` canónico, no resuelve las decisiones institucionales y no constituye validación. La evidencia corresponde a las ramas técnicas indicadas y usa exclusivamente datos sintéticos.
@@ -51,7 +60,7 @@ Este seguimiento no modifica el `Estado` canónico, no resuelve las decisiones i
 | REQ-10 | Panel visible fail-closed con recurso deshabilitado y mensaje “pendiente de protocolo local”; prueba que impide introducir silenciosamente teléfono o URI. | **Parcialmente implementado** | **No validado / bloqueado institucionalmente**: no existe destino accionable y DEC-010/011 siguen pendientes. La ausencia deliberada de número es el comportamiento seguro. |
 | REQ-11 | Preview SBAR determinista y minimizado desde episodio, protocolo, Plan activo, último check-in, avisos y tareas ya registradas; incluye referencias, actor, timestamp, perfil versionado, impresión HTML y `signed=false`. | **Parcialmente implementado** | **No validado**: no hay perfil institucional de campos, PDF aprobado, destino o firma. Assessment usa el fallback seguro y R solo refleja seguimiento existente; DEC-005/012 siguen pendientes. |
 | REQ-12 | Ports separados `DemoIdentityProvider`/`InstitutionalIdentityProvider`, demo restringido a loopback, sesiones con cookie HttpOnly, RBAC server-side y pruebas HTTP negativas por los seis roles. | **Parcialmente implementado** | **No validado**: proveedor institucional, autenticación reforzada, mapeo final de roles, sesiones centrales y acceso de emergencia siguen pendientes en DEC-013. |
-| REQ-13 | Correlation ID, errores/logs sanitizados, ausencia de bodies en logs y pruebas de redacción. No existe todavía el módulo de incidentes.                       | **Parcialmente implementado** | **No validado**: taxonomía, segregación operativa, escalado y procedimiento institucional siguen pendientes en DEC-014 y en el PR 12.                            |
+| REQ-13 | Correlation ID, errores/logs runtime sanitizados, ausencia de bodies en logs y pruebas unitarias de redacción del error handler. Existe un decision pack documental; no existe módulo de incidentes, telemetría exportable o workflow productivo. | **Parcialmente implementado** | **No validado**: taxonomía, severidad técnica, segregación, escalado, sanitización end-to-end y procedimiento siguen pendientes en DEC-014. El paquete no es aprobación ni prueba productiva. |
 | REQ-14 | Esta rama no implementa censo ni modo de contingencia. El episodio conserva estado, versión e historial para no degradar trazabilidad, pero no se ofrece acceso alternativo durante una caída. | **No implementado** | **No validado**: DEC-015 permanece pendiente y la contingencia continúa desactivada; no se codifican RTO, RPO, retención ni procedimiento manual. |
 
 ## Reglas de mantenimiento

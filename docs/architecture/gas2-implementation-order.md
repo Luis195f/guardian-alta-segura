@@ -133,6 +133,31 @@ canónico aplicable de duración y cierre. Además,
 seleccionable ni admite override, mientras los otros cuatro estados de integridad
 pueden recibir tratamiento institucional sin convertirse en safe/unsafe.
 
+## Paquete de decisión DEC-014 preparado
+
+La rama exclusivamente documental:
+
+```text
+docs/gas2-dec014-incident-operations-decision-pack
+```
+
+prepara el baseline, la descomposición, las opciones neutrales, las matrices de
+sanitización y ownership, el formulario, la agenda y el resumen ejecutivo para
+Dirección TI. No selecciona taxonomía, severidad técnica, SLI/SLO/SLA, tiempos,
+acceso, escalado, canal, herramienta, ITSM o vendor; tampoco implementa logging,
+monitoring, tracing o alertado.
+
+`DEC-014` continúa `Pendiente`. El paquete es `DECISION SUPPORT EVIDENCE` y sitúa
+el trabajo en `READY_FOR_INSTITUTIONAL_DECISION`; no autoriza implementación ni
+reserva el nombre de una rama futura.
+
+Una futura `Aprobada` debe quedar cualificada por policy version, approved scope,
+approval evidence reference, effective date, exclusiones/diferidos y blockers
+resueltos. El scope debe distinguir foundation, detección de candidatos,
+alerting/escalation e incident management/support. Después se exige especificación
+capability-scoped y revisión conjunta de observabilidad y seguridad antes de
+`READY_FOR_IMPLEMENTATION`.
+
 ## Revisión de la secuencia inicial
 
 | Orden | Rama inicial | Decisión | Rama recomendada / condición |
@@ -217,11 +242,23 @@ feat/gas2-fhir-anti-corruption
 
 Debe implementar mappers y pruebas de contrato, no un servidor FHIR.
 
-### 9. `feat/gas2-operational-observability`
+### 9. Observabilidad e incident operations posteriores a DEC-014
 
-Después de DEC-014 y de conocer los procesos/conectores que observar. Añade
-métricas, SLO, runbooks y salud técnica sin payload clínico. Si no hay conectores,
-prioriza gobernanza, cola y proceso seguro.
+No se reserva ahora un nombre de rama. Mientras DEC-014 siga `Pendiente` no puede
+abrirse una implementación. Tras aprobación para una policy version y approved
+scope concretos, `READY_FOR_TECHNICAL_SPECIFICATION` debe mapear por separado
+`OBSERVABILITY_FOUNDATION`, `INCIDENT_CANDIDATE_DETECTION`,
+`OPERATIONAL_ALERTING_ESCALATION` e `INCIDENT_MANAGEMENT_SUPPORT` a arquitectura,
+controles, ownership y pruebas.
+
+La revisión de diseño puede elegir una única rama de observabilidad para el scope
+aprobado o incrementos separados para foundation, detección de candidatos y
+alerting/escalation. Para la foundation sin automatización de incidentes, los
+blockers principales son scope institucional de telemetría, sanitización,
+identificadores permitidos, acceso/segregación y evidencia/retención aplicable;
+incident definition, detection sources y escalado no son blockers universales.
+Nada excluido o diferido queda habilitado y este orden no preselecciona SLI, SLO,
+SLA, herramienta o integración.
 
 ## Ramas que no deben abrirse ahora
 
@@ -255,16 +292,15 @@ Cada rama debe:
 
 La secuencia ha completado gobernanza, procedencia, autorización humana,
 accountability técnica y su evidence view gobernada sin una segunda arquitectura.
-El paquete de apoyo a DEC-017 está preparado y el siguiente gate es
-`READY_FOR_INSTITUTIONAL_DECISION`: la responsabilidad institucional,
-SLA/escalado y cualquier process safety dependiente de reglas de asignación o
-tiempos siguen esperando una aprobación real de DEC-017. Las integraciones
-continúan aplazadas hasta disponer de contratos reales.
+Los paquetes de apoyo a DEC-002, DEC-014 y DEC-017 están preparados y sus gates
+son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados canónicos continúan
+`Pendiente`: cierre/duración, incident operations/observability y
+responsabilidad/SLA/escalado siguen esperando evidencia real de sus autoridades.
+Las integraciones continúan aplazadas hasta disponer de contratos reales.
 
 `READY_FOR_INSTITUTIONAL_DECISION` es un gate de preparación, no un estado
-canónico de DEC-017. La secuencia posterior es evidencia/aprobación institucional
-→ `READY_FOR_TECHNICAL_SPECIFICATION` → revisión de diseño técnico →
-`READY_FOR_IMPLEMENTATION`. El estado canónico actual continúa `Pendiente`.
-`READY_FOR_TECHNICAL_SPECIFICATION` requiere
-`Canonical DEC-017 status = Aprobada` para la policy version y el approved scope
-que se pretende especificar; otro estado no habilita ese gate para esa versión.
+canónico. La secuencia posterior es evidencia/aprobación institucional →
+`READY_FOR_TECHNICAL_SPECIFICATION` → revisión de diseño técnico y seguridad →
+`READY_FOR_IMPLEMENTATION`. Cada decisión requiere estado `Aprobada` para la
+policy version y el approved scope que se pretende especificar; otro estado no
+habilita ese gate para esa versión.
