@@ -33,6 +33,15 @@ duración y cierre. No modifica el módulo futuro de REQ-01, no aprueba DEC-002 
 habilita especificación o implementación; el estado canónico continúa
 `Pendiente`.
 
+### Evidencia documental de apoyo a REQ-01/02/06/11/13 / DEC-005
+
+El [paquete institucional DEC-005](decisions/dec-005-data-lifecycle-decision-pack.md)
+se registra como `DECISION SUPPORT EVIDENCE` para preparar inventario,
+clasificación, retención, archivo, disposición, rights workflows, exports,
+terceros y backups por clase. No modifica los módulos futuros, no selecciona
+periodos o aplicabilidad jurídica, no implementa lifecycle/rights y no aprueba
+DEC-005; el estado canónico continúa `Pendiente`.
+
 ### Evidencia documental de apoyo a REQ-12 / DEC-013
 
 El [paquete institucional DEC-013](decisions/dec-013-identity-access-decision-pack.md)

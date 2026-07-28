@@ -33,6 +33,17 @@ impacto y formulario para Dirección Médica. Es `DECISION SUPPORT EVIDENCE`: no
 selecciona una duración, motivo, autoridad o regla de cierre, no habilita
 `CLOSED` y no modifica el estado `Pendiente` de DEC-002.
 
+### Evidencia de apoyo a DEC-005
+
+El [paquete institucional de decisión sobre ciclo de vida de
+datos](decisions/dec-005-data-lifecycle-decision-pack.md) documenta el inventario
+real, fuentes de verdad, lifecycle actual, opciones neutrales, derechos,
+relaciones, exports, terceros, backups, blockers y gate posterior para el
+Responsable del Tratamiento. Es `DECISION SUPPORT EVIDENCE`: no selecciona
+periodos, criterios jurídicos, archivo, disposición o aplicabilidad de derechos;
+no implementa hard-delete, purge, export o workflow y no modifica el estado
+`Pendiente` de DEC-005.
+
 ### Evidencia de apoyo a DEC-013
 
 El [paquete institucional de decisión sobre identidad y
