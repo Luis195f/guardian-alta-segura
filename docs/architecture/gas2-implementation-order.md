@@ -133,6 +133,30 @@ canónico aplicable de duración y cierre. Además,
 seleccionable ni admite override, mientras los otros cuatro estados de integridad
 pueden recibir tratamiento institucional sin convertirse en safe/unsafe.
 
+## Paquete de decisión DEC-013 preparado
+
+La rama exclusivamente documental:
+
+```text
+docs/gas2-dec013-identity-access-decision-pack
+```
+
+prepara el baseline, las poblaciones, las subdecisiones, las opciones neutrales,
+el minimum blocking decision set, el formulario, la agenda y el resumen
+ejecutivo para Dirección TI. No selecciona IdP, vendor, protocolo, subject,
+MFA/assurance, timeouts, role mapping, break-glass, service identities o
+impersonation; tampoco implementa autenticación institucional.
+
+`DEC-013` continúa `Pendiente`. El paquete es `DECISION SUPPORT EVIDENCE` y sitúa
+el trabajo en `READY_FOR_INSTITUTIONAL_DECISION`; no autoriza especificación
+técnica ni implementación.
+
+Una futura `Aprobada` debe quedar cualificada por policy/design version, approved
+scope, poblaciones, approval evidence reference, effective date,
+exclusiones/diferidos y blockers resueltos. Después se exige especificación
+capability-scoped y revisión conjunta de IAM, seguridad, privacidad y
+arquitectura antes de `READY_FOR_IMPLEMENTATION`.
+
 ## Paquete de decisión DEC-014 preparado
 
 La rama exclusivamente documental:
@@ -292,11 +316,12 @@ Cada rama debe:
 
 La secuencia ha completado gobernanza, procedencia, autorización humana,
 accountability técnica y su evidence view gobernada sin una segunda arquitectura.
-Los paquetes de apoyo a DEC-002, DEC-014 y DEC-017 están preparados y sus gates
-son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados canónicos continúan
-`Pendiente`: cierre/duración, incident operations/observability y
-responsabilidad/SLA/escalado siguen esperando evidencia real de sus autoridades.
-Las integraciones continúan aplazadas hasta disponer de contratos reales.
+Los paquetes de apoyo a DEC-002, DEC-013, DEC-014 y DEC-017 están preparados y
+sus gates son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados canónicos continúan
+`Pendiente`: cierre/duración, identidad/acceso, incident
+operations/observability y responsabilidad/SLA/escalado siguen esperando
+evidencia real de sus autoridades. Las integraciones continúan aplazadas hasta
+disponer de contratos reales.
 
 `READY_FOR_INSTITUTIONAL_DECISION` es un gate de preparación, no un estado
 canónico. La secuencia posterior es evidencia/aprobación institucional →
