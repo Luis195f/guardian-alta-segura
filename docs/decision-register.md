@@ -33,6 +33,16 @@ impacto y formulario para Dirección Médica. Es `DECISION SUPPORT EVIDENCE`: no
 selecciona una duración, motivo, autoridad o regla de cierre, no habilita
 `CLOSED` y no modifica el estado `Pendiente` de DEC-002.
 
+### Evidencia de apoyo a DEC-013
+
+El [paquete institucional de decisión sobre identidad y
+acceso](decisions/dec-013-identity-access-decision-pack.md) documenta el baseline
+técnico, poblaciones, subdecisiones, opciones neutrales, blockers, impacto y
+formulario para Dirección TI. Es `DECISION SUPPORT EVIDENCE`: no selecciona IdP,
+vendor, protocolo, subject, MFA/assurance, timeouts, role mapping, break-glass,
+service identities o impersonation; no implementa autenticación institucional y
+no modifica el estado `Pendiente` de DEC-013.
+
 ### Evidencia de apoyo a DEC-014
 
 El [paquete institucional de decisión sobre incidentes, soporte y observabilidad
