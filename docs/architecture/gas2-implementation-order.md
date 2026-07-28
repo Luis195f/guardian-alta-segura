@@ -208,6 +208,36 @@ alerting/escalation e incident management/support. Después se exige especificac
 capability-scoped y revisión conjunta de observabilidad y seguridad antes de
 `READY_FOR_IMPLEMENTATION`.
 
+## Paquete de decisión DEC-015 preparado
+
+La rama exclusivamente documental:
+
+```text
+docs/gas2-dec015-continuity-decision-pack
+```
+
+prepara el baseline repository-grounded, failure scenarios, dominios,
+subdecisiones, opciones neutrales, threat model offline, restore,
+reconciliación, RTO/RPO, scopes, formulario, agenda y resumen ejecutivo para
+Dirección de Enfermería. No implementa contingency/offline/read-only mode,
+dataset local, temporary writes, backup, restore, reconciliation, health/
+readiness, RTO/RPO o fallback auth.
+
+`Canonical DEC-015 status = Pendiente`. `Canonical REQ-14 status = Pendiente de
+protocolo local`. El seguimiento técnico no canónico mantiene
+`REQ-14 technical implementation tracking = No implementado` y
+`REQ-14 technical validation tracking = No validado`.
+`CONTINGENCIA DESACTIVADA`. El paquete es `DECISION SUPPORT EVIDENCE` y sitúa el
+trabajo en `READY_FOR_INSTITUTIONAL_DECISION`; no autoriza especificación
+técnica ni reserva una rama de implementación.
+
+Una futura `Aprobada` debe quedar cualificada por plan version, approved
+capability scope, approval evidence reference, effective/review dates,
+exclusiones/diferidos y blockers resueltos. Después se exige especificación
+capability-scoped, revisión conjunta de continuidad, seguridad clínica e
+infraestructura y threat model de restore/reconciliation antes de
+`READY_FOR_IMPLEMENTATION`.
+
 ## Revisión de la secuencia inicial
 
 | Orden | Rama inicial | Decisión | Rama recomendada / condición |
@@ -342,12 +372,12 @@ Cada rama debe:
 
 La secuencia ha completado gobernanza, procedencia, autorización humana,
 accountability técnica y su evidence view gobernada sin una segunda arquitectura.
-Los paquetes de apoyo a DEC-002, DEC-005, DEC-013, DEC-014 y DEC-017 están preparados y
-sus gates son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados canónicos continúan
-`Pendiente`: cierre/duración, ciclo de vida de datos, identidad/acceso, incident
-operations/observability y responsabilidad/SLA/escalado siguen esperando
-evidencia real de sus autoridades. Las integraciones continúan aplazadas hasta
-disponer de contratos reales.
+Los paquetes de apoyo a DEC-002, DEC-005, DEC-013, DEC-014, DEC-015 y DEC-017
+están preparados y sus gates son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados
+canónicos continúan `Pendiente`: cierre/duración, ciclo de vida de datos,
+identidad/acceso, incident operations/observability, continuidad/contingencia y
+responsabilidad/SLA/escalado siguen esperando evidencia real de sus autoridades.
+Las integraciones continúan aplazadas hasta disponer de contratos reales.
 
 `READY_FOR_INSTITUTIONAL_DECISION` es un gate de preparación, no un estado
 canónico. La secuencia posterior es evidencia/aprobación institucional →

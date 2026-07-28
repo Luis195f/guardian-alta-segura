@@ -65,6 +65,17 @@ severidad, SLO, tiempos, acceso, escalado, canal, herramienta o vendor; no habil
 soporte u observabilidad productivos y no modifica el estado `Pendiente` de
 DEC-014.
 
+### Evidencia de apoyo a DEC-015
+
+El [paquete institucional de decisión sobre continuidad y
+contingencia](decisions/dec-015-continuity-decision-pack.md) documenta el
+baseline real de health, PostgreSQL, fallos y capacidades ausentes; escenarios,
+dominios, subdecisiones, opciones neutrales, scopes, restore, reconciliación,
+RTO/RPO, amenazas offline, pruebas y release para Dirección de Enfermería. Es
+`DECISION SUPPORT EVIDENCE`: no activa contingencia, no crea un censo o dataset
+offline, no selecciona RTO/RPO o tecnología de backup/restore y no modifica el
+estado `Pendiente` de DEC-015.
+
 ### Evidencia de apoyo a DEC-017
 
 El [paquete institucional de decisión sobre política operativa de

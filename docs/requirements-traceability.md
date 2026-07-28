@@ -61,6 +61,15 @@ implementa el módulo futuro de REQ-13, no constituye las pruebas productivas de
 sanitización, no aprueba DEC-014 ni habilita soporte u observabilidad; el estado
 canónico continúa `Pendiente`.
 
+### Evidencia documental de apoyo a REQ-14 / DEC-015
+
+El [paquete institucional DEC-015](decisions/dec-015-continuity-decision-pack.md)
+se registra como `DECISION SUPPORT EVIDENCE`. Documenta el baseline,
+failure scenarios, approved capability scopes, restore/reconciliation, RTO/RPO
+y el offline-data threat model. No implementa REQ-14, no aprueba DEC-015 y no
+habilita contingencia. El estado canónico de REQ-14 continúa `Pendiente de
+protocolo local`.
+
 ## Seguimiento técnico de la fundación (no canónico)
 
 Este seguimiento no modifica el `Estado` canónico, no resuelve las decisiones institucionales y no constituye validación. La evidencia corresponde a las ramas técnicas indicadas y usa exclusivamente datos sintéticos.
@@ -80,7 +89,7 @@ Este seguimiento no modifica el `Estado` canónico, no resuelve las decisiones i
 | REQ-11 | Preview SBAR determinista y minimizado desde episodio, protocolo, Plan activo, último check-in, avisos y tareas ya registradas; incluye referencias, actor, timestamp, perfil versionado, impresión HTML y `signed=false`. | **Parcialmente implementado** | **No validado**: no hay perfil institucional de campos, PDF aprobado, destino o firma. Assessment usa el fallback seguro y R solo refleja seguimiento existente; DEC-005/012 siguen pendientes. |
 | REQ-12 | Ports separados `DemoIdentityProvider`/`InstitutionalIdentityProvider`, demo restringido a loopback, sesiones con cookie HttpOnly, RBAC server-side y pruebas HTTP negativas por los seis roles. El decision pack DEC-013 está preparado como evidencia documental, sin seleccionar ni implementar identidad productiva. | **Parcialmente implementado** | **No validado**: proveedor institucional, autenticación reforzada, mapeo final de roles, sesiones centrales y acceso de emergencia siguen pendientes en DEC-013. El paquete no es aprobación ni prueba técnica institucional. |
 | REQ-13 | Correlation ID, errores/logs runtime sanitizados, ausencia de bodies en logs y pruebas unitarias de redacción del error handler. El output de error del seed de desarrollo/CI se basa ahora en allowlists y prueba que no refleja contenido de excepciones. Existe un decision pack documental; no existe módulo de incidentes, telemetría exportable o workflow productivo. | **Parcialmente implementado** | **No validado**: taxonomía, severidad técnica, segregación, escalado, sanitización end-to-end y procedimiento siguen pendientes en DEC-014. La remediación focalizada del seed y el paquete no son aprobación ni prueba productiva. |
-| REQ-14 | Esta rama no implementa censo ni modo de contingencia. El episodio conserva estado, versión e historial para no degradar trazabilidad, pero no se ofrece acceso alternativo durante una caída. | **No implementado** | **No validado**: DEC-015 permanece pendiente y la contingencia continúa desactivada; no se codifican RTO, RPO, retención ni procedimiento manual. |
+| REQ-14 | No existe censo ni modo de contingencia. El episodio conserva estado, versión e historial para no degradar trazabilidad, pero no se ofrece acceso alternativo durante una caída. | **No implementado** | **No validado**: DEC-015 permanece pendiente, Dirección de Enfermería conserva la autoridad y la contingencia continúa desactivada; no se seleccionan RTO, RPO, retención, tecnología ni procedimiento manual. |
 
 ## Reglas de mantenimiento
 
