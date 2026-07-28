@@ -76,6 +76,20 @@ RTO/RPO, amenazas offline, pruebas y release para Dirección de Enfermería. Es
 offline, no selecciona RTO/RPO o tecnología de backup/restore y no modifica el
 estado `Pendiente` de DEC-015.
 
+### Evidencia documental de apoyo al gate DEC-016
+
+El [expediente institucional de gate para piloto
+real](decisions/dec-016-real-pilot-gate-decision-pack.md), su [matriz de
+readiness](decisions/dec-016-pilot-readiness-matrix.md), [formulario de
+decisión](decisions/dec-016-decision-form.md), [agenda del review
+board](decisions/dec-016-workshop-agenda.md) y [brief
+ejecutivo](decisions/dec-016-executive-brief.md) organizan el baseline, scope
+manifest, dependencias, blockers, safety case y evidencia para que Gerencia del
+Hospital como Responsable del Tratamiento decida sobre una versión y un alcance
+concretos. Son `DECISION SUPPORT EVIDENCE`: no aprueban un piloto, no seleccionan
+población, periodo, datos, módulos o entorno y no modifican `DEC-016 =
+Pendiente` ni `REAL PILOT = NO_GO`.
+
 ### Evidencia de apoyo a DEC-017
 
 El [paquete institucional de decisión sobre política operativa de

@@ -238,6 +238,34 @@ capability-scoped, revisión conjunta de continuidad, seguridad clínica e
 infraestructura y threat model de restore/reconciliation antes de
 `READY_FOR_IMPLEMENTATION`.
 
+## Expediente de gate DEC-016 preparado
+
+La rama exclusivamente documental:
+
+```text
+docs/gas2-dec016-real-pilot-gate-decision-pack
+```
+
+prepara baseline, modelo conceptual de madurez, `PILOT_SCOPE_MANIFEST`,
+dependencias DEC-001–017, readiness REQ-01–14, hard NO-GO, condiciones, gates de
+safety/privacy/security/identity/protocol/training/incident/continuity/quality/
+deployment/regulatory/ethics, monitoring, stop/pause, rollback, post-pilot,
+review board y `REAL_PILOT_RELEASE_CONTRACT`. No selecciona propósito, intended
+use, población, capacity, periodo, site, módulos, datos, base jurídica, RTO/RPO,
+SLA, vendor, deployment o clasificación regulatoria; no implementa enrolment,
+identidad, infraestructura o producción.
+
+`Canonical DEC-016 status = Pendiente`. `Current gate =
+READY_FOR_INSTITUTIONAL_DECISION`. `REAL PILOT = NO_GO`. La autoridad primaria
+permanece en Gerencia del Hospital como Responsable del Tratamiento. Los otros
+Decision Packs conservan autoridad propia y no quedan aprobados por referencia.
+
+Una futura `Aprobada` debe ligarse a pilot version, approved site, population,
+modules, data classes, roles, dependencies y evidence. Incluso entonces el
+siguiente gate es `READY_FOR_PILOT_TECHNICAL_RELEASE_REVIEW`, seguido de
+environment/configuration verification y final pre-enrollment safety check; no
+existe activación automática.
+
 ## Revisión de la secuencia inicial
 
 | Orden | Rama inicial | Decisión | Rama recomendada / condición |
@@ -372,12 +400,13 @@ Cada rama debe:
 
 La secuencia ha completado gobernanza, procedencia, autorización humana,
 accountability técnica y su evidence view gobernada sin una segunda arquitectura.
-Los paquetes de apoyo a DEC-002, DEC-005, DEC-013, DEC-014, DEC-015 y DEC-017
+Los paquetes de apoyo a DEC-002, DEC-005, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017
 están preparados y sus gates son `READY_FOR_INSTITUTIONAL_DECISION`. Sus estados
 canónicos continúan `Pendiente`: cierre/duración, ciclo de vida de datos,
 identidad/acceso, incident operations/observability, continuidad/contingencia y
 responsabilidad/SLA/escalado siguen esperando evidencia real de sus autoridades.
-Las integraciones continúan aplazadas hasta disponer de contratos reales.
+DEC-016 mantiene `REAL PILOT = NO_GO` y datos/personas reales bloqueados. Las
+integraciones continúan aplazadas hasta disponer de contratos reales.
 
 `READY_FOR_INSTITUTIONAL_DECISION` es un gate de preparación, no un estado
 canónico. La secuencia posterior es evidencia/aprobación institucional →
