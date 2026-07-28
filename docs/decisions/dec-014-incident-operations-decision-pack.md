@@ -658,19 +658,24 @@ Aprobar DEC-014 no aprueba retención, autenticación productiva o piloto.
 
 | Campo | Valor |
 |---|---|
-| Finding status | `CONFIRMED / OPEN / OUT_OF_SCOPE_FOR_THIS_BRANCH` |
-| Technical security triage | `UNRATED / SECURITY_REVIEW_REQUIRED` |
-| Archivo | `prisma/seed.mjs:884-911`; transformación en `prisma/seed.mjs:902-907` |
-| Evidencia confirmada | `technicalDetail` parte de `error.message`, filtra líneas con `Argument\|argument\|Invalid value`, conserva como máximo las dos últimas y el objeto se envía a `console.error` |
+| Finding status | `REMEDIATED / VERIFIED_BY_AUTOMATED_TEST` |
+| Historical status | `CONFIRMED / OPEN / OUT_OF_SCOPE_FOR_DEC014_DOC_BRANCH` |
+| Technical security triage | `UNRATED / TECHNICAL_REMEDIATION_COMPLETE` |
+| Archivo | `prisma/seed.mjs`; contrato seguro y pruebas en `prisma/seed-error.mjs` y `prisma/seed-error.test.mjs` |
+| Evidencia original confirmada | `technicalDetail` partía de `error.message`, filtraba líneas con `Argument\|argument\|Invalid value`, conservaba como máximo las dos últimas y enviaba el objeto a `console.error` |
 | Riesgo | `POTENTIAL_SENSITIVE_DETAIL_DISCLOSURE`: las líneas originales pueden transportar valores o contexto sensible a stderr de desarrollo/CI |
 | Ruta runtime productiva | No |
-| Original error detail may be emitted | Sí, en stderr del seed de desarrollo/CI tras el filtrado descrito |
+| Remediación | El sobre de error se construye solo desde constantes y allowlists cerradas; elimina `technicalDetail` y `technicalName`, no inspecciona ni serializa `message`, `stack`, `cause` o `meta`, y solo conserva códigos Prisma con formato `P` + cuatro dígitos |
+| Metadatos canónicos | `policyKey` y `version` proceden de fixtures sintéticos internos y además se aceptan solo como strings de 1-128 caracteres del alfabeto cerrado `[A-Za-z0-9._:-]`; cualquier otro valor se sustituye por `UNCLASSIFIED` |
+| Acceptance test | Excepción sintética con `Invalid value SUPER_SECRET_SYNTHETIC_VALUE_DO_NOT_LOG`; la prueba del emisor real a `console.error` demuestra que stderr es un único JSON parseable y no contiene el marcador ni contenido libre de la excepción |
 | Secret real observado | No; no se afirma fuga de secretos ni de datos reales |
-| Rama recomendada | `security/sanitize-seed-error-output` |
-| Acceptance test recomendado | Inyectar una excepción sintética cuyo mensaje incluya un valor sensible y texto `Invalid value`; comprobar que stderr solo conserva code/name allowlisted y no el mensaje/valor |
+| Rama de remediación | `security/sanitize-seed-error-output` |
 
-No se asigna CVSS ni severidad técnica antes de security review. Este hallazgo
-real se conserva y no se corrige en la rama documental.
+No se asigna CVSS ni severidad técnica retrospectiva. La historia del hallazgo
+confirmado se conserva, pero la ruta concreta de stderr del seed queda remediada
+y verificada con datos exclusivamente sintéticos. Este parche no constituye
+sanitización end-to-end productiva, no implementa observabilidad o gestión de
+incidentes, no aprueba DEC-014 y no cambia su estado canónico `Pendiente`.
 
 ## 22. Trazabilidad y entregables
 

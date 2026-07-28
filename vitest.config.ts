@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "prisma/**/*.test.mjs"],
     exclude: ["src/**/*.integration.test.ts"],
     mockReset: true,
     restoreMocks: true,

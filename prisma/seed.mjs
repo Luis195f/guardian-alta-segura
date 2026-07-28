@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 
 import { PrismaClient } from "@prisma/client";
 import syntheticRuleFixtures from "../src/domain/alerts/synthetic-rule-fixtures.json" with { type: "json" };
+import { CanonicalPolicyMismatchError, writeSafeSeedError } from "./seed-error.mjs";
 
 if (existsSync(".env")) {
   delete process.env.DATABASE_URL;
@@ -23,15 +24,6 @@ function stableJson(value) {
 
 function sameJson(left, right) {
   return JSON.stringify(stableJson(left)) === JSON.stringify(stableJson(right));
-}
-
-class CanonicalPolicyMismatchError extends Error {
-  constructor(policyKey, version) {
-    super("Canonical policy configuration does not match persisted append-only history");
-    this.name = "CanonicalPolicyMismatchError";
-    this.policyKey = policyKey;
-    this.version = version;
-  }
 }
 
 const syntheticUsers = [
@@ -881,34 +873,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error(
-      JSON.stringify(
-        error instanceof CanonicalPolicyMismatchError
-          ? {
-              code: "CANONICAL_POLICY_MISMATCH",
-              policyKey: error.policyKey,
-              version: error.version,
-            }
-          : {
-              code: "SYNTHETIC_SEED_FAILED",
-              technicalCode:
-                error && typeof error === "object" && typeof error.code === "string"
-                  ? error.code
-                  : "UNCLASSIFIED",
-              technicalName:
-                error && typeof error === "object" && typeof error.name === "string"
-                  ? error.name
-                  : "UnknownError",
-              technicalDetail:
-                error && typeof error === "object" && typeof error.message === "string"
-                  ? error.message
-                      .split("\n")
-                      .filter((line) => /Argument|argument|Invalid value/.test(line))
-                      .slice(-2)
-                  : [],
-            },
-      ),
-    );
+    writeSafeSeedError(error);
     process.exitCode = 1;
   })
   .finally(async () => {
