@@ -101,6 +101,21 @@ título, responsable o estado canónico, no convierte el decision pack en
 implementación y mantiene `DEC-016 = Pendiente`, `REAL PILOT = NO_GO` y los datos
 reales bloqueados. El CSV no cambia porque ninguna fila canónica cambia.
 
+### Especificación interna del motor de compromisos verificables
+
+La [especificación de compromisos](architecture/commitment-engine-spec.md) y el
+[ADR de concurrencia](adr/0016-commitment-evaluation-concurrency.md) documentan
+un diseño futuro sobre `DischargeEpisode`, `Task`/`TaskEvent`, fuentes existentes
+y `AuditEvent`. Su matriz CE-01 a CE-20 enlaza requisito de diseño, prueba futura,
+peligro, control y decisión pendiente.
+
+Es evidencia documental no canónica y `NO IMPLEMENTADA`. No cambia el estado ni
+la cobertura técnica de REQ-01, REQ-09, REQ-12, REQ-13 o REQ-14; no modifica el
+CSV; no afirma detección automática; no aprueba un plazo, rol, SLA, excepción,
+fuente de evidencia, scheduler, piloto o uso real. ADR-0015, DEC-002,
+DEC-005, DEC-013 a DEC-017 y los gates regulatorios e institucionales permanecen
+visibles y bloqueantes para el alcance que corresponda.
+
 ## Reglas de mantenimiento
 
 1. Una modificación de ID, título, responsable, estado o semántica canónica requiere detener el cambio, no reasignar el ID.
