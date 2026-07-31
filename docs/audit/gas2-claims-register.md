@@ -1,5 +1,11 @@
 # GAS 2.0 claims register
 
+> ADR-0015 and
+> [the system assurance boundary](../system-assurance-boundary.md) govern all
+> Core/Clinical Rules claims from 2026-07-31. A disclaimer cannot override a
+> medical intended purpose expressed through real behavior, sales material or
+> use instructions.
+
 ## Use rule
 
 Claims must retain their scope and qualifier when reused. Technical tests,
@@ -21,6 +27,12 @@ effectiveness, legal compliance or regulatory exemption.
 | “Caregiver revocation cuts current access without deleting history” | Demo | Transactional revocation and race/E2E tests | `SUPPORTED_DEMO_CLAIM` | Qualify as synthetic technical behavior |
 | “Governance evidence is read-only and derived” | Architecture/audit | Repeatable-read reader and projection tests | `SUPPORTED_TECHNICAL_CLAIM` | Do not call independent approval/evidence authority |
 | “Technical task accountability is implemented” | Architecture/audit | Task/Event/revision/locks/projection tests | `SUPPORTED_TECHNICAL_CLAIM` | State that institutional accountability is pending DEC-017 |
+| “The MVP demonstrates parts of the post-discharge circuit” | Architecture/demo | Episode, responsible users, review, task and evidence projections | `SUPPORTED_TECHNICAL_CLAIM` | State that commitment, deadline and typed evidence are not implemented |
+| “Guardián verifies the care circuit: every explicit discharge commitment becomes an obligation with owner, deadline and evidence” | Intended purpose/positioning | Boundary specification only; current `Task` has no deadline or typed evidence contract | `TARGET_CLAIM_NOT_YET_IMPLEMENTED` | May appear only as proposed intended purpose with the implementation gap stated |
+| “Absence of evidence is detected and escalated for human review” | Intended purpose/positioning | Operational definition exists; detection workflow does not | `TARGET_CLAIM_NOT_YET_IMPLEMENTED` | Never shorten to “detects non-compliance” |
+| “Clinical Rules is deterministic and explainable” | Demo/architecture | DSL, versioning, evaluation and explanation tests | `SUPPORTED_DEMO_CLAIM` | Does not imply non-MDSW, clinical validity or a risk class |
+| “Guardián Core is not a medical device” | Regulatory/commercial | No formal qualification; modules remain coupled | `REQUIRES_REGULATORY_ASSESSMENT` | Do not use until function, configuration and claims are assessed |
+| “Clinical Rules is/is not a medical device” | Regulatory/commercial | Intended purpose and decision impact not approved | `REQUIRES_REGULATORY_ASSESSMENT` | Do not assert either conclusion or an MDR class |
 | “Clinical Safety & Accountability Control Plane” | Positioning | Several technical foundations exist; Process Safety/integration/productive controls partial | `MISLEADING_IF_USED_EXTERNALLY` | Use only as qualified architecture direction |
 | “Clinically safe” | External/marketing | No clinical safety case or local validation | `PROHIBITED_UNTIL_VALIDATED` | Do not use |
 | “Clinically validated” | External/marketing | No clinical validation | `PROHIBITED_UNTIL_VALIDATED` | Do not use |
@@ -48,6 +60,14 @@ Acceptable:
 > workflow with versioning, authorization and technical traceability. It is not
 > clinically validated, approved for real patients or production ready.
 
+Also acceptable for architecture work:
+
+> Guardián Core is proposed to verify documented obligations in the care
+> circuit. The current MVP implements only parts of that flow and does not yet
+> model a deadline and typed evidence for every commitment. Missing evidence
+> would mean missing documentation pending human review, not confirmed
+> non-compliance.
+
 Not acceptable:
 
 - “The platform prevents relapse or suicide.”
@@ -56,6 +76,10 @@ Not acceptable:
 - “Fail-closed means the workflow is clinically validated.”
 - “GAS integrates with the hospital/FHIR.”
 - “The real pilot is ready.”
+- “Guardián detects team or patient non-compliance.”
+- “Human review keeps Clinical Rules outside the MDR.”
+- “Deterministic means non-medical-device software.”
+- “Core is outside the MDR because Clinical Rules is a separate module.”
 
 ## FENIN/congress claim matrix
 

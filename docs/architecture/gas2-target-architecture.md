@@ -7,6 +7,12 @@ segunda base de datos, un segundo dominio ni microservicios preventivos. Cada
 bloque objetivo se mapea primero a código existente y solo añade un seam cuando
 la responsabilidad no está cubierta.
 
+Esta arquitectura queda subordinada a la frontera propuesta en
+`docs/system-assurance-boundary.md` y ADR-0015. En particular, no existe todavía
+una separación técnica consumada entre Guardián Core y Clinical Rules, y ningún
+bloque de reglas o aseguramiento del circuito queda autorizado para implementación
+hasta aprobar esa frontera.
+
 ## Vista objetivo
 
 ```mermaid
@@ -19,7 +25,8 @@ flowchart TB
   EPISODE["Episode governance<br/>EpisodeGovernancePolicy/View sobre fuentes actuales"]
   HUMAN["Human authorization<br/>implementado sobre AlertReview y casos de uso"]
   TASK["Task / accountability<br/>proyección implementada sobre Task + TaskEvent"]
-  PROCESS["Process safety<br/>nueva proyección determinista"]
+  CIRCUIT["Circuit assurance<br/>Core; bloqueado hasta ADR-0015"]
+  CLINICAL["Clinical Rules<br/>módulo separado; candidato MDSW"]
   EVIDENCE["Governance evidence<br/>implementada sobre AuditEvent + historias"]
   OBS["Operational observability<br/>condicionada por DEC-014"]
 
@@ -30,8 +37,10 @@ flowchart TB
   PROV --> EPISODE
   EPISODE --> HUMAN
   HUMAN --> TASK
-  TASK --> PROCESS
-  PROCESS --> EVIDENCE
+  TASK --> CIRCUIT
+  PROV --> CLINICAL
+  CIRCUIT --> EVIDENCE
+  CLINICAL --> HUMAN
   EVIDENCE --> OBS
 
   HUMAN -. "sin autorización: no acción" .-> EVIDENCE
@@ -52,7 +61,8 @@ obligue a copiar todos los datos entre tablas.
 | Episode governance | `DischargeEpisode`, `EpisodeTransition`, política de activación, avisos y tareas | Implementado: `EpisodeGovernancePolicy/View` compone responsabilidades, protocolo, autorización técnica, obligaciones y blockers sin persistencia nueva; DEC-002 mantiene cierre denegado |
 | Human authorization | `DefaultHumanAuthorizationPolicy`, `ReviewAlertService`, guards de tarea y triggers | Implementado para `CREATE_TASK_FROM_REVIEWED_ALERT`: decisión pura con actor actual, reason codes y referencia minimizada de evidencia |
 | Task/accountability | `Task`, `TaskEvent`, `TaskAccountabilityProjection`, `NursingWorkQueue` | Accountability técnica implementada como proyección minimizada y fail-closed del lifecycle, assignment y elegibilidad actual; responsabilidad institucional no validada y condicionada a DEC-017 |
-| Process safety | Ventanas/outcomes, avisos, tareas y timestamps | Proyección determinista de pasos vencidos/omitidos que propone trabajo humano |
+| Circuit assurance (Guardián Core) | Compromiso explícito, responsable, plazo, evidencia y excepción; contrato aún no implementado | Solo tras aprobar ADR-0015: detectar ausencia de constancia como estado organizativo que exige revisión humana; nunca equipararla automáticamente a incumplimiento |
+| Clinical Rules | Inputs clínicos definidos, evaluación versionada, resultado explicado y revisión | Extraer tras cualificación y clasificación: no forma parte de la finalidad prevista del Core y no puede iniciar decisiones o acciones clínicas automáticas |
 | Governance evidence | `AuditEvent`, historias, gobernanza, provenance, reviews, accountability y correlation ID | Implementado como `EpisodeGovernanceEvidenceView` efímera, minimizada, autorizada y con cobertura explícita |
 | Operational observability | Health, logs sanitizados y correlation ID | Métricas sin PHI, SLO/runbooks y salud por conector solo tras DEC-014 y contratos reales |
 

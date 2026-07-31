@@ -1,10 +1,18 @@
 # Guardián Alta Segura 2.0 — límites de propiedad
 
+> **Actualización 2026-07-31:** ADR-0015 y
+> [la frontera de aseguramiento](../system-assurance-boundary.md) prevalecen para
+> ownership y claims de Core frente a Clinical Rules. La separación es propuesta;
+> el baseline sigue siendo un monolito acoplado.
+
 ## Principio de propiedad
 
-Guardián debe poseer las reglas que hacen trazable y segura la continuidad
-postalta. No debe poseer plataformas clínicas, dispositivos o canales externos
-que ya tienen autoridades, ciclos de vida y responsabilidades propias.
+Guardián Core debe poseer exclusivamente las reglas organizativas que hacen
+trazable la constancia del circuito postalta. Las reglas que procesan datos de
+salud con significado clínico pertenecen a Clinical Rules y requieren finalidad,
+evaluación y claims separados. No debe poseer plataformas clínicas, dispositivos
+o canales externos que ya tienen autoridades, ciclos de vida y responsabilidades
+propias.
 
 “Poseer” significa mantener el contrato, los invariantes, las pruebas y la
 evidencia. No significa necesariamente crear una tabla o desplegar un servicio
@@ -14,14 +22,16 @@ separado.
 
 | Límite | Capacidad | Decisión | Responsabilidad de Guardián |
 |---|---|---|---|
-| `CORE GUARDIAN` | Episode governance | Mantener como IP/core | Componer estado, responsables, versión de protocolo, autorizaciones, pendientes y blockers sobre `DischargeEpisode` y eventos existentes |
-| `CORE GUARDIAN` | Signal provenance | Mantener como IP/core | Implementado como `CanonicalProvenanceLineageV1`: identidad de fuente, tiempo, versión de esquema, referencias, derivación y hash por referencia, sin copiar el payload de origen |
+| `CORE GUARDIAN` | Episode governance | Mantener como IP/core con frontera | Componer estado, responsables, versión de protocolo, autorizaciones y pendientes organizativos; no autorizar cierre ni interpretar el significado clínico de un aviso |
+| `SHARED SAFETY INTERFACE` | Signal provenance | Reutilizar sin convertir en claim Core | `CanonicalProvenanceLineageV1` conserva referencias técnicas entre fuente, evaluación y aviso; no valida el contenido clínico ni acredita independencia modular |
 | `CORE GUARDIAN` | Human authorization | Mantener como IP/core | Exigir actor autorizado, decisión explícita, motivo cuando aplique y evidencia antes de cualquier acción posterior |
 | `CORE GUARDIAN` | Accountability | Mantener como IP/core | Proyectar creator, assignee, actor, resolver, transferencias y elegibilidad actual desde `Task`/`TaskEvent`; no inferir quién debería actuar sin política aprobada |
-| `CORE GUARDIAN` | SLA y escalado | Mantener como IP/core tras DEC-017 | Evaluar configuración versionada y explicable; nunca inferir prioridad clínica |
-| `CORE GUARDIAN` | Process safety | Mantener como IP/core | Detectar determinísticamente pasos organizativos omitidos y crear solo trabajo para revisión humana |
+| `CORE GUARDIAN` | Plazo y escalado organizativos | Bloqueado hasta frontera aprobada y DEC-017 | Evaluar solo compromisos explícitos, plazo y evidencia registral; nunca inferir prioridad clínica ni incumplimiento |
+| `CORE GUARDIAN` | Circuit assurance | Mantener como dirección de IP/core, todavía no implementada | Detectar ausencia de constancia en compromisos explícitos y elevarla a revisión humana; no evaluar síntomas ni respuestas clínicas |
 | `CORE GUARDIAN` | Audit/evidence | Mantener como IP/core | `EpisodeGovernanceEvidenceView` implementada: proyectar metadatos minimizados, historias append-only y correlation ID sin otra tabla ni payload clínico |
 | `CORE GUARDIAN` | Connector contracts | Mantener como IP/core | Definir ports, autenticidad, idempotencia, validación, cuarentena, errores y versionado de contrato |
+| `CLINICAL RULES` | Catálogo y evaluación de reglas clínicas | Separar de Core; evaluación regulatoria propia | Poseer DSL, inputs, umbrales, ventanas, evaluación, explicación y evidencia de rendimiento por intended purpose |
+| `CLINICAL RULES` | Avisos clínicos | Separar de Core; solo solicitud de revisión | Un `matched` puede solicitar revisión humana, pero no mutar tareas, episodios, comunicaciones o tratamiento |
 | `INTEGRATE` | HCE/EHR | Sistema externo | Consumir o publicar solo mediante contrato y autorización institucional; no replicar la HCE |
 | `INTEGRATE` | LAGUN | Proveedor potencial | No asumir API, contrato, acceso, payload, finalidad, DPA ni capacidad clínica |
 | `INTEGRATE` | Tucuvi | Proveedor potencial | Igual que LAGUN; realizar discovery y evaluación separada |
@@ -49,7 +59,7 @@ separado.
 | `ReviewGate` | Alto | `DefaultHumanAuthorizationPolicy`, `AlertReview`, `ReviewAlertService`, guard de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | No crear tabla. La policy reutilizable ya proyecta decisión y evidencia sin duplicar revisión ni estado. |
 | `TaskCase` | Muy alto | `Task`, `TaskEvent`, `TaskAccountabilityProjection` y `NursingWorkQueue` | Reutilizar el lifecycle y la proyección actuales. No crear otra cola o tabla de casos. |
 | `AccountabilityGraph` | Alto | `TaskAccountabilityProjection`, responsables del episodio, `reviewOwner`, asignado/creador/resolutor y actores de eventos | No crear. La proyección relacional ya reconstruye la cadena; Graph DB solo con consultas y escala futuras demostradas. |
-| `ProcessAnomaly` | Medio | Ventanas/outcomes de check-in, revisiones de aviso, tareas y timestamps | Calcular una proyección determinista. Persistir un hallazgo solo si necesita acknowledgement/historia y tras definir semántica. |
+| `ProcessAnomaly` | Medio | Ventanas/outcomes de check-in, tareas y timestamps | No implementar antes de aprobar ADR-0015. Después, limitar a ausencia de evidencia registral sobre compromisos explícitos; nunca inferir incumplimiento o significado clínico. |
 | `ConsentScope` | Muy alto | `PolicyVersion`, registros legales, `RevocationEvent` y `CaregiverAuthorizationScope` | Reutilizar decisiones legales por finalidad. No colapsar consentimiento, base legal y autorización de cuidador en una tabla genérica. |
 | `AuditLog` | Crítico | `AuditEvent`, `CaregiverAccessAudit` e historias de dominio | No crear. Añadir vistas/consultas autorizadas sobre la evidencia existente. |
 | `ConnectorRegistration` | Bajo en responsabilidad, alto si se especula | `IdentityProvider` y adaptador local demuestran el patrón, pero no hay registro equivalente | Definir contrato solo al seleccionar un conector. No crear catálogo persistente hasta necesitar estado operativo o rotación de configuración. |
@@ -87,7 +97,9 @@ Los conectores externos deben entregar datos a Guardián mediante un contrato qu
 5. conserva referencias de procedencia sin copiar PHI innecesaria a auditoría;
 6. valida finalidad y autorización antes de usar el dato;
 7. falla a cuarentena o abstención ante payload incompleto o no confiable;
-8. nunca dispara una actuación clínica sin gate humano.
+8. nunca dispara una actuación clínica sin gate humano;
+9. mantiene separada la solicitud de revisión de Clinical Rules de la obligación
+   y prioridad organizativas de Core.
 
 La semántica clínica del proveedor no se da por equivalente a la de Guardián. Un
 adapter traduce al contrato canónico; el dominio no importa SDKs ni recursos del

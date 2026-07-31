@@ -275,7 +275,7 @@ existe activación automática.
 | 3 | `refactor/gas2-human-authorization-policy` | Mantener | Completada; reutiliza `AlertReview` y guards, sin `ReviewGate` persistente |
 | 4 | `feat/gas2-accountability-sla` | Dividir por bloqueo | `feat/gas2-task-accountability` completada como proyección; SLA/escalado solo después de DEC-017 |
 | 4.1 | Vista de evidencia gobernada | Añadir sin persistencia | `feat/gas2-governance-evidence-view`; completada como proyección read-only sobre fuentes actuales |
-| 5 | `feat/gas2-process-safety` | Mantener condicionado | Esperar semántica operativa aprobada cuando dependa de assignment/SLA; sin scoring ni acción autónoma |
+| 5 | `feat/gas2-process-safety` | Retirar del plan | Nombre y alcance mezclan aseguramiento organizativo con reglas clínicas. No iniciar trabajo hasta aprobar ADR-0015; después, usar ramas distintas para Core y Clinical Rules según el contrato aprobado |
 | 6 | `feat/gas2-integration-boundary` | Mantener condicionado | Contratos solo al seleccionar una integración real; no crear registry especulativo |
 | 7 | `feat/gas2-fhir-boundary` | Eliminar del plan comprometido | Crear `feat/gas2-fhir-anti-corruption` únicamente si existe perfil/requisito institucional |
 | 8 | `security/gas2-hardening` | Fusionar | Threat model y hardening dentro de cada rama; rama separada solo para hallazgos transversales concretos |
@@ -325,12 +325,22 @@ feat/gas2-task-sla-escalation
 Implementa configuración versionada, tiempos objetivo y escalado organizativo.
 Los valores deben proceder de evidencia local; no se usan defaults clínicos.
 
-### 6. `feat/gas2-process-safety`
+### 6. Aseguramiento del circuito y Clinical Rules
 
-No debe iniciarse mientras una anomalía dependa de reglas de assignment, tiempos o
-SLA todavía pendientes en DEC-017. Un incremento futuro independiente tendría que
-demostrar semántica técnica ya aprobada; primera implementación preferida:
-proyección determinista y explicable, sin scoring ni acción autónoma.
+La rama genérica `feat/gas2-process-safety` queda retirada. No debe iniciarse
+mientras estén pendientes ADR-0015, DEC-017 y las decisiones que definan
+compromiso, responsable, plazo, evidencia y excepción. La ausencia de evidencia
+no puede codificarse como incumplimiento.
+
+Tras aprobar la frontera, cualquier incremento debe pertenecer a un solo carril:
+
+- Guardián Core: aseguramiento organizativo del circuito, sin interpretación
+  clínica, scoring ni acción autónoma;
+- Clinical Rules: módulo separado, con finalidad prevista, expediente, evaluación
+  regulatoria y validación propios.
+
+El primer PR posterior seguirá siendo documental y de contrato; ADR-0015 no
+autoriza por sí solo cambios de esquema o runtime.
 
 ### 7. `feat/gas2-integration-boundary`
 

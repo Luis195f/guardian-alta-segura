@@ -1,5 +1,10 @@
 # GAS 2.0 capability status matrix
 
+> **Boundary overlay 2026-07-31:** ADR-0015 and
+> [the system assurance boundary](../system-assurance-boundary.md) supersede the
+> earlier ownership grouping. Capability state below still describes the current
+> monolith; deterministic clinical rules and their alerts are not Guardián Core.
+
 ## Taxonomy
 
 Capability state uses only:
@@ -29,7 +34,7 @@ Disposition uses `REUSE`, `EXTEND_LATER`, `FREEZE` and `DO_NOT_BUILD`.
 | Legal records | Separate append-only participation, communication, basis and revocation records | `PARTIALLY_IMPLEMENTED` | Unit/integration/E2E | DEC-003/005 | `FREEZE` |
 | Safety Plan | Version/state history with section permissions | `DEMO_ONLY` | Unit/integration/E2E | Clinical/content/lifecycle approval pending | `FREEZE` |
 | Check-ins | Versioned protocols, assignments and terminal outcomes | `PARTIALLY_IMPLEMENTED` | Unit/integration/E2E | DEC-006 | `FREEZE` |
-| Deterministic rules | Version/approval/activation/evaluation | `DEMO_ONLY` | Unit/integration/E2E | Synthetic draft fixtures; DEC-008/009 | `FREEZE` |
+| Deterministic clinical rules | Version/approval/activation/evaluation | `DEMO_ONLY` | Unit/integration/E2E | Synthetic fixtures; intended purpose, MDR assessment and DEC-008/009 pending | `FREEZE` |
 | Canonical provenance | Source/evaluation/alert lineage schema v1 | `IMPLEMENTED` | Unit/integration/E2E | Internal synthetic source kinds only | `FREEZE` |
 | Alert review | `Alert`, append-only `AlertReview` | `IMPLEMENTED` | Unit/integration/E2E | Review workflow not clinically validated | `FREEZE` |
 | Human authorization | Policy for reviewed-alert task creation | `PARTIALLY_IMPLEMENTED` | 17 policy tests plus app/integration/E2E | Only one action; instance decision not persisted | `FREEZE` |
@@ -40,7 +45,8 @@ Disposition uses `REUSE`, `EXTEND_LATER`, `FREEZE` and `DO_NOT_BUILD`.
 | Home Safety | Append-only informational versions | `DEMO_ONLY` | Unit/integration/E2E | DEC-007 | `FREEZE` |
 | Crisis resource | Explicit disabled safe state | `DEMO_ONLY` | Unit/E2E | DEC-010/011 | `FREEZE` |
 | SBAR | Deterministic unsigned minimized preview | `PARTIALLY_IMPLEMENTED` | Unit/E2E/build | DEC-005/012; no approved PDF/export/signature | `FREEZE` |
-| Process Safety | Visibility/blockers across episodes, alerts and tasks | `PARTIALLY_IMPLEMENTED` | Unit/integration/E2E | DEC-006/017 and safety review | `EXTEND_LATER` |
+| Current pending-item visibility | Visibility/blockers across episodes, alerts and tasks | `PARTIALLY_IMPLEMENTED` | Unit/integration/E2E | Not a commitment/deadline/evidence model; clinical alerts remain coupled; DEC-006/017 | `FREEZE` |
+| Core circuit assurance | Explicit commitment, responsible person, deadline, evidence and human review of missing evidence | `DEFERRED` | Repository absence | ADR-0015 approval, regulatory assessment and DEC-017 | `EXTEND_LATER` |
 | Technical observability foundation | Correlation IDs, sanitized public errors and sanitized stderr | `PARTIALLY_IMPLEMENTED` | Unit/E2E | No metrics, tracing, telemetry sink or DB readiness | `EXTEND_LATER` |
 | Institutional incident operations | No approved operating model or workflow | `BLOCKED_BY_INSTITUTIONAL_DECISION` | Repository absence | DEC-014/005 | `EXTEND_LATER` |
 | Continuity | No continuity capability; process liveness is separate | `NOT_IMPLEMENTED` | Health E2E proves liveness only, not continuity | DEC-015 | `EXTEND_LATER` |
@@ -70,7 +76,10 @@ Disposition uses `REUSE`, `EXTEND_LATER`, `FREEZE` and `DO_NOT_BUILD`.
 
 There is no `src/guardian2` context and no parallel episode aggregate.
 
-## Process Safety detail
+## Current pending-item detail
+
+This table describes observable baseline conditions. It must not be presented as
+the Core circuit-assurance capability or as detection of non-compliance.
 
 | Condition | Capability state | Current behavior | Required next authority |
 | --- | --- | --- | --- |
@@ -90,6 +99,8 @@ There is no `src/guardian2` context and no parallel episode aggregate.
 
 | Classification | Capabilities |
 | --- | --- |
-| Core Guardian | Episode governance, provenance, human authorization, accountability, Process Safety, audit/evidence, connector contracts |
+| Guardián Core | Episode governance bounded to organizational facts, human authorization, task accountability, technical evidence/audit and future circuit assurance after ADR-0015 approval |
+| Clinical Rules | Rule catalog/approval/evaluation, clinical input semantics, matched notices and their clinical presentation; separate intended purpose and regulatory assessment required |
+| Shared safety interface | Provenance and human-review references used across the current boundary; these do not prove deployment or regulatory independence |
 | Integrate when approved | HCE/EHR, institutional identity, messaging, LAGUN, Tucuvi, Huma, MeMind, RPM and wearables |
 | Do not build | Own EHR, generic RPM, clinical voice platform, wearable, autonomous therapeutic chatbot, opaque predictor, speculative graph DB, complete FHIR server without requirement |

@@ -16,6 +16,10 @@ Acciones permitidas: `REUSE`, `EXTEND`, `REFACTOR`, `BUILD` y `DO-NOT-BUILD`.
 `BUILD` no autoriza automáticamente una tabla, una integración ni una decisión
 clínica; exige primero contrato, autoridad y evidencia.
 
+La frontera propuesta en `docs/system-assurance-boundary.md` y ADR-0015 prevalece
+para cualquier trabajo de aseguramiento del circuito o reglas clínicas. Mientras
+ADR-0015 no sea aprobado, esta matriz no autoriza implementación en esos ámbitos.
+
 ## Matriz A–M
 
 | ID | Concepto GAS 2.0 | Estado | Acción | Evidencia actual reutilizable | Brecha y límite |
@@ -25,7 +29,7 @@ clínica; exige primero contrato, autoridad y evidencia.
 | C | Human Authorization Gate | `EXISTS` | `REUSE` | `DefaultHumanAuthorizationPolicy`, `AlertReview`, guard transaccional de `CreateNursingTaskService` y trigger `tasks_require_reviewed_alert` | La única acción soportada es `CREATE_TASK_FROM_REVIEWED_ALERT`; decisión pura, minimizada y fail-closed. `actioned` sigue sin acreditar una acción y las tareas sin aviso permanecen como iniciación humana directa, no signal-derived. El rol histórico del reviewer no está ligado de forma fiable a la review. |
 | D | Accountability / responsibility chain | `PARTIAL` | `EXTEND` | `TECHNICAL TASK ACCOUNTABILITY = implemented`: `TaskAccountabilityProjection` sobre `Task`, `TaskEvent`, responsables del episodio y rol técnico actual | Reconstruye creator, assignee, actor, resolver, assignment/reassignment y elegibilidad actual; falla ante inconsistencias y no copia payload clínico. `INSTITUTIONAL RESPONSIBILITY / ACCOUNTABILITY POLICY = not validated, conditioned on DEC-017`: assignment no equivale a acceptance o autoridad exclusiva y faltan equipo/turno, suplencia, autoassignment y política institucional. |
 | E | Task lifecycle + SLA + escalation | `PARTIAL` | `EXTEND` | `Task`, `TaskEvent`, estado open/resolved, revisión, idempotencia, asignación, contacto, nota y resolución | Faltan prioridad operativa aprobada, `dueAt`, SLA versionado, acuse, escalado y vencimiento. DEC-017 es bloqueante. |
-| F | Process Safety / missed-process detection | `MISSING` | `BUILD` | Ventanas y outcomes de check-in, tiempos de revisión, tareas abiertas y antigüedad agregada | No hay evaluación explícita de procesos omitidos, scheduler ni anomalía. Empezar como proyección/regla determinista sobre eventos existentes; no crear scoring clínico. |
+| F | Aseguramiento del circuito / detección de ausencia de evidencia | `MISSING` | `DO-NOT-BUILD` hasta aprobar ADR-0015 | Ventanas y outcomes de check-in, estados de avisos, tareas y timestamps podrían ser fuentes, pero no representan por sí solos compromisos, plazos, excepciones ni evidencia de cumplimiento | No hay registro explícito de cada obligación ni semántica aprobada de ausencia de evidencia. Separar reglas organizativas del Core de Clinical Rules; no inferir incumplimiento, crear scoring clínico ni iniciar acciones automáticas. |
 | G | Connector boundary | `PARTIAL` | `EXTEND` | Patrón ports/adapters, proveedores de identidad y adaptador local de invitación | No existe contrato de ingestión, identidad de conector, idempotencia de mensaje, cuarentena, inbox/outbox o estado operativo. No asumir APIs de proveedores. |
 | H | FHIR anti-corruption layer | `MISSING` | `BUILD` condicionado | Separación dominio/aplicación/adapters y modelo interno no FHIR | Solo construir DTOs/mappers/validación cuando exista requisito y perfil institucional. No exponer modelos FHIR al dominio ni construir un servidor FHIR completo. |
 | I | Consent/caregiver authorization | `EXISTS` | `EXTEND` | Políticas, registros legales, revocación append-only, scope versionado por episodio, revalidación y auditoría de acceso | La mecánica existe para demo; faltan textos, representación, bases, retención e IdP aprobados. Extender por finalidad/conector solo tras DEC-003/004/005/013. |
