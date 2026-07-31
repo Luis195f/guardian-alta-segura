@@ -1,5 +1,11 @@
 # GAS 2.0 final prepilot readiness audit
 
+> Nota de vigencia: este informe conserva la fotografía técnica de su fecha. Para
+> la frontera Guardián Core / Clinical Rules y cualquier claim de aseguramiento
+> del circuito prevalecen `docs/system-assurance-boundary.md` y ADR-0015. La
+> etiqueta histórica “Process Safety” no autoriza implementación ni atribuye esa
+> capacidad al Core.
+
 ## Document control
 
 | Field | Audited value |
@@ -156,7 +162,7 @@ Summary:
 | Human authorization | `PARTIALLY_IMPLEMENTED` | `FREEZE` | Extend only for approved actions |
 | Technical task accountability | `IMPLEMENTED` | `FREEZE` | Institutional accountability remains pending |
 | Governance evidence | `IMPLEMENTED` | `FREEZE` | Derived evidence is not approval |
-| Process Safety | `PARTIALLY_IMPLEMENTED` | `EXTEND_LATER` | Requires institutional decisions |
+| Organizational visibility historically labelled “Process Safety” | `PARTIALLY_IMPLEMENTED` | `FREEZE` | Does not implement explicit obligations or verified compliance; boundary approval and institutional decisions are required |
 | Connector boundary | `DEFERRED` | `REUSE` | Do not build speculative adapters |
 | FHIR boundary | `DEFERRED` | `REUSE` | Use only against an approved institutional requirement |
 | Technical observability foundation | `PARTIALLY_IMPLEMENTED` | `EXTEND_LATER` | Correlation, sanitized errors and liveness only |
@@ -251,12 +257,15 @@ institutional approval.
 
 ### Process Safety
 
-`PARTIALLY_IMPLEMENTED`
+`HISTORICAL LABEL — BOUNDARY NOT APPROVED`
 
 The system exposes organizational state and several fail-closed invariants, but
 does not implement a complete care-process risk engine. Detailed status is in
 the capability matrix. SLA/deadline/escalation concepts remain blocked by
-DEC-017; check-in timing policy remains blocked by DEC-006.
+DEC-017; check-in timing policy remains blocked by DEC-006. It also lacks an
+explicit obligation/evidence/exception contract. Under ADR-0015, absence of
+evidence is not non-compliance and this material must be split between Core
+circuit assurance and a separately assessed Clinical Rules module.
 
 ### Connectors
 
@@ -480,7 +489,7 @@ readiness. DEC-014 is pending.
 
 No real external integration or real FHIR interoperability can be claimed.
 
-## T. Process Safety status
+## T. Historical “Process Safety” status
 
 | Candidate condition | Status | Repository evidence/limit |
 | --- | --- | --- |
@@ -497,7 +506,9 @@ No real external integration or real FHIR interoperability can be claimed.
 | `FOLLOWUP_WINDOW_MISSED` | `BLOCKED_BY_INSTITUTIONAL_DECISION` | DEC-006/017 |
 
 The positioning “care-process risk engine” is not supported. The repository
-supports partial organizational visibility and technical safeguards.
+supports partial organizational visibility and technical safeguards. These
+conditions do not amount to an implemented circuit-assurance function and do not
+allocate clinical-rule evaluation to Guardián Core.
 
 ## U. Claims register
 
@@ -518,8 +529,9 @@ and production readiness are prohibited until corresponding evidence exists.
 
 ## V. Product positioning verdict
 
-“Clinical Safety & Accountability Control Plane” is
-`PARTIALLY_SUPPORTED` only as a qualified technical architecture direction.
+“Clinical Safety & Accountability Control Plane” is a historical positioning and
+is not an allowed product claim. ADR-0015 replaces it with a proposed, narrower
+Core purpose and a separately assessed Clinical Rules module.
 
 | Component | Verdict |
 | --- | --- |
@@ -527,13 +539,14 @@ and production readiness are prohibited until corresponding evidence exists.
 | Signal provenance | `SUPPORTED` for internal synthetic sources |
 | Human authorization | `SUPPORTED` for the implemented alert-to-task action |
 | Task accountability | `SUPPORTED` technically |
-| Process Safety | `PARTIALLY_SUPPORTED` |
+| Circuit assurance | `NOT_IMPLEMENTED`; organizational visibility only |
+| Clinical Rules | Deterministic engine exists, but remains technically coupled and its regulatory qualification is unresolved |
 | Audit/evidence | `SUPPORTED` technically and read-only |
 | Vendor-neutral integration boundary | `ASPIRATIONAL` until a real contract/adapter exists |
 
-External wording must say “technical pre-pilot control-plane foundation for a
-synthetic human-reviewed workflow”, not imply demonstrated clinical safety,
-outcomes or real integration.
+External wording must follow the claims register and ADR-0015. It must not imply
+verified circuit compliance, demonstrated clinical safety, outcomes, regulatory
+status or real integration.
 
 ## W. Demo readiness
 

@@ -21,6 +21,17 @@ Freeze acceptance means the architecture is a coherent base for controlled
 incremental work. It does not mean that capabilities are complete, approved,
 clinically validated or production qualified.
 
+### 2026-07-31 assurance-boundary overlay
+
+ADR-0015 and
+[the system assurance boundary](../system-assurance-boundary.md) separate the
+proposed intended purpose and ownership of Guardián Core from Clinical Rules.
+This overlay does not unfreeze or change the current runtime, schema, source of
+truth or behavior. It adds a gate: no commitment/evidence model, clinical-rule
+extension or Core/Clinical Rules refactor may start until that boundary is
+approved. The current shared runtime, database and `Task.alertId` relationship
+must not be presented as technical or regulatory independence.
+
 ## Frozen architecture contract
 
 ### 1. Runtime and module shape

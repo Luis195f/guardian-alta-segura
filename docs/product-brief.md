@@ -24,17 +24,36 @@ El episodio comienza con un alta estructurada validada por una persona autorizad
 
 Cada episodio puede configurarse para **30, 60 o 90 días**. Estas opciones describen la duración de la continuidad postalta, no un calendario de desarrollo. El criterio para seleccionar una duración permanece pendiente de protocolo local; el sistema no la elige automáticamente.
 
-## Intended use
+## Intended use por módulo
 
-Guardián Alta Segura está destinado a:
+La frontera normativa es
+[system-assurance-boundary.md](system-assurance-boundary.md). La separación es
+actualmente documental y propuesta; no describe dos despliegues ya aislados.
 
-- organizar información de continuidad postalta;
-- registrar decisiones, revisiones humanas, autorizaciones y revocaciones;
-- presentar check-ins y avisos deterministas para revisión profesional;
-- conservar versiones e historial sin sobrescritura clínica;
-- vincular tareas posteriores a la revisión humana;
-- facilitar una redacción SBAR manual y una exportación minimizada según protocolo local;
-- mantener separados los incidentes técnicos del contenido clínico.
+### Guardián Core
+
+Guardián Core está propuesto para organizar y verificar constancia del circuito
+postalta: compromisos explícitos, responsable, plazo, evidencia esperada,
+excepciones y revisión humana. Puede registrar, versionar, presentar y enlazar
+información y trabajo organizativo. No interpreta el significado clínico de un
+dato ni determina que una actuación fue clínicamente correcta.
+
+El baseline aún no implementa el contrato completo de compromiso/plazo/evidencia.
+Solo demuestra partes del circuito mediante episodios, responsables, tareas,
+revisiones, procedencia y auditoría.
+
+### Clinical Rules
+
+Clinical Rules es el módulo propuesto para cualquier regla que procese datos
+individuales de salud mediante umbrales o lógica con significado clínico para
+producir una solicitud explicable de revisión profesional. Su finalidad prevista,
+cualificación MDR, posible clasificación y evidencia clínica permanecen
+pendientes. Que las reglas actuales sean deterministas, explicables, sin IA y con
+revisión humana no acredita exclusión regulatoria.
+
+En el baseline demo, Clinical Rules corresponde al catálogo, evaluación y avisos
+de reglas. No puede ejecutar tareas, comunicaciones, derivaciones, firmas,
+tratamientos o cierres automáticamente.
 
 ## No intended use
 
@@ -50,9 +69,24 @@ Guardián Alta Segura no está destinado a:
 - afirmar cumplimiento RGPD, conformidad MDR, validación clínica o aprobación hospitalaria;
 - conectarse de forma productiva a una HCE o a FHIR durante el MVP.
 
+Además, Core no convierte ausencia de evidencia en incumplimiento, no usa una
+respuesta del paciente como prueba automática de actuación del equipo y no
+hereda severidad, prioridad o ruta desde Clinical Rules.
+
 ## Propuesta de valor
 
-Una vista organizativa y trazable de la continuidad postalta que reduce fragmentación operativa, conserva el contexto histórico y hace visible qué dato originó un aviso y qué persona lo revisó, sin automatizar el juicio clínico.
+Finalidad prevista propuesta, pendiente de implementación y evidencia completa:
+
+> Guardián Alta Segura verifica el circuito asistencial: convierte cada
+> compromiso explícito del alta en una obligación con responsable, plazo y
+> evidencia, detecta cuándo falta constancia de cumplimiento y lo eleva a
+> revisión humana.
+
+«Falta constancia» significa ausencia registral de una evidencia compatible en
+las fuentes autorizadas a una fecha de corte. No afirma que la acción no ocurriera
+ni que exista incumplimiento. Solo una revisión humana puede distinguir acción del
+equipo, respuesta del paciente, excepción válida, evidencia tardía e
+incumplimiento confirmado.
 
 ## Decisiones reservadas al profesional
 
