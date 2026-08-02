@@ -3,7 +3,7 @@
 > **BORRADOR DE TRABAJO / NO APROBADO / NO AUTORIZA LIBERACIÓN NI PILOTO**
 > `CSO = NO DESIGNADO / APROBACIÓN PENDIENTE`
 > `RISK ACCEPTABILITY CRITERIA = NO APROBADOS`
-> `RESIDUAL RISK ACCEPTANCE = NINGUNA`
+> `RESIDUAL RISK ACCEPTANCE = NONE`
 > `REAL PILOT = NO_GO`
 
 ## Control y criterio de uso
@@ -11,9 +11,9 @@
 | Campo | Valor |
 | --- | --- |
 | ID documental | `GAS-DCB0129-GAP-INITIAL-001` |
-| Versión | `0.2-draft` |
-| Fecha de corte | 2026-08-01 |
-| Rama / commit base | `docs/clinical-risk-management-plan` / `4d120c5a46c9e72fdf15279462db3a64350583d8` |
+| Versión | `0.3-draft` |
+| Fecha de corte | 2026-08-02 |
+| Rama / commit base | `docs/commitment-sandbox-implementation-gate` / `26190a66554274665f4042c8497da9f403d4f578` |
 | Fase | Diseño / prepiloto sintético |
 | Safety Case | [Clinical Safety Case Report inicial](clinical-safety-case-report-initial.md) |
 | Hazard Log | [Hazard Log inicial](hazard-log-initial.md) |
@@ -62,7 +62,7 @@ Ningún gap está cerrado en esta versión.
 | GAP-DCB-020 | Dependencia DCB0160 | No existe organización desplegadora, gestión local, acceptance de controles ni feedback interface. | Decision Packs describen candidatos; ningún hospital está identificado. | Paquete de entrega y colaboración fabricante/desplegador; hazard handoff, control acceptance, local testing, incidents y change communications. | Fabricante/desplegador futuros | `OPEN`; no se afirma DCB0160. |
 | GAP-DCB-021 | Safety en continuidad | Continuidad, backup, restore, readiness, contingencia y reconciliación no aprobados/probados. | DEC-015 y GAS2 risk register documentan ausencia; health no consulta DB. | Aprobar/probar RTO/RPO, backup/restore, degraded/alternative workflow, reconciliation, release after restore y drills. | Dirección TI + Dirección de Enfermería, propuestas | `OPEN`; HAZ-GAS-010/018. |
 | GAP-DCB-022 | Safety de identidad/acceso | Identidad productiva y autoridad institucional de roles no existen. | Demo aliases; port institucional sin adapter; DEC-013 pendiente. | IdP, subject linking, role/resource mapping, lifecycle, MFA/assurance, service identity, break-glass y tests. | Dirección TI + clinical governance, propuestas | `OPEN`; HAZ-GAS-001/004/012. |
-| GAP-DCB-023 | Safety del motor futuro | Motor de compromisos y todos sus controles permanecen diseño no implementado. | Spec CE-01–CE-20 y ADR-0016, ambos documentales/propuestos. | Resolver gates; actualizar hazard analysis; implementar solo en rama autorizada; verificar controls y effectiveness antes de claims. | Arquitectura/Engineering + CSO futuro | `OPEN`; no presentar diseño como capacidad. |
+| GAP-DCB-023 | Safety del motor futuro | Motor de compromisos y todos sus controles permanecen no implementados; no existe evidencia de efectividad ni aprobación clínica o institucional. | La frontera, ADR-0015 y Spec CE-01–CE-20 permiten ahora solo la futura implementación técnica interna del núcleo 5B con datos e identidades sintéticos. ADR-0016 mantiene el evaluador no autorizado. La evidencia es documental: no prueba implementación, efectividad, seguridad clínica, autorización operativa ni uso real. | Implementar, en una rama futura autorizada, solo el núcleo 5B aislado; mantener evaluator/API/UI/datos reales bloqueados; actualizar hazard analysis y verificar controles técnicos. La efectividad clínica, autoridades, aceptabilidad, intended use y gates de release siguen pendientes antes de cualquier claim o uso real. | Arquitectura/Engineering + CSO futuro | `OPEN`; controles sin verificación clínica, ninguna aprobación clínica/institucional y uso real no autorizado. No presentar el diseño o un futuro sandbox como capacidad operativa. |
 | GAP-DCB-024 | Clinical/human factors validation | Reglas, contenidos, UI y workflows sensibles no tienen validación clínica/human-factors local. | Fixtures sintéticos y unit/E2E; DEC-006–012/017 pendientes. | Intended purpose, content validation, formative/summative usability, training, error/empty/degraded scenarios y clinical simulation. | Autoridades clínicas + CSO futuro | `OPEN`; HAZ-GAS-006–009/012. |
 
 ## Dependencias y orden recomendado
@@ -77,20 +77,27 @@ Gobierno + CSO
             → formal release review + monitoring/incidents
 ```
 
-Este orden no autoriza trabajo funcional ni reemplaza las decisiones canónicas.
-ADR-0015, ADR-0016 y DEC-001–DEC-017 conservan exactamente su estado actual.
+Este orden no autoriza trabajo funcional operativo ni reemplaza las decisiones
+canónicas. ADR-0015 cambia solo su gate arquitectónico interno; ADR-0016 mantiene
+el evaluador no autorizado y DEC-001–DEC-017 conservan exactamente sus estados
+canónicos.
 
 ## Gates explícitos
 
 | Gate | Estado |
 | --- | --- |
 | Demo sintética controlada | `CONDITIONALLY_ALLOWED` dentro de límites actuales |
-| Implementar motor de compromisos | `NO_GO` hasta resolver gates de su especificación y hazards de diseño |
+| Núcleo interno 5B para sandbox sintético | `CONDITIONALLY_ALLOWED`; implementación técnica futura limitada por la especificación, no uso operativo |
+| Evaluador de vencimientos | `NO_GO` |
+| Evaluación automática | `NO_GO` |
+| Scheduler / worker | `NO_GO` |
+| Exposición API/UI | `NO_GO` |
 | Datos o identidades reales | `NO_GO` |
 | Piloto real | `NO_GO` |
 | Producción/uso clínico | `NO_GO` |
 | Afirmar conformidad DCB0129 | `NOT_AUTHORIZED` |
-| Aceptar riesgo residual | `NOT_AUTHORIZED` |
+| Afirmar conformidad DCB0160 | `NOT_AUTHORIZED` |
+| Aceptar riesgo residual | `NONE`; no existe aceptación |
 
 ## Próxima revisión
 

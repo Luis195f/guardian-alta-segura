@@ -1,11 +1,22 @@
 # ADR-0016 — Concurrencia de la evaluación de compromisos vencidos
 
-- Estado: `PROPUESTA DE DISEÑO / NO IMPLEMENTADA`
-- Fecha: 2026-07-31
+- Estado: `PROPOSED DESIGN / NOT IMPLEMENTED / DUE EVALUATOR NOT AUTHORIZED`
+- Fecha: 2026-08-02
 - Alcance: coordinación PostgreSQL/Prisma de una futura evaluación de
   compromisos; no define plazos ni autoriza un disparador
 - Baseline: `ae6ee97643cfba628dafa0fef31bf2fcf6ec8e20`
 - Decisiones institucionales/regulatorias: pendientes
+
+Este ADR documenta exclusivamente un algoritmo futuro. No autoriza resolver
+evidencia, clasificar puntualidad, crear eventos de ausencia, ejecutar evaluación
+automática ni exponer una capacidad. `DUE EVALUATOR = NO_GO` y
+`AUTOMATIC EVALUATION = NO_GO`.
+
+No bloquea la única migración aditiva ni el ciclo de vida mínimo del slice 5B
+sintético definido en la especificación. 5B puede usar revisión optimista y
+concurrencia transaccional mediante los patrones existentes para
+`CREATE_COMMITMENT_DRAFT`, `ACTIVATE_COMMITMENT`, `SUPERSEDE_DRAFT` y
+`SUPERSEDE_ACTIVE_VERSION`; no puede implementar el algoritmo de este ADR.
 
 ## Contexto
 
@@ -138,9 +149,12 @@ No se selecciona por defecto.
 
 ## Decisión
 
-Seleccionar `FOR UPDATE SKIP LOCKED` sobre la fila de
+> `DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`.
+
+Se propone seleccionar `FOR UPDATE SKIP LOCKED` sobre la futura fila coordinadora
 `EpisodeCommitmentVersion` actual como estrategia mínima de coordinación del
-evaluador, con una transacción corta por compromiso.
+evaluador, con una transacción corta por compromiso. La propuesta no autoriza
+schema, raw SQL ni ejecución.
 
 La secuencia conceptual es:
 
@@ -257,8 +271,22 @@ La decisión evita mutex global, advisory-lock conventions y `SERIALIZABLE` como
 default. Exige que todo writer del compromiso use el port transaccional común y
 que las pruebas SQL demuestren la carrera real.
 
-Este ADR no autoriza schema, migración, raw SQL, endpoint, scheduler o worker.
-Antes de implementar deben aprobarse las decisiones enumeradas en la
-especificación, revisarse el schema concreto y actualizarse el architecture
-freeze. Si la implementación futura no materializa una fila de versión bloqueable
-o requiere evidencia multiagregado atómica, este ADR vuelve a `REVISIÓN`.
+Este ADR no autoriza raw SQL de evaluación, `FOR UPDATE SKIP LOCKED` operativo,
+endpoint, batch evaluator, scheduler o worker. Tampoco autoriza eventos de
+ausencia, resolución de evidencia, clasificación de puntualidad ni claims de
+evaluación automática.
+
+La autorización separada de 5B sí permite schema/migración mínimos y la
+concurrencia de sus cuatro comandos mediante patrones existentes, sin usar el
+algoritmo aquí propuesto. Antes de implementar el evaluador deben aprobarse las
+decisiones enumeradas en la especificación, revisarse el schema concreto y
+obtenerse un gate posterior. Si esa fase futura no materializa una fila de versión
+bloqueable o requiere evidencia multiagregado atómica, este ADR vuelve a
+`REVISIÓN`.
+
+```text
+DUE EVALUATOR = NO_GO
+AUTOMATIC EVALUATION = NO_GO
+SCHEDULER / WORKER = NO_GO
+EXTERNAL API / UI EXPOSURE = NO_GO
+```

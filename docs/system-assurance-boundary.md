@@ -4,10 +4,11 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | `PROPUESTA PARA APROBACIÓN`; no implementada como separación desplegable |
-| Fecha de corte | 2026-07-31 |
-| Baseline inspeccionado | Rama `docs/system-assurance-boundary`; monolito Next.js/TypeScript con Prisma/PostgreSQL |
+| Estado | `ACCEPTED FOR SYNTHETIC SANDBOX IMPLEMENTATION / NOT APPROVED FOR OPERATIONAL OR REAL USE`; la separación no está implementada |
+| Fecha de corte | 2026-08-02 |
+| Baseline inspeccionado | Rama `docs/commitment-sandbox-implementation-gate`; commit `26190a66554274665f4042c8497da9f403d4f578`; monolito Next.js/TypeScript con Prisma/PostgreSQL |
 | Uso del baseline | Exclusivamente técnico, local, sintético y no clínico |
+| Autoridad de esta aceptación | Autoridad técnica interna del repositorio, limitada al slice 5B sintético |
 | Decisión regulatoria | Pendiente de asesor regulatorio y, si procede, consulta de cualificación/clasificación a AEMPS |
 | Decisiones relacionadas | DEC-002, DEC-006, DEC-007, DEC-008, DEC-009, DEC-012, DEC-013, DEC-016 y DEC-017 |
 
@@ -32,8 +33,9 @@ Se separan dos finalidades y dos tipos de regla:
    sea determinista, explicable y revisada por una persona no la excluye por sí
    solo del MDR.
 
-La propuesta central queda fijada como **finalidad prevista propuesta**, no como
-claim de capacidad ya demostrada:
+La formulación central queda fijada únicamente como **finalidad prevista
+clínica/institucional propuesta**, no aprobada y no como claim de capacidad ya
+demostrada:
 
 > Guardián Alta Segura verifica el circuito asistencial: convierte cada
 > compromiso explícito del alta en una obligación con responsable, plazo y
@@ -50,6 +52,39 @@ elementos en una rama posterior autorizada, el único claim admisible es:
 > responsables, avisos revisados, tareas humanas e historia— y documenta la
 > frontera requerida para un futuro aseguramiento de compromisos. No acredita el
 > cumplimiento de cada compromiso ni detecta incumplimientos.
+
+## Doble gate de autorización
+
+### Gate A — implementación técnica sintética
+
+La autoridad técnica interna del repositorio acepta esta frontera como base para
+implementar en una futura rama 5B el núcleo mínimo definido en la
+[especificación del motor](architecture/commitment-engine-spec.md). La aceptación
+permite exclusivamente diseño técnico definitivo, nombres técnicos, una futura
+migración aditiva, modelos y servicios internos, repositorios, auditoría técnica,
+idempotencia, concurrencia del ciclo de vida, pruebas sintéticas, autorización
+inyectable deny-by-default, adaptadores de prueba y un feature flag apagado por
+defecto.
+
+Esta aceptación no procede de un hospital, Dirección Médica, Dirección de
+Enfermería, CSO, CEIm, DPO/DPD, responsable del tratamiento, fabricante,
+organización desplegadora, profesional, paciente, cuidador, autoridad competente
+u organismo certificador. No aprueba endpoints, UI, scheduler, worker,
+notificaciones, integración, datos o identidades reales, uso asistencial, piloto,
+producción ni claims clínicos o regulatorios.
+
+### Gate B — uso operativo o real
+
+Permanece bloqueado. Requiere resolver formalmente las decisiones y evidencias
+aplicables, incluidas DEC-005, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017;
+intended use; autoridades y roles institucionales; CSO; criterios de
+aceptabilidad, análisis y evaluación de riesgos; validación clínica y human
+factors; identidad; monitorización, incidentes y continuidad; integraciones y
+controles transferidos; revisión regulatoria y aprobación de release.
+
+Los resultados del Gate A no satisfacen ni reducen el Gate B. Un sandbox no es
+un piloto, un feature flag no es autorización, datos sintéticos no prueban
+seguridad clínica y CI verde no prueba eficacia, cumplimiento o readiness.
 
 ## Finalidad prevista separada
 
@@ -184,7 +219,7 @@ clasificación o contaminación de frontera; no es la clase MDR.
 | Sesión, RBAC y autorización por recurso | Core / servicio transversal | Identidad, rol, relación y scope | Acceso o denegación | Configuración y revisión institucional | Bajo como función aislada; relevante para seguridad del conjunto | «Control técnico deny-by-default en demo sintética» | «SSO/MFA institucional» o «seguro para producción» | `CORE_KEEP`; DEC-013 bloquea producción |
 | Registros legales y revocación | Core / servicio transversal | Decisión humana, política y scope | Estado registral y acceso efectivo | Siempre | Medio; privacidad y legislación no MDR | «Conserva registros separados y revocación técnica» | «Consentimiento RGPD válido» o «cumplimiento jurídico» | `CORE_KEEP`; decisiones jurídicas pendientes |
 | Crear y versionar episodio | Core | Alta validada, responsables, duración y protocolo elegidos | Episodio y timeline | Creación, activación y cierre humanos | Medio; puede apoyar operación sanitaria | «Registra episodio y responsables» | «Selecciona duración o elegibilidad clínica» | `CORE_KEEP` |
-| Registrar compromiso explícito | Core objetivo; no implementado | Declaración humana versionada | Obligación organizativa | Autoría humana obligatoria | Medio; debe permanecer content-neutral | «Registra el compromiso declarado» tras implementación | «Extrae o infiere compromisos clínicos» | `BLOCKED` hasta aprobar contrato |
+| Registrar compromiso explícito | Core objetivo; no implementado | Declaración sintética versionada en 5B; humana solo en fase futura autorizada | Obligación organizativa | Autoría sintética explícita en 5B; autoridad humana real pendiente | Medio; debe permanecer content-neutral | «Registra el compromiso sintético declarado» tras implementación 5B | «Extrae o infiere compromisos clínicos» | `5B CONDITIONALLY_ALLOWED`; uso real bloqueado |
 | Verificar responsable, plazo y evidencia | Core objetivo; no implementado | Obligación, timestamps y referencias | Estado de constancia | Revisión ante ausencia o contradicción | Medio; alto si incorpora semántica clínica | «Verifica constancia documental» tras evidencia técnica | «Verifica que la atención fue correcta» | `BLOCKED` hasta aprobar semántica |
 | Gobernanza actual de episodio | Core | Estado, responsables, protocolo, avisos y tareas | Blockers técnicos y cierre denegado | Interpretación y cierre humanos | Medio-alto por importar avisos clínicos | «Muestra pendientes técnicos» | «Autoriza cierre clínico» o «episodio seguro» | `CORE_REFACTOR_LATER`; no habilitar cierre |
 | Versionado del Plan de Seguridad | Core documental; contenido clínico separado | Secciones redactadas por personas | Nueva versión e historial | Autoría, activación e invalidación humanas | Medio-alto según finalidad/claims de la plantilla | «Versiona sin sobrescribir» | «Previene suicidio» o «recomienda plan» | `CORE_DOCUMENT_CONTROL`; evaluar plantilla aparte |
@@ -325,9 +360,10 @@ la evidencia ni cerrar el caso automáticamente.
 6. Cada conclusión añade historia; ninguna reescribe el estado observado ni
    inicia automáticamente una acción clínica.
 
-La taxonomía anterior es contractual y todavía no está implementada. No debe
-añadirse al esquema hasta aprobar la frontera, la autoridad de cada decisión y
-la política de conservación.
+La taxonomía anterior es contractual y todavía no está implementada. Salvo los
+tres estados y tres eventos expresamente alcanzables en 5B, no debe añadirse al
+schema hasta aprobar la autoridad de cada decisión, la política de conservación y
+el gate de la fase correspondiente.
 
 ## Límites estrictos de Guardián Core
 
@@ -403,30 +439,37 @@ Consulta realizada el 2026-07-31. Las guías MDCG no son jurídicamente vinculan
 la interpretación definitiva del Derecho de la Unión corresponde al TJUE y la
 decisión nacional debe tramitarse con la autoridad competente cuando proceda.
 
-## Decisiones de arquitectura posteriores bloqueadas
+## Decisiones de arquitectura posteriores y alcance autorizado
 
-No debe implementarse ninguno de los siguientes elementos hasta aprobar esta
-frontera y documentar autoridad, intended purpose y gate regulatorio aplicable:
+Queda autorizado documentalmente solo el slice 5B sintético delimitado por la
+especificación: persistencia aditiva del núcleo mínimo, ciclo de vida interno
+limitado, historia append-only, auditoría atómica, idempotencia, autorización
+deny-by-default, feature flag apagado y pruebas con datos e identidades
+sintéticos. Esta autorización no declara que esos elementos estén implementados.
 
-1. modelo o tabla de `Commitment`, `Obligation`, `Evidence` o `Compliance`;
-2. deadline, SLA, overdue, prioridad, escalado o autoasignación de tareas;
-3. detección automática de ausencia de evidencia o creación automática de tarea;
-4. estado `NON_COMPLIANT`, cierre por excepción o resolución automática;
-5. extracción de compromisos desde SBAR, informes, notas o texto libre;
-6. uso de respuestas de check-in para decidir cumplimiento del equipo;
-7. conexión directa `Clinical Rules → Task/Episode/Communication`;
-8. habilitación del semáforo o conversión de severidad clínica en prioridad Core;
-9. nuevos umbrales, reglas clínicas, cuestionarios o defaults;
-10. cierre de episodio condicionado automáticamente por avisos o tareas;
-11. SBAR automático, recomendación, firma, exportación o envío;
-12. integración HCE/FHIR, mensajería, scheduler, worker u outbox para este flujo;
-13. despliegue, licencia o claim comercial conjunto de Core + Clinical Rules;
-14. uso con pacientes o datos reales, piloto o producción.
+Continúan bloqueados:
 
-Se permiten mientras tanto correcciones documentales, pruebas negativas del
-baseline, accesibilidad, seguridad que no cambie comportamiento y eliminación de
-claims ambiguos. Cualquier rama funcional posterior debe citar la aprobación de
-esta frontera y actualizar ADR, trazabilidad, riesgos, claims y pruebas.
+1. evaluación de vencimiento, detección automática de ausencia de evidencia o
+   creación automática de trabajo;
+2. deadline universal, SLA, overdue, prioridad, escalado o autoasignación;
+3. excepción, incumplimiento confirmado, conciliación, evaluación temporal o
+   cualquier resolución automática;
+4. extracción de compromisos desde SBAR, informes, notas o texto libre;
+5. uso de respuestas de check-in para decidir cumplimiento del equipo;
+6. conexión directa `Clinical Rules → Task/Episode/Communication`;
+7. habilitación del semáforo o conversión de severidad clínica en prioridad Core;
+8. nuevos umbrales, reglas clínicas, cuestionarios o defaults;
+9. cierre de episodio condicionado automáticamente por avisos o tareas;
+10. SBAR automático, recomendación, firma, exportación o envío;
+11. endpoint, API, UI, CLI operativo, integración HCE/FHIR, mensajería,
+    scheduler, worker, job, notificación o segunda cola/outbox para este flujo;
+12. despliegue, licencia o claim comercial conjunto de Core + Clinical Rules;
+13. pacientes, cuidadores, usuarios, datos o identidades reales, piloto,
+    producción o cualquier uso operativo.
+
+Cualquier rama posterior fuera de 5B debe obtener un gate nuevo y actualizar ADR,
+trazabilidad, riesgos, claims y pruebas. El feature flag no sustituye esa
+autorización.
 
 ## Cuestiones pendientes para asesor regulatorio y AEMPS
 
@@ -482,9 +525,28 @@ esta frontera y actualizar ADR, trazabilidad, riesgos, claims y pruebas.
 20. ¿Qué retención, minimización y separación de acceso aplican a obligaciones,
     evidencias, reglas, explicaciones y revisiones?
 
-## Criterios de aceptación de la frontera antes de implementar
+## Criterios de aceptación de la frontera
 
-La frontera solo podrá pasar a `APPROVED_FOR_IMPLEMENTATION` cuando exista:
+### Criterios técnicos mínimos para construir el sandbox 5B
+
+La aceptación técnica interna queda limitada a que 5B:
+
+- implemente únicamente el núcleo y los comandos enumerados en su especificación;
+- use datos, definiciones, actores e identidades inequívocamente sintéticos;
+- permanezca sin ruta externa y con feature flag ausente o apagado por defecto;
+- use autorización inyectable con adaptador runtime que deniega todo;
+- reutilice `DischargeEpisode`, `Task`/`TaskEvent`, `AuditEvent`, units of work,
+  idempotencia y la abstracción temporal inyectada existentes;
+- preserve historia append-only, compatibilidad con episodios existentes y cero
+  backfill o inferencias clínicas;
+- incluya pruebas unitarias y de integración sintéticas y deje el evaluador fuera.
+
+Estos criterios permiten construir software aislado; no demuestran seguridad
+clínica, eficacia, cumplimiento, aceptabilidad de riesgo ni readiness.
+
+### Criterios obligatorios antes de exposición o uso real
+
+El Gate B solo podrá considerarse cuando exista:
 
 - intended purpose aprobado por versión para Core y para cada módulo Clinical
   Rules;
@@ -502,6 +564,10 @@ La frontera solo podrá pasar a `APPROVED_FOR_IMPLEMENTATION` cuando exista:
   módulo está activo;
 - actualización coordinada de ADR, arquitectura freeze, matriz de capacidades,
   trazabilidad, riesgo, documentación comercial y gate DEC-016.
+
+Hasta entonces se mantienen `REAL DATA = NO_GO`, `REAL IDENTITIES = NO_GO`,
+`REAL PILOT = NO_GO` y `PRODUCTION = NO_GO`. No se acepta riesgo residual ni se
+autoriza una afirmación de conformidad DCB0129 o DCB0160.
 
 ## Evidencia de repositorio utilizada
 
