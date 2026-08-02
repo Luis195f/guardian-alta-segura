@@ -1,9 +1,11 @@
 # ADR-0015 — Frontera entre Guardián Core y Clinical Rules
 
-- Estado: Propuesta; bloquea implementación dependiente
-- Fecha: 2026-07-31
+- Estado: `ACCEPTED FOR SYNTHETIC SANDBOX IMPLEMENTATION / OPERATIONAL APPROVAL PENDING`
+- Fecha: 2026-08-02
 - Alcance: finalidad prevista, ownership funcional, interfaces y claims
 - Validación clínica/institucional/regulatoria: no acreditada
+- Autoridad de aceptación: autoridad técnica interna del repositorio, solo para
+  el slice 5B sintético; ninguna aprobación clínica, institucional o regulatoria
 
 ## Contexto
 
@@ -27,7 +29,7 @@ evidencia, excepción o incumplimiento confirmado.
 
 ## Decisión
 
-Se adopta como frontera propuesta la especificación
+Se acepta como frontera arquitectónica interna la especificación
 [Frontera de aseguramiento del circuito](../system-assurance-boundary.md).
 
 1. Guardián Core posee exclusivamente reglas organizativas de aseguramiento del
@@ -46,6 +48,16 @@ Se adopta como frontera propuesta la especificación
    e incumplimiento confirmado permanecen hechos distintos.
 7. La finalidad y cualificación de cada módulo, y la seguridad del conjunto, se
    evalúan y documentan por separado.
+8. Una salida de Clinical Rules nunca completa un compromiso. La presencia de
+   evidencia tampoco acredita calidad, efectividad clínica o atención correcta.
+9. Core no diagnostica, predice, puntúa, prioriza ni decide actuaciones clínicas.
+   La no respuesta del paciente no equivale a incumplimiento.
+
+La aceptación procede exclusivamente de la autoridad técnica interna del
+repositorio para construir y probar software aislado con datos e identidades
+sintéticos. No procede ni representa aprobación de una organización desplegadora,
+hospital, autoridad clínica, CSO, responsable del tratamiento, función jurídica o
+regulatoria, profesional, paciente o cuidador.
 
 ## Impacto sobre decisiones anteriores
 
@@ -58,9 +70,9 @@ Se adopta como frontera propuesta la especificación
   de la interfaz actual; no acreditan una separación desplegable.
 - ADR-0013 y ADR-0014 permanecen como capacidades Core de accountability e
   integridad técnica.
-- El freeze de runtime, persistencia, seguridad, historia append-only y uso
-  sintético permanece vigente. Este ADR no autoriza refactor, migración,
-  microservicio ni despliegue nuevo.
+- El freeze de runtime, seguridad, historia append-only y uso sintético permanece
+  vigente. La única excepción documental es el slice 5B descrito abajo; este ADR
+  no autoriza microservicio, ruta externa ni despliegue operativo.
 
 En caso de conflicto de ownership o claims, este ADR prevalece sobre las tablas
 anteriores que incluyan deterministic rules, clinical alerts o clinical content
@@ -89,18 +101,35 @@ dentro de «Core Guardian». No cambia el estado real del código.
 - La separación modular no implica que Core quede fuera del alcance de evaluación
   cuando sea necesario para la operación segura de Clinical Rules.
 
-## Gate de implementación
+## Alcance de implementación autorizado
 
-Hasta que este ADR pase a `Aceptada` con evidencia de autoridad, quedan bloqueados:
+La aceptación técnica interna autoriza únicamente una futura implementación del
+slice 5B definido normativamente en la
+[especificación del motor](../architecture/commitment-engine-spec.md): núcleo
+persistente mínimo y aditivo, una migración como máximo, ciclo de vida limitado,
+versionado e historia append-only, auditoría atómica, idempotencia, concurrencia
+transaccional de sus cuatro comandos, autorización inyectable deny-by-default,
+feature flag apagado y pruebas exclusivamente sintéticas. No declara ese slice
+implementado ni autoriza ampliar su alcance.
 
-- nuevos modelos de compromiso/obligación/evidencia/cumplimiento;
-- deadlines, SLA, overdue, prioridad, escalado o autoasignación;
-- detección o creación automática de trabajo por ausencia de evidencia;
+## Alcance que permanece bloqueado
+
+Permanecen bloqueados:
+
+- evaluación de vencimientos, ausencia automática, resolver de evidencia,
+  conciliación, excepción e incumplimiento confirmado;
+- deadlines predeterminados, SLA, overdue, prioridad, escalado o autoasignación;
+- scheduler, worker, batch evaluator, job, segunda cola u outbox;
+- endpoints, API, UI, CLI operativo, notificaciones o integraciones;
 - nuevos umbrales, reglas, cuestionarios o semáforo;
 - conexión directa de Clinical Rules con mutaciones Core;
 - cierre de episodio condicionado automáticamente por avisos o tareas;
-- integración, piloto, datos reales, comercialización o despliegue productivo.
+- datos, identidades, pacientes, cuidadores o usuarios reales;
+- uso asistencial, piloto, comercialización, release o producción;
+- claims de seguridad clínica, eficacia, cumplimiento DCB0129/DCB0160,
+  cualificación o clasificación regulatoria y aceptación de riesgo residual.
 
-La aprobación debe incluir evaluación regulatoria, contrato de interfaz, análisis
-de peligros, claims, autoridades humanas, semántica de evidencia y actualización
-del architecture freeze y trazabilidad aplicables.
+DEC-005, DEC-013, DEC-014, DEC-015, DEC-016 y DEC-017 conservan su estado
+`Pendiente`; ningún REQ o DEC cambia por este ADR. El Gate B operativo requiere
+evaluación regulatoria, contrato de interfaz, análisis de peligros, claims,
+autoridades humanas, semántica institucional de evidencia y aprobación de release.

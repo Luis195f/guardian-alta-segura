@@ -4,24 +4,191 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | `DISEÑO INTERNO / NO IMPLEMENTADO / NO AUTORIZA IMPLEMENTACIÓN` |
-| Rama | `design/commitment-engine-spec` |
-| Commit base inspeccionado | `ae6ee97643cfba628dafa0fef31bf2fcf6ec8e20` |
-| Fecha de corte | 2026-07-31 |
+| Estado | `APPROVED FOR SYNTHETIC SANDBOX IMPLEMENTATION / NOT IMPLEMENTED / NOT AUTHORIZED FOR REAL USE` |
+| Autoridad y significado de `APPROVED` | Aprobación técnica interna del repositorio, exclusivamente para el sandbox sintético 5B; no es aprobación clínica, institucional, jurídica, regulatoria, de seguridad ni operativa |
+| Rama | `docs/commitment-sandbox-implementation-gate` |
+| Commit base inspeccionado | `26190a66554274665f4042c8497da9f403d4f578` |
+| Fecha de corte | 2026-08-02 |
 | Frontera rectora | [Frontera de aseguramiento del circuito](../system-assurance-boundary.md) y [ADR-0015](../adr/0015-guardian-core-clinical-rules-boundary.md) |
 | Concurrencia | [ADR-0016](../adr/0016-commitment-evaluation-concurrency.md) |
 | Datos permitidos | Exclusivamente sintéticos |
 | Estado regulatorio, clínico e institucional | No evaluado o pendiente; no acreditado |
 
-La fusión del documento de frontera autoriza únicamente esta especificación
-interna. No cambia `ADR-0015 = Propuesta`, `DEC-017 = Pendiente`,
-`DEC-016 = Pendiente`, `REAL PILOT = NO_GO` ni el gate institucional
-`READY_FOR_INSTITUTIONAL_DECISION`. Los nombres de tipos y tablas de este
-documento son conceptuales. No son nombres Prisma aprobados.
+La aprobación técnica interna autoriza únicamente una futura implementación del
+slice 5B delimitado en este documento. No cambia ningún estado canónico REQ o DEC:
+`DEC-005`, `DEC-013`, `DEC-014`, `DEC-015`, `DEC-016` y `DEC-017` continúan
+`Pendiente`; `READY_FOR_INSTITUTIONAL_DECISION` y `REAL PILOT = NO_GO` se
+mantienen. Los nombres enumerados abajo quedan congelados para el sandbox, sin
+afirmar que existan ya en Prisma o en runtime.
 
 Esta especificación no afirma que el motor exista. El baseline no registra un
 compromiso explícito con plazo y política de evidencia, no ejecuta un scheduler
 y no detecta automáticamente ausencias de evidencia.
+
+## Gates y contrato normativo del slice 5B
+
+### Gate A — implementación técnica sintética
+
+`SYNTHETIC SANDBOX IMPLEMENTATION = GO` e
+`IMPLEMENTATION SLICE 5B = GO` significan exclusivamente que la autoridad técnica
+interna del repositorio permite construir y probar el núcleo aislado descrito en
+esta sección con datos, definiciones, actores e identidades sintéticos. No
+significan aprobación clínica, institucional, jurídica, regulatoria, de seguridad
+o de release.
+
+5B queda limitado a:
+
+- persistencia aditiva del núcleo mínimo mediante una migración como máximo;
+- definición y versión sintéticas, identidad del compromiso, versión inmutable y
+  eventos append-only;
+- vínculo obligatorio con `DischargeEpisode` como fuente de verdad;
+- fuente/protocolo y versión obligatorios, acción verificable, `dueAt` explícito,
+  zona temporal y política o referencia versionada de evidencia;
+- responsable como referencia de rol sin inventar autoridad institucional y
+  asignación opcional separada de la responsabilidad;
+- revisión/versionado optimista, idempotencia, unit of work y auditoría atómica;
+- autorización inyectable deny-by-default, feature flag apagado por defecto y
+  pruebas unitarias/de integración exclusivamente sintéticas.
+
+Los únicos estados escribibles por servicios de aplicación en 5B son:
+
+- `DRAFT`;
+- `AWAITING_EVIDENCE`;
+- `SUPERSEDED_BY_CORRECTION`.
+
+Los únicos comandos autorizados en 5B son:
+
+- `CREATE_COMMITMENT_DRAFT`;
+- `ACTIVATE_COMMITMENT`;
+- `SUPERSEDE_DRAFT`;
+- `SUPERSEDE_ACTIVE_VERSION`.
+
+Los únicos eventos semánticos de compromiso autorizados en 5B son:
+
+- `COMMITMENT_DRAFT_CREATED`;
+- `COMMITMENT_ACTIVATED`;
+- `COMMITMENT_SUPERSEDED`.
+
+5B no incluye cancelación silenciosa, borrado, cumplimiento manual genérico,
+excepción, incumplimiento confirmado, conciliación, resolución de evidencia,
+evaluación de vencimiento ni transición automática basada en tiempo. El catálogo
+completo posterior se conserva solo como
+`DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`; 5B no debe materializar en
+Prisma estados que sus servicios no pueden producir.
+
+### Gate B — uso operativo o real
+
+Permanece completamente bloqueado hasta resolver formalmente las decisiones y
+evidencias institucionales aplicables: intended use, autoridades, roles, CSO,
+aceptabilidad y evaluación de riesgos, clinical/human-factors validation,
+identidad institucional, monitorización, incidentes, continuidad, integraciones,
+controles transferidos, revisión regulatoria y release. En particular:
+
+```text
+DUE EVALUATOR = NO_GO
+AUTOMATIC EVALUATION = NO_GO
+SCHEDULER / WORKER = NO_GO
+EXTERNAL API / UI EXPOSURE = NO_GO
+REAL DATA = NO_GO
+REAL IDENTITIES = NO_GO
+REAL PILOT = NO_GO
+PRODUCTION = NO_GO
+DCB0129 COMPLIANCE CLAIM = NOT_AUTHORIZED
+DCB0160 COMPLIANCE CLAIM = NOT_AUTHORIZED
+RESIDUAL RISK ACCEPTANCE = NONE
+```
+
+Un feature flag no sustituye autorización; un sandbox no es un piloto; datos
+sintéticos y CI verde no demuestran seguridad clínica, eficacia, cumplimiento o
+readiness.
+
+### Nombres técnicos congelados para 5B
+
+Se confirman como nombres técnicos definitivos del sandbox:
+
+- `CommitmentDefinition`;
+- `CommitmentDefinitionVersion`;
+- `EpisodeCommitment`;
+- `EpisodeCommitmentVersion`;
+- `CommitmentEvent`;
+- `EvidenceReferenceV1`.
+
+`DischargeEpisode` conserva la fuente de verdad del episodio; `Task` y
+`TaskEvent` conservan trabajo humano y posibles fuentes, no compromisos;
+`AuditEvent` sigue siendo la única auditoría. Se reutilizan la abstracción
+temporal inyectada existente (`Clock` o equivalente), units of work,
+idempotencia y patrones transaccionales existentes.
+
+Se rechazan expresamente `ProcessCommitment`, `EpisodeContract`, `TaskCase`,
+`ReviewGate`, una tabla universal `EvidenceRecord`, un segundo `AuditLog`, una
+segunda fuente de verdad y una segunda cola u outbox.
+
+### Feature gate técnico
+
+El nombre exacto reservado, compatible con la convención booleana existente, es:
+
+```text
+COMMITMENT_ENGINE_ENABLED=false
+```
+
+Ausente o `false`, la capacidad está deshabilitada y no permite escrituras. No
+cambia rutas, UI, tareas, alertas o episodios y no tiene fallback implícito. No
+habilita evaluador, endpoints, scheduler, worker, usuarios reales ni readiness.
+5B permanece sin ruta externa incluso si un test controla el gate. Esta rama solo
+documenta el gate; no lo implementa.
+
+### Contrato de autorización técnica
+
+- Toda operación requiere un port `CommitmentAuthorizationPolicy` o equivalente
+  y autorización por episodio/recurso.
+- El adaptador runtime por defecto deniega todas las operaciones.
+- No se mapean `admin`, `nurse`, `clinician`, `patient`, `caregiver`, `support`,
+  supervisor, auditor o service identity a capabilities de compromiso; no se
+  inventan roles.
+- Solo pruebas pueden usar un adaptador explícito de autorización sintética,
+  ubicado en el árbol de pruebas o soporte inequívocamente sintético y no
+  importable desde runtime productivo.
+- El actor se identifica inequívocamente como dato de prueba.
+- No existe endpoint, UI o comando CLI operativo. DEC-013 y DEC-017 continúan
+  bloqueando cualquier mapping real.
+
+### Definiciones y políticas sintéticas
+
+En 5B `CommitmentDefinition` y `CommitmentDefinitionVersion` son exclusivamente
+sintéticas y permanecen `DRAFT`. `DRAFT` es un estado técnico de prueba: no
+significa aprobación, publicación, vigencia o adopción institucional.
+
+`ACTIVATE_COMMITMENT` solo puede referenciar una
+`CommitmentDefinitionVersion` sintética, inmutable y aportada explícitamente por
+la fixture o prueba. Activar el compromiso no publica ni aprueba la definición.
+No existe comando, evento, endpoint o workflow de aprobación o publicación de
+definiciones.
+
+No existe catálogo clínico, seed operativo, plazo, acción, responsable o política
+de evidencia predeterminados. Cada prueba aporta explícitamente fuente, versión,
+`dueAt`, zona y política. El adaptador sintético de autorización no puede
+habilitar uso runtime, y cualquier definición real continúa bloqueada.
+
+Ningún episodio existente recibe compromisos automáticamente. No hay backfill y
+un episodio sin compromisos sigue siendo válido y compatible.
+
+### Capacidad autorizada, diferida y bloqueada
+
+| Capacidad | 5B sandbox | Fase futura | Uso real |
+| --- | --- | --- | --- |
+| Modelo mínimo | Autorizado | — | Bloqueado |
+| Migración aditiva | Autorizada | — | Bloqueado |
+| Crear borrador sintético | Autorizado internamente | — | Bloqueado |
+| Activar compromiso sintético | Autorizado internamente | — | Bloqueado |
+| Sustituir versión | Autorizado internamente | — | Bloqueado |
+| Evidencia | Solo contrato futuro | Ledger | Bloqueado |
+| Evaluar vencimientos | No | Evaluador | Bloqueado |
+| Excepción humana | No | Ledger/gobernanza | Bloqueado |
+| Confirmar incumplimiento | No | Ledger/gobernanza | Bloqueado |
+| API/UI | No | UX futura | Bloqueado |
+| Scheduler/worker | No | Operación futura | Bloqueado |
+| Datos reales | No | Requiere gates | Bloqueado |
+| Piloto | No | Requiere DEC-016 y safety gates | Bloqueado |
 
 ## Tesis y límites
 
@@ -63,11 +230,9 @@ La máquina:
 | Evaluación temporal | No existe scheduler, worker ni job | Nuevo caso de uso futuro; contrato solamente en esta rama | ADR-0006; frontera de aseguramiento, inventario del baseline |
 
 `ProcessCommitment`, `EpisodeContract`, `TaskCase`, `ReviewGate` y
-`EvidenceRecord` eran hipótesis. Esta especificación no adopta
-`ProcessCommitment`, por ser demasiado amplio, y rechaza los cuatro últimos como
-fuentes paralelas. Usa provisionalmente `EpisodeCommitment` para hacer explícito
-el vínculo al agregado real; el nombre deberá confirmarse en la futura revisión
-de implementación.
+`EvidenceRecord` eran hipótesis. Esta especificación rechaza todos esos nombres o
+estructuras paralelas. `EpisodeCommitment` queda confirmado, no provisional, para
+hacer explícito el vínculo al agregado real.
 
 ## Modelo conceptual formal
 
@@ -76,7 +241,7 @@ de implementación.
 ```mermaid
 flowchart LR
   EP["DischargeEpisode\nfuente de verdad"]
-  CDV["CommitmentDefinitionVersion\nconceptual, inmutable"]
+  CDV["CommitmentDefinitionVersion\nnombre congelado, inmutable"]
   EC["EpisodeCommitment\nidentidad lógica"]
   ECV["EpisodeCommitmentVersion\nsnapshot inmutable"]
   CEV["CommitmentEvent\nhistoria append-only"]
@@ -100,7 +265,7 @@ acción exigida, su plazo, su evidencia y su revisión.
 
 ### Identidad, definición e instancia
 
-#### `CommitmentDefinitionVersion` conceptual
+#### `CommitmentDefinition` y `CommitmentDefinitionVersion`
 
 Una definición es una plantilla organizativa inmutable y versionada. Debe
 contener, como mínimo:
@@ -111,37 +276,37 @@ contener, como mínimo:
 | `version` | Versión positiva e inmutable; una modificación crea N+1 |
 | `sourceRef` | Tipo, ID y versión de protocolo, política o documento fuente |
 | `actionKey` | Identificador estable de una acción verificable y content-neutral |
-| `actionStatement` | Texto aprobado que describe una acción del equipo, nunca un resultado clínico prometido |
-| `responsibleRoleRef` | Rol o función institucional versionada; no equivale por defecto a un enum técnico actual |
+| `actionStatement` | Texto sintético explícito en 5B que describe una acción verificable, nunca un resultado clínico prometido; aprobación institucional diferida |
+| `responsibleRoleRef` | Referencia de rol sintética y versionada en 5B; no equivale a un enum técnico ni a una autoridad institucional |
 | `dueSourceKind` | Origen del plazo; no contiene un plazo universal |
 | `evidencePolicy` | Política inmutable descrita abajo |
-| `state` | `DRAFT`, `APPROVED`, `RETIRED` o estados que apruebe la gobernanza; el baseline no los autoriza |
-| `approvalEvidenceRef` | Referencia a evidencia de aprobación, no contenido clínico |
+| `state` | Solo `DRAFT` en 5B; estados de publicación o retirada se difieren y no equivalen a aprobación institucional |
+| `approvalEvidenceRef` | No se usa en 5B; cualquier semántica futura requiere autoridad y evidencia institucionales |
 | `effectiveFrom/effectiveTo` | Vigencia si la autoridad decide usarla; no se inventan valores |
 
 No se diseña un DSL. La definición no contiene código, expresiones arbitrarias,
-umbrales clínicos o texto ejecutable. La futura implementación solo podrá usar
-estructuras cerradas y aprobadas para seleccionar una fuente de plazo y tipos de
-evidencia.
+umbrales clínicos o texto ejecutable. 5B solo usa estructuras cerradas aportadas
+explícitamente por cada prueba; una fase real requeriría estructuras aprobadas
+para seleccionar una fuente de plazo y tipos de evidencia.
 
-#### `EpisodeCommitment` conceptual
+#### `EpisodeCommitment`
 
 Es la identidad lógica estable de un compromiso dentro de un único episodio.
 Debe tener `id`, `episodeId`, número de revisión y referencia a su versión
 vigente. `episodeId` es obligatorio e inmutable. No puede moverse entre
 episodios, borrarse ni convertirse en una segunda raíz del episodio.
 
-#### `EpisodeCommitmentVersion` conceptual
+#### `EpisodeCommitmentVersion`
 
 Cada versión de instancia congela:
 
 - `commitmentId`, `versionNumber` y `basedOnVersionId`;
 - `episodeId` coincidente con la identidad lógica;
-- `definitionVersionId` o, para una declaración humana excepcionalmente
-  admitida, una `sourceRef` igualmente identificable y versionada;
-- `actionKey` y la acción verificable confirmada por una persona autorizada;
+- `definitionVersionId`; una declaración humana ad hoc queda diferida y no está
+  autorizada en 5B;
+- `actionKey` y la acción verificable aportada explícitamente por la prueba;
 - `responsibleRoleRef` obligatorio;
-- `assignedUserId` opcional y su evidencia de autorización actual al asignar;
+- `assignedUserId` sintético opcional y decisión del policy de prueba al asignar;
 - `dueAt` como instante UTC inequívoco;
 - `timeZone` IANA usada para mostrar y, cuando proceda, resolver el instante;
 - referencia exacta a la fuente del plazo y datos mínimos de resolución;
@@ -163,11 +328,12 @@ de forma, no de contenido institucional aprobado:
 - válido: «ofrecer y documentar una cita conforme al protocolo X»;
 - inválido: «el paciente acudirá y mejorará».
 
-`responsibleRoleRef` expresa la función responsable definida por una fuente
-aprobada. `assignedUserId` expresa una asignación técnica concreta. No son
-sinónimos. La ausencia de assignee no cambia por sí sola el plazo, no atribuye
-incumplimiento y no permite autoasignación. DEC-013 y DEC-017 deben resolver el
-mapeo institucional, acceptance, suplencia, turnos y autoridad.
+`responsibleRoleRef` expresa en 5B una referencia sintética declarada por la
+prueba. `assignedUserId` expresa una asignación técnica sintética concreta. No son
+sinónimos ni acreditan autoridad institucional. La ausencia de assignee no cambia
+por sí sola el plazo, no atribuye incumplimiento y no permite autoasignación.
+DEC-013 y DEC-017 deben resolver el mapping institucional, acceptance, suplencia,
+turnos y autoridad antes de cualquier uso real.
 
 ### Plazo, zona horaria y reloj
 
@@ -176,12 +342,13 @@ mapeo institucional, acceptance, suplencia, turnos y autoridad.
   UTC. La fuente, versión y datos de resolución quedan referenciados.
 - `timeZone` conserva la zona IANA usada para presentación o cálculo local. No se
   acepta el huso del navegador como autoridad.
-- Ambigüedades DST, calendarios laborables, pausas y excepciones dependen de una
-  política aprobada. Si no pueden resolverse inequívocamente, la activación se
-  abstiene o falla de forma cerrada.
-- Casos de uso y evaluadores reciben `Clock` inyectable. El runtime no llama a
-  `new Date()` dentro de reglas de dominio. El contrato público recibe `now` y
-  valida que sea un instante UTC finito.
+- Ambigüedades DST, calendarios laborables, pausas y excepciones no se resuelven
+  mediante defaults. La prueba 5B debe aportar un instante inequívoco; una fase
+  real requerirá política aprobada.
+- Los servicios 5B y un futuro evaluador reciben `Clock` o la abstracción
+  temporal equivalente inyectada. El runtime no llama a `new Date()` dentro de
+  reglas de dominio. El contrato de aplicación recibe `now` y valida que sea un
+  instante UTC finito.
 - Una corrección del reloj o del plazo crea historia; no mueve silenciosamente
   `dueAt` en una versión activa.
 
@@ -214,6 +381,12 @@ Por tanto:
   conciliación; nunca una clasificación temporal inventada.
 
 ### Política y referencias de evidencia
+
+En 5B se persiste únicamente una política o referencia de política sintética,
+versionada y aportada explícitamente por la prueba. No se resuelve evidencia, no
+se consulta una fuente y no se decide si una referencia satisface el compromiso.
+La semántica restante de esta sección está
+`DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`.
 
 La política de evidencia es cerrada, versionada y content-neutral. Debe declarar:
 
@@ -257,89 +430,80 @@ inputs o explicación como evidencia de cumplimiento.
 | Evidencia pendiente de conciliación | Que una referencia requiere validación humana | Evidencia aceptada o incumplimiento | Estado no terminal, visible a revisión |
 | Incumplimiento confirmado | Que un revisor autorizado emitió esa conclusión con motivo y evidencia | Culpa, negligencia, diagnóstico, prioridad o acción clínica | Solo transición humana explícita y corregible mediante evento |
 
-## Máquina de estados
+## Máquina de estados normativa y alcanzable en 5B
 
-### Estados
+> `NORMATIVE AND REACHABLE IN SYNTHETIC SANDBOX 5B`
 
-| Estado | Naturaleza | Significado exclusivo |
+Solo existen tres estados escribibles y cuatro transiciones autorizadas. Los
+actores, episodios, definiciones y políticas son sintéticos; no existe ruta
+runtime externa.
+
+| Estado 5B | Naturaleza | Significado exclusivo |
 | --- | --- | --- |
-| `DRAFT` | No activo | Snapshot incompleto o pendiente de confirmación humana; no se evalúa |
-| `AWAITING_EVIDENCE` | Activo | Compromiso activado y aún sin una conclusión registral |
-| `EVIDENCE_RECORDED_ON_TIME` | Terminal registral | Antes de existir una ausencia para la versión, se resolvió una referencia compatible con `recordedAt <= dueAt`; no valora calidad clínica |
-| `REVIEW_REQUIRED_ABSENCE` | No terminal | En `evaluatedAt >= dueAt` no fue visible evidencia registral en plazo y se registró `AUSENCIA_DE_EVIDENCIA_EN_PLAZO`; requiere revisión humana |
-| `EVIDENCE_PENDING_RECONCILIATION` | No terminal | Después de la ausencia apareció una referencia candidata cuya compatibilidad, tiempos y falta de visibilidad debe resolver una persona |
-| `LATE_EVIDENCE_RECORDED` | No terminal | La fuente autoritativa demuestra `recordedAt > dueAt`; la ausencia histórica permanece y falta disposición humana |
-| `DATA_ERROR_REVIEW_REQUIRED` | No terminal | Una inconsistencia técnica impide una conclusión fiable |
-| `EVIDENCE_RECONCILED_ON_TIME` | Terminal registral humano | Revisor autorizado confirmó `recordedAt <= dueAt` para evidencia descubierta o enlazada después de la ausencia y documentó por qué no fue visible; no borra la ausencia histórica |
-| `EVIDENCE_RECONCILED_LATE` | Terminal registral humano | Revisor autorizado confirmó `recordedAt > dueAt` sin borrar la ausencia histórica |
-| `JUSTIFIED_OPERATIONAL_EXCEPTION` | Terminal humano | Revisor autorizado aplicó una excepción versionada y documentada |
-| `CONFIRMED_NON_FULFILMENT` | Terminal humano | Revisor autorizado confirmó incumplimiento de la acción definida; no atribuye culpa ni consecuencia clínica |
-| `CORRECTION_REVIEW_REQUIRED` | No terminal correctivo | Un evento correctivo cuestiona una disposición terminal previa sin borrarla |
-| `SUPERSEDED_BY_CORRECTION` | Terminal estructural | La versión fue sustituida por otra versión explícita; conserva toda su historia |
+| `DRAFT` | No activo | Snapshot sintético pendiente de activación técnica; no se evalúa y no implica aprobación institucional |
+| `AWAITING_EVIDENCE` | Activo solo dentro del lifecycle sintético | Compromiso sintético activado; 5B no registra ni resuelve evidencia y no evalúa su vencimiento |
+| `SUPERSEDED_BY_CORRECTION` | Terminal estructural | La versión sintética fue sustituida explícitamente; conserva toda su historia |
 
-Los estados terminales no aceptan transiciones ordinarias. Solo
-`RECORD_CORRECTION` puede abrir `CORRECTION_REVIEW_REQUIRED`, con referencia al
-evento corregido, actor, motivo y nueva idempotencia. La proyección conserva la
-disposición previa y la corrección; no reescribe ninguna fila.
+| Alcance | Origen | Destino | Actor | Precondiciones | Comando | Evento semántico | Idempotencia/corrección |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `5B_REACHABLE` | inexistente | `DRAFT` | Actor sintético admitido por el policy de prueba | Episodio sintético existente; definición/versión, fuente y policy explícitas | `CREATE_COMMITMENT_DRAFT` | `COMMITMENT_DRAFT_CREATED` | actor + clave + fingerprint; no delete |
+| `5B_REACHABLE` | `DRAFT` | `AWAITING_EVIDENCE` | Actor sintético admitido por el policy de prueba | Versión de definición sintética `DRAFT`, inmutable y aportada por fixture/prueba; acción, rol, fuente, `dueAt`, zona y policy completos | `ACTIVATE_COMMITMENT` | `COMMITMENT_ACTIVATED` | actor + clave + fingerprint + expected revision; no publica ni aprueba la definición |
+| `5B_REACHABLE` | `DRAFT` | `SUPERSEDED_BY_CORRECTION` | Actor sintético admitido por el policy de prueba | Versión reemplazante sintética creada y enlazada | `SUPERSEDE_DRAFT` | `COMMITMENT_SUPERSEDED` | actor + clave + expected revision; solo append |
+| `5B_REACHABLE` | `AWAITING_EVIDENCE` | `SUPERSEDED_BY_CORRECTION` | Actor sintético admitido por el policy de prueba | Nueva versión sintética y motivo documentado; no backdating silencioso | `SUPERSEDE_ACTIVE_VERSION` | `COMMITMENT_SUPERSEDED` | actor + clave + expected revision; solo append |
 
 ```mermaid
 stateDiagram-v2
-  [*] --> DRAFT
+  [*] --> DRAFT: CREATE_COMMITMENT_DRAFT
   DRAFT --> AWAITING_EVIDENCE: ACTIVATE_COMMITMENT
   DRAFT --> SUPERSEDED_BY_CORRECTION: SUPERSEDE_DRAFT
-  AWAITING_EVIDENCE --> EVIDENCE_RECORDED_ON_TIME: RECORD_COMPATIBLE_EVIDENCE
-  AWAITING_EVIDENCE --> REVIEW_REQUIRED_ABSENCE: EVALUATE_DUE_WITHOUT_ON_TIME_EVIDENCE
-  AWAITING_EVIDENCE --> DATA_ERROR_REVIEW_REQUIRED: RECORD_DATA_ERROR
   AWAITING_EVIDENCE --> SUPERSEDED_BY_CORRECTION: SUPERSEDE_ACTIVE_VERSION
-  REVIEW_REQUIRED_ABSENCE --> EVIDENCE_PENDING_RECONCILIATION: MARK_PENDING_RECONCILIATION
-  REVIEW_REQUIRED_ABSENCE --> LATE_EVIDENCE_RECORDED: RECORD_LATE_EVIDENCE
-  REVIEW_REQUIRED_ABSENCE --> JUSTIFIED_OPERATIONAL_EXCEPTION: JUSTIFY_EXCEPTION
-  REVIEW_REQUIRED_ABSENCE --> CONFIRMED_NON_FULFILMENT: CONFIRM_NON_FULFILMENT
-  REVIEW_REQUIRED_ABSENCE --> DATA_ERROR_REVIEW_REQUIRED: RECORD_DATA_ERROR
-  EVIDENCE_PENDING_RECONCILIATION --> EVIDENCE_RECONCILED_ON_TIME: ACCEPT_ON_TIME_EVIDENCE_AFTER_ABSENCE
-  EVIDENCE_PENDING_RECONCILIATION --> EVIDENCE_RECONCILED_LATE: ACCEPT_LATE_EVIDENCE
-  EVIDENCE_PENDING_RECONCILIATION --> CONFIRMED_NON_FULFILMENT: CONFIRM_NON_FULFILMENT
-  EVIDENCE_PENDING_RECONCILIATION --> JUSTIFIED_OPERATIONAL_EXCEPTION: JUSTIFY_EXCEPTION
-  LATE_EVIDENCE_RECORDED --> EVIDENCE_RECONCILED_LATE: ACCEPT_LATE_EVIDENCE
-  LATE_EVIDENCE_RECORDED --> JUSTIFIED_OPERATIONAL_EXCEPTION: JUSTIFY_EXCEPTION
-  LATE_EVIDENCE_RECORDED --> CONFIRMED_NON_FULFILMENT: CONFIRM_NON_FULFILMENT
-  DATA_ERROR_REVIEW_REQUIRED --> EVIDENCE_PENDING_RECONCILIATION: DATA_CORRECTED
-  DATA_ERROR_REVIEW_REQUIRED --> SUPERSEDED_BY_CORRECTION: SUPERSEDE_VERSION
-  EVIDENCE_RECORDED_ON_TIME --> CORRECTION_REVIEW_REQUIRED: RECORD_CORRECTION
-  EVIDENCE_RECONCILED_ON_TIME --> CORRECTION_REVIEW_REQUIRED: RECORD_CORRECTION
-  EVIDENCE_RECONCILED_LATE --> CORRECTION_REVIEW_REQUIRED: RECORD_CORRECTION
-  JUSTIFIED_OPERATIONAL_EXCEPTION --> CORRECTION_REVIEW_REQUIRED: RECORD_CORRECTION
-  CONFIRMED_NON_FULFILMENT --> CORRECTION_REVIEW_REQUIRED: RECORD_CORRECTION
-  CORRECTION_REVIEW_REQUIRED --> EVIDENCE_PENDING_RECONCILIATION: REOPEN_RECONCILIATION
-  CORRECTION_REVIEW_REQUIRED --> SUPERSEDED_BY_CORRECTION: SUPERSEDE_VERSION
 ```
 
-### Tabla formal de transiciones
+## Catálogo futuro de estados y transiciones
 
-En esta tabla, «rol aprobado» significa una capability institucional futura; no
-se presupone que `admin`, `nurse` o `clinician` actuales satisfagan ese mapping.
+> `DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`
 
-| Origen | Destino | Actor autorizado | Precondiciones | Comando | `AuditEvent` futuro | Idempotencia | Reversibilidad/corrección |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| inexistente | `DRAFT` | Profesional con `commitment-write` y responsabilidad actual | Episodio existente; fuente versionada; datos sintéticos en el baseline | `CREATE_COMMITMENT_DRAFT` | `COMMITMENT_DRAFT_CREATED` | actor + clave + fingerprint | Nueva versión o evento correctivo; no delete |
-| `DRAFT` | `AWAITING_EVIDENCE` | Profesional autorizado | Acción verificable, rol, fuente, `dueAt`, zona y policy completos; revisión vigente | `ACTIVATE_COMMITMENT` | `COMMITMENT_ACTIVATED` | actor + clave + fingerprint + expected revision | Sustitución N+1; no mutación de snapshot |
-| `DRAFT` | `SUPERSEDED_BY_CORRECTION` | Profesional autorizado | Versión reemplazante creada y enlazada | `SUPERSEDE_DRAFT` | `COMMITMENT_SUPERSEDED` | actor + clave + expected revision | Solo nuevo evento correctivo |
-| `AWAITING_EVIDENCE` | `EVIDENCE_RECORDED_ON_TIME` | Profesional o evaluador Core autenticado | Referencia resuelta antes de una ausencia; mismo episodio/policy; `recordedAt <= dueAt`; `occurredAt`, `discoveredAt` o `linkedAt` no sustituyen esa comparación | `RECORD_COMPATIBLE_EVIDENCE` | `COMMITMENT_EVIDENCE_RECORDED` | clave semántica de fuente + fingerprint | `RECORD_CORRECTION` |
-| `AWAITING_EVIDENCE` | `REVIEW_REQUIRED_ABSENCE` | Evaluador Core autenticado | `evaluatedAt = now >= dueAt`; ninguna referencia compatible con `recordedAt <= dueAt` es visible/resoluble; fuente disponible; lock adquirido | `EVALUATE_DUE_WITHOUT_ON_TIME_EVIDENCE` | `COMMITMENT_EVIDENCE_ABSENCE_RECORDED` | commitment version + dueAt + policy version + event kind | No se borra; revisión o corrección |
-| `AWAITING_EVIDENCE` | `DATA_ERROR_REVIEW_REQUIRED` | Evaluador Core o profesional autorizado | Referencia/policy/episode inconsistente; sin inferir conclusión | `RECORD_DATA_ERROR` | `COMMITMENT_DATA_ERROR_RECORDED` | error class + commitment version + fingerprint | Corrección explícita y nueva evaluación |
-| `AWAITING_EVIDENCE` | `SUPERSEDED_BY_CORRECTION` | Profesional autorizado | Nueva versión activa y motivo documentado; no backdating silencioso | `SUPERSEDE_ACTIVE_VERSION` | `COMMITMENT_SUPERSEDED` | actor + clave + expected revision | Solo evento correctivo |
-| `REVIEW_REQUIRED_ABSENCE` | `EVIDENCE_PENDING_RECONCILIATION` | Profesional autorizado o resolver Core | Referencia descubierta/enlazada causalmente después de la ausencia; `recordedAt` autoritativo disponible o pendiente de validar; se conservan los cuatro tiempos aplicables | `MARK_PENDING_RECONCILIATION` | `COMMITMENT_RECONCILIATION_STARTED` | fuente + commitment version + fingerprint | Nueva conclusión humana; no borrar ausencia |
-| `REVIEW_REQUIRED_ABSENCE` | `LATE_EVIDENCE_RECORDED` | Profesional autorizado o resolver Core | Referencia compatible; la fuente autoritativa demuestra `recordedAt > dueAt`; ausencia histórica existente | `RECORD_LATE_EVIDENCE` | `COMMITMENT_LATE_EVIDENCE_RECORDED` | fuente + commitment version | Revisión humana; no borrar ausencia |
-| `REVIEW_REQUIRED_ABSENCE` | `JUSTIFIED_OPERATIONAL_EXCEPTION` | Revisor humano autorizado | Categoría y policy version aprobadas; motivo obligatorio; evidencia de autoridad actual | `JUSTIFY_EXCEPTION` | `COMMITMENT_EXCEPTION_RECORDED` | actor + clave + fingerprint | `RECORD_CORRECTION` solamente |
-| `REVIEW_REQUIRED_ABSENCE` | `CONFIRMED_NON_FULFILMENT` | Revisor humano autorizado | Revisión explícita; motivo; evidencia considerada; separación de paciente/equipo | `CONFIRM_NON_FULFILMENT` | `COMMITMENT_NON_FULFILMENT_CONFIRMED` | actor + clave + fingerprint | `RECORD_CORRECTION` solamente |
-| `REVIEW_REQUIRED_ABSENCE` | `DATA_ERROR_REVIEW_REQUIRED` | Revisor o evaluador autorizado | Contradicción técnica documentada | `RECORD_DATA_ERROR` | `COMMITMENT_DATA_ERROR_RECORDED` | error class + version + fingerprint | Corrección y reevaluación |
-| `EVIDENCE_PENDING_RECONCILIATION` | `EVIDENCE_RECONCILED_ON_TIME` | Revisor humano autorizado | Fuente autoritativa confirma `recordedAt <= dueAt`; referencia descubierta/enlazada después de la ausencia; motivo de no visibilidad y decisión registrados | `ACCEPT_ON_TIME_EVIDENCE_AFTER_ABSENCE` | `COMMITMENT_ON_TIME_EVIDENCE_RECONCILED` | actor + clave + evidence fingerprint | `RECORD_CORRECTION` solamente; ausencia intacta |
-| `EVIDENCE_PENDING_RECONCILIATION` o `LATE_EVIDENCE_RECORDED` | `EVIDENCE_RECONCILED_LATE` | Revisor humano autorizado | Fuente autoritativa confirma `recordedAt > dueAt`; referencia compatible; motivo/decisión registrados | `ACCEPT_LATE_EVIDENCE` | `COMMITMENT_LATE_EVIDENCE_RECONCILED` | actor + clave + evidence fingerprint | `RECORD_CORRECTION` solamente; ausencia intacta |
-| `EVIDENCE_PENDING_RECONCILIATION` o `LATE_EVIDENCE_RECORDED` | `JUSTIFIED_OPERATIONAL_EXCEPTION` | Revisor humano autorizado | La candidata no satisface la acción o concurre excepción aprobada; decisión documentada sin alterar timestamps | `JUSTIFY_EXCEPTION` | `COMMITMENT_EXCEPTION_RECORDED` | actor + clave + fingerprint | `RECORD_CORRECTION` solamente |
-| `EVIDENCE_PENDING_RECONCILIATION` o `LATE_EVIDENCE_RECORDED` | `CONFIRMED_NON_FULFILMENT` | Revisor humano autorizado | La candidata fue rechazada motivadamente o no satisface la policy; no existe evidencia válida en plazo; conclusión humana explícita | `CONFIRM_NON_FULFILMENT` | `COMMITMENT_NON_FULFILMENT_CONFIRMED` | actor + clave + fingerprint | `RECORD_CORRECTION` solamente |
-| `DATA_ERROR_REVIEW_REQUIRED` | `EVIDENCE_PENDING_RECONCILIATION` | Profesional autorizado | Corrección referenciada; fuentes nuevamente disponibles | `DATA_CORRECTED` | `COMMITMENT_DATA_CORRECTED` | actor + clave + fingerprint | Continúa revisión |
-| `EVIDENCE_RECORDED_ON_TIME`, `EVIDENCE_RECONCILED_ON_TIME`, `EVIDENCE_RECONCILED_LATE`, `JUSTIFIED_OPERATIONAL_EXCEPTION` o `CONFIRMED_NON_FULFILMENT` | `CORRECTION_REVIEW_REQUIRED` | Revisor humano autorizado distinto o con segregación aprobada | Referencia al evento corregido y motivo; policy de corrección vigente | `RECORD_CORRECTION` | `COMMITMENT_CORRECTION_RECORDED` | actor + clave + fingerprint | Nueva disposición; historia previa intacta |
-| `CORRECTION_REVIEW_REQUIRED` | `EVIDENCE_PENDING_RECONCILIATION` o `SUPERSEDED_BY_CORRECTION` | Revisor humano autorizado | Evidencia de corrección y versión resultante | `REOPEN_RECONCILIATION` o `SUPERSEDE_VERSION` | Acción específica de corrección | actor + clave + expected revision | Solo nuevos eventos |
+Todos los estados, comandos, eventos y transiciones de esta sección son
+`FUTURE_ONLY`. No autorizan registro o resolución de evidencia, clasificación
+temporal, ausencia, conciliación, excepción, cumplimiento o incumplimiento,
+evaluator, scheduler/worker, API/UI/CLI, notificaciones ni actores, identidades o
+datos reales.
+
+### Estados futuros
+
+| Estado futuro | Naturaleza | Significado de diseño diferido |
+| --- | --- | --- |
+| `EVIDENCE_RECORDED_ON_TIME` | Terminal registral | Referencia compatible resuelta en plazo; no valora calidad clínica |
+| `REVIEW_REQUIRED_ABSENCE` | No terminal | Ausencia registral evaluada que requeriría revisión humana |
+| `EVIDENCE_PENDING_RECONCILIATION` | No terminal | Referencia candidata pendiente de conciliación humana |
+| `LATE_EVIDENCE_RECORDED` | No terminal | Fuente autoritativa con `recordedAt > dueAt` |
+| `DATA_ERROR_REVIEW_REQUIRED` | No terminal | Inconsistencia técnica que impide una conclusión fiable |
+| `EVIDENCE_RECONCILED_ON_TIME` | Terminal registral humano | Conciliación humana de evidencia registrada en plazo |
+| `EVIDENCE_RECONCILED_LATE` | Terminal registral humano | Conciliación humana de evidencia registrada tarde |
+| `JUSTIFIED_OPERATIONAL_EXCEPTION` | Terminal humano | Excepción versionada aplicada por autoridad futura |
+| `CONFIRMED_NON_FULFILMENT` | Terminal humano | Incumplimiento confirmado por autoridad futura, sin atribuir culpa |
+| `CORRECTION_REVIEW_REQUIRED` | No terminal correctivo | Corrección futura de una disposición previa sin overwrite |
+
+### Transiciones futuras
+
+| Alcance | Origen | Destino | Comando futuro | Evento futuro |
+| --- | --- | --- | --- | --- |
+| `FUTURE_ONLY` | `AWAITING_EVIDENCE` | `EVIDENCE_RECORDED_ON_TIME` | `RECORD_COMPATIBLE_EVIDENCE` | `COMMITMENT_EVIDENCE_RECORDED` |
+| `FUTURE_ONLY` | `AWAITING_EVIDENCE` | `REVIEW_REQUIRED_ABSENCE` | `EVALUATE_DUE_WITHOUT_ON_TIME_EVIDENCE` | `COMMITMENT_EVIDENCE_ABSENCE_RECORDED` |
+| `FUTURE_ONLY` | `AWAITING_EVIDENCE` | `DATA_ERROR_REVIEW_REQUIRED` | `RECORD_DATA_ERROR` | `COMMITMENT_DATA_ERROR_RECORDED` |
+| `FUTURE_ONLY` | `REVIEW_REQUIRED_ABSENCE` | `EVIDENCE_PENDING_RECONCILIATION` | `MARK_PENDING_RECONCILIATION` | `COMMITMENT_RECONCILIATION_STARTED` |
+| `FUTURE_ONLY` | `REVIEW_REQUIRED_ABSENCE` | `LATE_EVIDENCE_RECORDED` | `RECORD_LATE_EVIDENCE` | `COMMITMENT_LATE_EVIDENCE_RECORDED` |
+| `FUTURE_ONLY` | `REVIEW_REQUIRED_ABSENCE` | `JUSTIFIED_OPERATIONAL_EXCEPTION` | `JUSTIFY_EXCEPTION` | `COMMITMENT_EXCEPTION_RECORDED` |
+| `FUTURE_ONLY` | `REVIEW_REQUIRED_ABSENCE` | `CONFIRMED_NON_FULFILMENT` | `CONFIRM_NON_FULFILMENT` | `COMMITMENT_NON_FULFILMENT_CONFIRMED` |
+| `FUTURE_ONLY` | `REVIEW_REQUIRED_ABSENCE` | `DATA_ERROR_REVIEW_REQUIRED` | `RECORD_DATA_ERROR` | `COMMITMENT_DATA_ERROR_RECORDED` |
+| `FUTURE_ONLY` | `EVIDENCE_PENDING_RECONCILIATION` | `EVIDENCE_RECONCILED_ON_TIME` | `ACCEPT_ON_TIME_EVIDENCE_AFTER_ABSENCE` | `COMMITMENT_ON_TIME_EVIDENCE_RECONCILED` |
+| `FUTURE_ONLY` | `EVIDENCE_PENDING_RECONCILIATION` o `LATE_EVIDENCE_RECORDED` | `EVIDENCE_RECONCILED_LATE` | `ACCEPT_LATE_EVIDENCE` | `COMMITMENT_LATE_EVIDENCE_RECONCILED` |
+| `FUTURE_ONLY` | `EVIDENCE_PENDING_RECONCILIATION` o `LATE_EVIDENCE_RECORDED` | `JUSTIFIED_OPERATIONAL_EXCEPTION` | `JUSTIFY_EXCEPTION` | `COMMITMENT_EXCEPTION_RECORDED` |
+| `FUTURE_ONLY` | `EVIDENCE_PENDING_RECONCILIATION` o `LATE_EVIDENCE_RECORDED` | `CONFIRMED_NON_FULFILMENT` | `CONFIRM_NON_FULFILMENT` | `COMMITMENT_NON_FULFILMENT_CONFIRMED` |
+| `FUTURE_ONLY` | `DATA_ERROR_REVIEW_REQUIRED` | `EVIDENCE_PENDING_RECONCILIATION` | `DATA_CORRECTED` | `COMMITMENT_DATA_CORRECTED` |
+| `FUTURE_ONLY` | `DATA_ERROR_REVIEW_REQUIRED` | `SUPERSEDED_BY_CORRECTION` | `SUPERSEDE_VERSION` | Evento de corrección futuro |
+| `FUTURE_ONLY` | Estado terminal futuro | `CORRECTION_REVIEW_REQUIRED` | `RECORD_CORRECTION` | `COMMITMENT_CORRECTION_RECORDED` |
+| `FUTURE_ONLY` | `CORRECTION_REVIEW_REQUIRED` | `EVIDENCE_PENDING_RECONCILIATION` o `SUPERSEDED_BY_CORRECTION` | `REOPEN_RECONCILIATION` o `SUPERSEDE_VERSION` | Evento de corrección futuro |
 
 No existe comando automático hacia `JUSTIFIED_OPERATIONAL_EXCEPTION` o
 `CONFIRMED_NON_FULFILMENT`. Después de un evento de ausencia tampoco existe
@@ -347,7 +511,11 @@ comando automático hacia `EVIDENCE_RECONCILED_ON_TIME` o
 `EVIDENCE_RECONCILED_LATE`: el resolver solo puede dejar la evidencia en un
 estado no terminal y la disposición exige revisión humana autorizada.
 
-## Semántica de `AUSENCIA_DE_EVIDENCIA_EN_PLAZO`
+## Semántica futura de `AUSENCIA_DE_EVIDENCIA_EN_PLAZO`
+
+> `DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`. Esta semántica no autoriza
+> resolver evidencia, clasificar puntualidad, crear eventos de ausencia ni
+> evaluar automáticamente.
 
 Para una versión de compromiso `c`, su instante `c.dueAt`, la versión de política
 `p` y el instante efectivo de evaluación `evaluatedAt = now`, se cumple:
@@ -479,7 +647,10 @@ Estas son condiciones de diseño, no cambios autorizados:
 - ninguna tabla, índice o enum de Clinical Rules se usa para prioridad, plazo o
   estado de compromiso.
 
-## Proyecciones de lectura
+## Proyecciones de lectura futuras
+
+> `DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`. 5B no expone readers por
+> API/UI ni crea superficies para usuarios reales.
 
 Las vistas son proyecciones; no crean otra fuente de verdad. Todas muestran
 estados vacío, parcial, inconsistente y no disponible de forma explícita.
@@ -502,7 +673,10 @@ campos separados y etiqueta la puntualidad desde `recordedAt`. Nunca presenta un
 conciliación on-time posterior como «evidencia tardía» ni oculta el evento de
 ausencia que motivó la revisión.
 
-## Contrato conceptual `evaluateDueCommitments(now, batchSize)`
+## Contrato conceptual futuro `evaluateDueCommitments(now, batchSize)`
+
+> `DUE EVALUATOR = NO_GO`; `AUTOMATIC EVALUATION = NO_GO`; este contrato está
+> `DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`.
 
 ### Firma y entradas
 
@@ -616,7 +790,10 @@ La definición de métricas, sink, acceso, retención, alertado y SLO sigue
 bloqueada por DEC-005 y DEC-014. Un dashboard sin heartbeat del disparador no
 demuestra que el evaluador esté funcionando.
 
-## Estrategia de disparo
+## Estrategia de disparo futura
+
+> `SCHEDULER / WORKER = NO_GO`; ninguna alternativa de esta sección está
+> autorizada para 5B.
 
 ### Comparación
 
@@ -635,9 +812,9 @@ demostrar volumen o latencia y mantiene dominio/persistencia dentro del runtime
 real. Un scheduler externo es infraestructura, no lógica clínica.
 
 La selección es condicional: no existe hoy scheduler, service identity,
-endpoint, readiness ni monitorización. Hasta aprobar y construir esos controles,
-solo una invocación manual sintética podría validar el contrato, y el claim debe
-ser «evaluación bajo demanda». No se puede afirmar detección automática.
+endpoint, readiness ni monitorización. 5B no puede invocar el evaluador, ni
+siquiera manualmente o en dry-run. Validar este contrato requiere un gate futuro;
+no se puede afirmar evaluación bajo demanda ni detección automática.
 
 La evaluación oportunista queda rechazada: una lectura no debe mutar, no ofrece
 cobertura temporal y perjudica la autorización. El worker queda como alternativa
@@ -655,70 +832,66 @@ Fallos del job seleccionado:
 
 ## Plan incremental de migración futura
 
-Este plan no autoriza migraciones.
+La aprobación técnica interna autoriza para 5B **una única migración futura como
+máximo**, sujeta al contrato estricto siguiente. No autoriza endpoints,
+evaluador, scheduler, worker ni operación.
 
-### Fase 0 — gates antes de schema
+### Slice 5B — contrato de la única migración autorizada
 
-Se requiere, para el scope exacto:
+La migración deberá ser:
 
-- frontera ADR-0015 aceptada con autoridad y evidencia;
-- intended purpose y claims versionados;
-- definición aprobada de compromiso, plazo, evidencia, campo fuente autoritativo
-  para `recordedAt`, visibilidad, conciliación, excepción, corrección y revisor;
-- DEC-017 aprobada en las dimensiones usadas;
-- DEC-013 para roles, supervisor, auditor y service identity;
-- DEC-005 para retención y derechos;
-- DEC-014 para observabilidad operativa necesaria;
-- análisis regulatorio y de peligros;
-- DEC-016 solo si se pretende cualquier piloto real, que permanece `NO_GO`.
+- aditiva, no destructiva y compatible con episodios existentes;
+- nueva, sin modificar migraciones aplicadas y sin backfill;
+- sin inferencias desde tareas, alertas, check-ins, SBAR o notas;
+- sin datos reales, defaults clínicos, plazos universales ni seeds operativos;
+- con FK obligatoria a `DischargeEpisode`, historia append-only y restricciones de
+  unicidad justificadas;
+- limitada a los nombres, estados, comandos y eventos alcanzables en 5B;
+- reversible operacionalmente mediante feature flag y rollback de código, pero
+  no eliminable si ya contiene historia;
+- validada sobre PostgreSQL desechable antes de declarar `PASS`.
 
-### Fase 1 — cambios aditivos
+La migración no materializa estados futuros que 5B no puede producir. `Task`,
+`TaskEvent`, `DischargeEpisode`, `AuditEvent`, check-ins y avisos conservan su
+semántica, y no se crea segunda auditoría, fuente de verdad, cola u outbox.
 
-Una migración futura, nueva y reversible cuando sea seguro, podría añadir las
-estructuras conceptuales de definición, identidad, versión y evento, más índices
-y triggers. No modificará migraciones aplicadas. `Task`, `TaskEvent`,
-`DischargeEpisode`, `AuditEvent`, check-ins y avisos conservarán su semántica.
-Los campos/eventos futuros preservarán separadamente `occurredAt`, `recordedAt`,
-`discoveredAt`/`linkedAt` y `evaluatedAt`, y el catálogo de estados incluirá las
-dos disposiciones de conciliación temporal sin reusar una para la otra.
+### Fases posteriores — no autorizadas por este gate
+
+Todo schema adicional para ledger, evaluación, evidencia resuelta, conciliación,
+excepción, incumplimiento, operación o exposición queda
+`DOCUMENTED FOR FUTURE PHASE / NOT REACHABLE IN 5B`.
 
 No se añade `EvidenceRecord`, `AuditLog`, `EpisodeContract`, `TaskCase` o tabla de
 Clinical Rules dentro de Core. Cualquier relación opcional futura entre una
 `Task` humana y un compromiso debe ser aditiva y del mismo episodio.
 
-### Fase 2 — compatibilidad y readers
+### Compatibilidad de 5B
 
 - Feature flag apagado por defecto.
-- Readers toleran ausencia total de tablas/datos conceptuales durante despliegue
-  escalonado.
+- El código existente tolera ausencia total de compromisos.
 - Episodios existentes sin compromisos muestran `NOT_CONFIGURED` o colección
   vacía; nunca `AUSENCIA_DE_EVIDENCIA_EN_PLAZO`.
-- APIs y UI actuales no cambian mientras el flag esté apagado.
+- APIs y UI actuales no cambian y 5B no añade rutas externas.
 - La gobernanza de cierre no incorpora compromisos ni cambia su denegación.
 
-### Fase 3 — backfill explícito
+### Backfill
 
 No se infieren compromisos históricos desde `Task`, `Alert`, check-ins, SBAR,
 Plan o notas. El backfill automático es `NOT_ALLOWED`.
 
-Si la autoridad exige adoptar episodios existentes, una persona autorizada crea
-versiones explícitas con fuente, plazo y policy vigentes. No se fabrican ausencias
-retroactivas ni se retrodata evidencia. Cada adopción se audita y puede limitarse
-a episodios sintéticos de prueba.
+5B no adopta episodios existentes ni ofrece un mecanismo de backfill manual. No
+se fabrican ausencias retroactivas ni se retrodata evidencia.
 
-### Fase 4 — despliegue progresivo
+### Secuencia de implementación 5B
 
-1. Desplegar schema aditivo con el feature flag apagado.
-2. Verificar constraints, triggers, roles negativos y compatibilidad de readers.
-3. Cargar solo definiciones sintéticas `DRAFT`, sin defaults institucionales.
-4. Ejecutar pruebas de especificación y una evaluación read-only/dry-run que no
-   escriba estados.
-5. Habilitar creación manual en un scope sintético controlado.
-6. Validar referencias, concurrencia, correcciones y proyecciones.
-7. Habilitar invocación manual del evaluador.
-8. Habilitar el job protegido solo tras service identity, heartbeat,
-   observabilidad y runbook aprobados.
-9. Ampliar scope únicamente con nueva revisión y evidencia.
+1. Añadir como máximo una migración aditiva con el feature flag apagado.
+2. Verificar constraints, append-only, idempotencia y compatibilidad sobre
+   PostgreSQL desechable.
+3. Probar definiciones sintéticas `DRAFT`, sin defaults institucionales.
+4. Probar exclusivamente los cuatro comandos autorizados mediante adaptador de
+   autorización sintética y sin ruta externa.
+5. Mantener deshabilitados evaluador, ledger, scheduler/worker, API/UI y cualquier
+   uso real.
 
 ### Rollback
 
@@ -788,34 +961,35 @@ No son pruebas ejecutables en esta rama. Una implementación futura deberá cubr
 
 Esta matriz no añade requisitos canónicos ni cambia REQ-01–REQ-14.
 
-| Requisito de diseño | Diseño | Prueba futura | Peligro/riesgo | Control | Decisión pendiente |
-| --- | --- | --- | --- | --- | --- |
-| CE-01 Todo compromiso pertenece a un episodio | FK obligatoria a `DischargeEpisode`; identidad lógica + versiones | FK cruzada y hard-delete negativo | Compromiso asociado a paciente/episodio incorrecto | FK `RESTRICT`, resolver same-episode, RBAC por recurso | Retención DEC-005 |
-| CE-02 Acción verificable, no outcome | `actionKey/actionStatement` aprobados y content-neutral | Rechazar acciones que dependan del resultado del paciente | Culpa o promesa clínica | Autoría humana, catálogo/version y revisión | Definición/autoridad de compromiso; ADR-0015 |
-| CE-03 Responsable y asignación separados | `responsibleRoleRef` obligatorio; `assignedUserId` opcional | Assignee no autorizado, revocado y ausente | Assignment confundido con accountability | Patrón de locks/accountability; lenguaje explícito | DEC-013/017 |
-| CE-04 Sin plazo universal | `dueAt`, zona y fuente/version por instancia | Varias policies/zonas; no default | Deadline clínico inventado | Activación fail-closed y snapshot inmutable | DEC-017 E/F |
-| CE-05 Reloj determinista | `Clock` inyectable y `now` UTC | Fake clock, skew y DST | Evaluación prematura/tardía | Rechazo/abstención y corrección | Operación TI/DEC-014/017 |
-| CE-06 Evidencia tipada y minimizada | `EvidenceReferenceV1` resuelta contra fuentes reales | Fuente inexistente, otro episodio, payload extra | Evidencia falsa o duplicación clínica | Resolver allowlist, same-episode, no payload | Catálogo de fuentes/retención |
-| CE-07 Ausencia no es incumplimiento | Estado `REVIEW_REQUIRED_ABSENCE` | No existe transición automática a non-fulfilment | Estigmatización, sesgo, acción clínica indebida | Máquina cerrada y gate humano | Semántica/autoridad aprobadas |
-| CE-08 No respuesta separada | Resultado paciente no satisface acción del equipo | `no-answer`, omitido y expirado | Culpar al paciente o ocultar omisión del equipo | Hechos separados; policy sobre intento | DEC-006/017 G |
-| CE-09 Excepción humana | `JUSTIFIED_OPERATIONAL_EXCEPTION` solo desde review | Actor/role/reason/policy negativos | Excepción silenciosa | Capability, motivo, policy version, auditoría | Taxonomía y autoridad de excepción |
-| CE-10 Clasificación temporal y conciliación conservan historia | `recordedAt` decide on-time/late; `EVIDENCE_RECONCILED_ON_TIME` o `EVIDENCE_RECONCILED_LATE` conserva la ausencia | Matriz de cuatro tiempos; on-time descubierto post-evaluación; acción temprana registrada tarde | Clasificar por orden del lock, borrar ausencia o reportar puntualidad falsa | Fuente registral autoritativa, revisión humana, eventos append-only y explicación de visibilidad | Campo registral y política de conciliación |
-| CE-11 Error/pending reconciliation abstienen | Estados no terminales específicos | Fuente caída/inconsistente | Falso incumplimiento por fallo técnico | Fail-closed y reintento | Ownership/SLO de fuentes |
-| CE-12 Incumplimiento solo humano | `CONFIRMED_NON_FULFILMENT` con revisión | Evaluador no puede emitir comando | Decisión automática o atribución de culpa | Autorización humana y evento corregible | Rol/motivo/appeal institucional |
-| CE-13 Terminales corregibles sin overwrite | `RECORD_CORRECTION` y nueva disposición | Corrección concurrente/idempotente | Pérdida de historia | Event stream, revision y trigger | Segregación de funciones |
-| CE-14 Evaluación idempotente | Clave semántica + ADR-0016 | Dos jobs y replay | Doble estado/auditoría | Row lock + unicidad semántica | Límites operativos |
-| CE-15 Revisión visible, no acción automática | Proyección profesional; sin auto-Task | Ausencia no muta Task/Alert/Episode | Escalado clínico automático | Reader separado y comandos humanos | Workflow de revisión DEC-017 |
-| CE-16 Proyecciones de mínimo privilegio | Vistas específicas por audiencia | Matriz negativa y revocación | Exposición de motivos/evidencia | Scope, responsabilidad y minimización | DEC-004/005/013 |
-| CE-17 Disparo real y recuperable | Job protegido condicionado; manual hasta entonces | Scheduler omitido/timeout/recovery | Claim falso de detección automática | Heartbeat, run history y claim limitado | DEC-013/014/015/017 |
-| CE-18 Cierre sin cambios | Compromisos fuera de policy de cierre | Intento de cierre sigue `NOT_AUTHORIZED` | Cierre automático por estado de compromiso | DEC-002 blocker preservado | DEC-002 |
-| CE-19 Frontera Core/Clinical Rules | Interfaces unidireccionales; sin severidad/DSL | Tests de dependencias y mutaciones negativas | Contaminación clínica/regulatoria | ADR-0015 y contrato de módulos | Evaluación regulatoria/intended purpose |
-| CE-20 Migración segura | Aditiva, sin backfill inferido, flag off | Episodios legacy/rollback | Ausencias históricas fabricadas | Adopción humana explícita y forward correction | Gates de implementación |
+| CE | Tratamiento en 5B | Estado de diseño | Fase diferida | Decisión institucional | Peligro HAZ-GAS | Control técnico futuro | Prueba futura | Gate aplicable |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CE-01 Todo compromiso pertenece a un episodio | Implementable: FK obligatoria y autorización de recurso | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | — | DEC-005 para retención real | HAZ-GAS-001/020 | FK `RESTRICT`, mismo episodio | FK cruzada, delete negativo | `TECHNICAL IMPLEMENTATION AUTHORIZED`; `REAL USE BLOCKED` |
+| CE-02 Acción verificable, no outcome | Implementable con entrada sintética explícita | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Catálogo gobernado | Autoridad/intended use | HAZ-GAS-013/020 | Estructura cerrada, autoría, sin defaults | Rechazar outcome del paciente y acción ausente | `TECHNICAL IMPLEMENTATION AUTHORIZED`; `CLINICAL EFFECTIVENESS NOT VERIFIED` |
+| CE-03 Responsable y asignación separados | Implementable como referencias sin mapping real | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Mapping real | DEC-013/017 | HAZ-GAS-004/012/020 | `responsibleRoleRef` obligatorio, asignación opcional | Ausente/revocado/otro episodio | `TECHNICAL IMPLEMENTATION AUTHORIZED`; `REAL USE BLOCKED` |
+| CE-04 Sin plazo universal | Implementable: `dueAt`, zona, fuente y versión explícitos | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Política real de plazos | DEC-017 | HAZ-GAS-016/020 | Activación fail-closed, snapshot inmutable | Sin default, zona inválida, fuente ausente | `TECHNICAL IMPLEMENTATION AUTHORIZED`; `REAL USE BLOCKED` |
+| CE-05 Reloj determinista | Implementable con tiempo inyectado | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Operación/evaluador | DEC-014/017 | HAZ-GAS-016 | `Clock` o equivalente, `now` UTC | Fake clock, DST y valor inválido | `TECHNICAL IMPLEMENTATION AUTHORIZED`; evaluator `NO_GO` |
+| CE-06 Evidencia tipada y minimizada | Solo contrato `EvidenceReferenceV1`; no resolver ni ledger | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Ledger | Fuente/retención DEC-005 | HAZ-GAS-003/014/015 | Referencia sin payload, mismo episodio | Serialización/minimización; resolver futuro | Contrato autorizado; ledger y uso real bloqueados |
+| CE-07 Ausencia no es incumplimiento | Solo documentado; no hay evento de ausencia | `NOT IMPLEMENTED` | Evaluador + ledger | Semántica/autoridad | HAZ-GAS-013 | Máquina cerrada y revisión humana futura | Evaluador no emite incumplimiento | Evaluator `NO_GO`; `REAL USE BLOCKED` |
+| CE-08 No respuesta separada | Solo documentado; no se consume respuesta | `NOT IMPLEMENTED` | Evaluador + ledger | DEC-006/017 | HAZ-GAS-007/013 | Hechos separados | No respuesta nunca cambia compromiso | Evaluator/ledger `NO_GO`; `CLINICAL EFFECTIVENESS NOT VERIFIED` |
+| CE-09 Excepción humana | No implementable en 5B | `NOT IMPLEMENTED` | Ledger/gobernanza | Taxonomía, autoridad, DEC-013/017 | HAZ-GAS-012/013 | Capability, motivo, policy, auditoría futura | Actor/rol/motivo/policy negativos | Ledger `NO_GO`; `REAL USE BLOCKED` |
+| CE-10 Clasificación temporal y conciliación conservan historia | Solo documentado | `NOT IMPLEMENTED` | Evaluador + ledger | Fuente y política de conciliación | HAZ-GAS-005/015/017 | Tiempos separados, eventos append-only futuros | Matriz de tiempos y visibilidad | Evaluator/ledger `NO_GO`; `CLINICAL EFFECTIVENESS NOT VERIFIED` |
+| CE-11 Error/pending reconciliation abstienen | No implementable en 5B | `NOT IMPLEMENTED` | Evaluador + ledger | Ownership/operación DEC-014/015 | HAZ-GAS-003/014 | Fail-closed y reintento futuros | Fuente caída/inconsistente | Evaluator `NO_GO`; `REAL USE BLOCKED` |
+| CE-12 Incumplimiento solo humano | No implementable en 5B | `NOT IMPLEMENTED` | Ledger/gobernanza | Rol, motivo, corrección, DEC-013/017 | HAZ-GAS-013 | Autorización humana y evento corregible futuros | Negar comando automático y rol no aprobado | Ledger `NO_GO`; `REAL USE BLOCKED` |
+| CE-13 Corrección sin overwrite | Implementable solo como sustitución de versión | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Disposición/corrección de ledger | Segregación futura | HAZ-GAS-005/015/017 | Versiones/eventos append-only, revisión optimista | Sustitución concurrente e idempotente | Sustitución 5B autorizada; ledger `NO_GO` |
+| CE-14 Idempotencia | Implementable solo para los cuatro comandos 5B | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Idempotencia del evaluador | Límites operativos DEC-014/017 | HAZ-GAS-002/005/017 | Clave, fingerprint, revisión, UoW | Replay y fingerprint incompatible | Ciclo 5B autorizado; evaluator `NO_GO` |
+| CE-15 Revisión visible, no acción automática | Solo restricción negativa; sin reader/API/UI | `NOT IMPLEMENTED` | Ledger + UX | Workflow DEC-017 | HAZ-GAS-012/013/019 | Ninguna mutación `Task`/`Alert`/episodio | Comandos 5B no alteran fuentes | API/UI y ledger `NO_GO` |
+| CE-16 Proyecciones de mínimo privilegio | No implementable en 5B | `NOT IMPLEMENTED` | UX/read models | DEC-004/005/013 | HAZ-GAS-001/004/008 | Scope, responsabilidad, minimización futuros | Matriz negativa y revocación | API/UI y uso real `NO_GO` |
+| CE-17 Disparo real y recuperable | No implementable en 5B | `NOT IMPLEMENTED` | Evaluador/operación | DEC-013/014/015/017 | HAZ-GAS-010/018 | Heartbeat/run history futuros, sin SLO inventado | Caída, timeout, recuperación | Scheduler/worker `NO_GO`; producción `NO_GO` |
+| CE-18 Cierre sin cambios | Implementable como prueba negativa | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Política futura | DEC-002 | HAZ-GAS-009/019 | Compromisos fuera del cierre | Ciclo 5B no cierra episodio | 5B prueba negativa autorizada; uso real bloqueado |
+| CE-19 Frontera Core/Clinical Rules | Implementable como dependencia negativa | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Separación operativa | Intended use/regulación | HAZ-GAS-006/019 | Sin DSL, severidad o mutación clínica | Tests de imports y mutaciones negativas | 5B prueba negativa autorizada; uso real bloqueado |
+| CE-20 Migración segura | Implementable según contrato de única migración | `DESIGN FROZEN FOR SYNTHETIC SANDBOX`; `NOT IMPLEMENTED` | Migraciones de fases futuras | DEC-005 antes de datos reales | HAZ-GAS-002/005/020 | Aditiva, flag off, sin backfill, historia preservada | PostgreSQL desechable, legacy y rollback de código | `TECHNICAL IMPLEMENTATION AUTHORIZED`; `REAL USE BLOCKED` |
 
-## Decisiones abiertas y riesgos residuales
+## Decisiones abiertas y riesgos sin aceptación
 
-Bloquean implementación:
+No bloquean el núcleo técnico sintético 5B, pero bloquean evaluator, ledger,
+exposición, integración y cualquier uso real:
 
-- aceptación formal de ADR-0015 y finalidad prevista de Core;
+- aprobación clínica/institucional/regulatoria de la finalidad prevista de Core;
 - definición y autoridad institucional de compromiso, evidencia, excepción,
   corrección e incumplimiento confirmado;
 - DEC-017 C/D/E/F y cualquier otra dimensión usada;
@@ -827,7 +1001,7 @@ Bloquean implementación:
 - DEC-016 para cualquier uso con personas o datos reales;
 - contrato de fuente externa antes de cualquier integración.
 
-Riesgos residuales del diseño:
+Riesgos de diseño pendientes de análisis, estimación y aceptación:
 
 - un plazo organizativo puede percibirse como urgencia clínica en UI;
 - la presencia de evidencia puede confundirse con calidad o eficacia;
@@ -841,6 +1015,7 @@ Riesgos residuales del diseño:
 - una corrección puede usarse indebidamente para normalizar historia si no existe
   segregación y revisión.
 
-Hasta resolverlos, el motor permanece `NO IMPLEMENTADO`, deshabilitado y sin
-claim de detección automática, cumplimiento, seguridad clínica o preparación
-regulatoria.
+Ninguno de estos riesgos está aceptado. Hasta resolver los gates aplicables, el
+motor permanece `NO IMPLEMENTADO`, deshabilitado y sin claim de detección
+automática, cumplimiento, seguridad clínica o preparación regulatoria. La única
+autorización vigente es construir el slice 5B sintético dentro del Gate A.
