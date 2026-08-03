@@ -120,7 +120,7 @@ No se usaron fuentes jurídicas externas para seleccionar valores.
 | Exports | Preview SBAR efímero + impresión HTML; port PDF de Plan sin implementación |
 | PDF | No existe generador PDF conectado |
 | Backup | Docker usa un volumen de desarrollo; el repositorio no gobierna backups, restore ni retención de copias |
-| Downstream | No existen HCE, HCE/FHIR, LAGUN, Tucuvi, Huma, MeMind, messaging, ITSM o monitoring productivos |
+| Downstream | No existen HCE/FHIR, proveedores clínicos o de telemonitorización, messaging, ITSM o monitoring productivos; ningún proveedor está seleccionado |
 | Datos | Desarrollo, pruebas y demo usan exclusivamente datos sintéticos |
 
 ### 3.1. Mutable, versionado, append-only y transitorio
@@ -525,9 +525,10 @@ A future policy must define backup retention, encryption, access, immutable
 copies, restore behavior, post-restore reconciliation and evidence. DEC-015
 retains authority over continuity/RTO/RPO.
 
-There are no current downstream integrations. For HCE, LAGUN, Tucuvi, Huma,
-MeMind, messaging, IdP, ITSM, monitoring or another processor/controller, a
-future contract must identify role, purpose, fields, source of truth,
+There are no current downstream integrations or selected providers. For HCE,
+external clinical or telemonitoring services, messaging, IdP, ITSM, monitoring
+or another processor/controller, a future contract must identify role, purpose,
+fields, source of truth,
 responsibilities, propagation limits and evidence. Guardián cannot promise
 deletion in a third party without contract and capability.
 

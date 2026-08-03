@@ -29,7 +29,7 @@ severity. Status values are `OPEN`, `MITIGATED_TECHNICALLY`,
 | GAS2-R-017 | Data quality | `MITIGATED_TECHNICALLY` | Source provenance is resolved against stored records; invalid/legacy states explicit | Prevents claimed source IDs from becoming verified lineage | Supports synthetic technical demo; external source trust not covered | Preserve canonical parser and adapter contract |
 | GAS2-R-018 | Authorization | `MITIGATED_TECHNICALLY` | Current role/resource/responsibility checks; admin/support clinical deny | Limits role-only bypass in audited paths | Supports synthetic technical review | Productive IAM still requires DEC-013 |
 | GAS2-R-019 | Caregiver privacy | `MITIGATED_TECHNICALLY` | Episode scope, capabilities, section permission and revocation rechecked per request | Limits stale or over-broad caregiver access | Supports synthetic demo only | DEC-004/005/013 |
-| GAS2-R-020 | Documentation/claims | `ACCEPTANCE_REQUIRED` | Build-week “ready” labels are demo-scoped | Qualification may be lost when quoted externally | Congress/FENIN only conditionally ready | Use claims register in all presentation material |
+| GAS2-R-020 | Documentation/claims | `ACCEPTANCE_REQUIRED` | Build-week “ready” labels are demo-scoped | Qualification may be lost when quoted externally | External presentation only conditionally ready | Use claims register in all presentation material |
 
 ## Technical debt
 

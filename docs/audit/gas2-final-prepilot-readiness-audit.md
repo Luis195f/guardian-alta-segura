@@ -46,7 +46,7 @@ Verdict by use level:
 | Use level | Readiness | Verdict |
 | --- | --- | --- |
 | Local synthetic demo | `READY` | Reproducible on the audited environment |
-| Congress/FENIN presentation | `CONDITIONALLY_READY` | Only with the limitations and claims in this audit |
+| External presentation | `CONDITIONALLY_READY` | Only with the limitations and claims in this audit |
 | Controlled institutional/technical review | `READY` | Decision-support evidence is prepared; decisions remain pending |
 | Real clinical pilot | `NOT_READY` | `DEC-016 = Pendiente`; real people and data remain blocked |
 | Production | `NOT_READY` | Productive IAM, operations, continuity, lifecycle and external integrations are absent |
@@ -271,9 +271,9 @@ circuit assurance and a separately assessed Clinical Rules module.
 
 `DEFERRED`
 
-No real HCE/EHR, LAGUN, Tucuvi, Huma, MeMind, messaging, wearable, ITSM or IdP
-adapter exists. The repository contains boundaries and planning documents, not
-contracted external integrations.
+No real HCE/EHR, external clinical or telemonitoring service, messaging,
+wearable, ITSM or IdP adapter exists. The repository contains boundaries and
+planning documents, not contracted external integrations or selected providers.
 
 ### FHIR
 
@@ -482,7 +482,7 @@ readiness. DEC-014 is pending.
 | Boundary | Status |
 | --- | --- |
 | HCE/EHR | `NO_CONNECTOR` |
-| LAGUN/Tucuvi/Huma/MeMind | `NO_CONNECTOR` |
+| External clinical or telemonitoring services | `NO_CONNECTOR`; no provider selected |
 | Messaging/wearables/RPM/ITSM | `NO_CONNECTOR` |
 | Institutional IdP | `INTERFACE_ONLY` at application-port level |
 | FHIR | `DOCUMENTED_BOUNDARY`; no mapper/client/endpoint/SMART/OAuth |
@@ -553,7 +553,7 @@ status or real integration.
 | Audience | Readiness | Conditions |
 | --- | --- | --- |
 | Local synthetic demo | `READY` | Docker/PostgreSQL, `.env` synthetic template and loopback |
-| Congress/FENIN | `CONDITIONALLY_READY` | Show only working features; retain synthetic/no-clinical-use labels |
+| External presentation | `CONDITIONALLY_READY` | Show only working features; retain synthetic/no-clinical-use labels |
 | Institutional review | `READY` | Present Decision Packs as unresolved decision support |
 | Real pilot | `NOT_READY` | DEC-016 pending; all real data/people blocked |
 | Production | `NOT_READY` | Critical productive capabilities absent |

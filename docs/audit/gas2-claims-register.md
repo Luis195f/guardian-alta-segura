@@ -81,7 +81,7 @@ Not acceptable:
 - “Deterministic means non-medical-device software.”
 - “Core is outside the MDR because Clinical Rules is a separate module.”
 
-## FENIN/congress claim matrix
+## External presentation claim matrix
 
 | Demo statement | Can show | Can say | Must qualify | Evidence |
 | --- | --- | --- | --- | --- |

@@ -18,6 +18,10 @@ export default async function HomePage() {
         <p className="lede">
           Continuidad postalta estructurada, trazable y supervisada por profesionales.
         </p>
+        <p>
+          Proyecto personal desarrollado de manera independiente, sin patrocinio, respaldo,
+          validación, integración, despliegue ni autorización institucional.
+        </p>
         <p className="environment-badge">DEMO SINTÉTICA · NO USO CLÍNICO</p>
       </header>
 

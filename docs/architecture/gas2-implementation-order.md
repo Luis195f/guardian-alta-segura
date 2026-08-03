@@ -380,10 +380,8 @@ SLA, herramienta o integración.
 
 ## Ramas que no deben abrirse ahora
 
-- `feat/gas2-connector-lagun`
-- `feat/gas2-connector-tucuvi`
-- `feat/gas2-connector-huma`
-- `feat/gas2-connector-memind`
+- cualquier rama de conector asociada a un proveedor no contratado y no autorizado;
+- cualquier rama que presuponga telemonitorización, mensajería o telefonía seleccionadas;
 - `feat/gas2-fhir-server`
 - `feat/gas2-rpm-platform`
 - `feat/gas2-accountability-graph`
