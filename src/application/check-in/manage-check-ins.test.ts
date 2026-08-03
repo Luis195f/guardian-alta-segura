@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ import {
   CheckInParticipationRevokedError,
   CreateCheckInProtocolVersionService,
   GenerateCheckInAssignmentsService,
+  OmitCheckInAssignmentService,
   RecordExpiredCheckInNonResponseService,
   SubmitCheckInResponseService,
 } from "@/application/check-in/manage-check-ins";
@@ -21,6 +22,10 @@ import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 
 function principal(userId: string, roles: AuthenticatedPrincipal["roles"]): AuthenticatedPrincipal {
   return { userId, roles, sessionId: randomUUID() };
+}
+
+function requestFingerprint(value: object): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 const protocol: CheckInProtocolRecord = {
@@ -365,6 +370,160 @@ describe("check-in application services", () => {
       idempotent: true,
     });
     expect(createResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconoce una respuesta idéntica completada entre el lookup y la carga", async () => {
+    const idempotencyKey = "response:concurrent-replay";
+    const answers = [{ questionDefinitionId: "question-v1", scaleValue: 3 }] as const;
+    const persistedOutcome: CheckInOutcomeRecord = {
+      ...outcome("RESPONDED"),
+      idempotencyKey,
+      requestFingerprint: requestFingerprint({
+        operation: "submit-check-in",
+        assignmentId: "assignment-1",
+        answers,
+      }),
+    };
+    const claimOutcome = vi.fn();
+    const createResponse = vi.fn();
+    const appendAuditEvent = vi.fn();
+    const service = new SubmitCheckInResponseService(
+      unitOfWork(
+        makeTransaction({
+          findOutcomeByIdempotency: async () => null,
+          getAssignment: async () => ({ ...assignment(), outcome: persistedOutcome }),
+          claimOutcome,
+          createResponse,
+          appendAuditEvent,
+        }),
+      ),
+    );
+
+    await expect(
+      service.execute({
+        actor: principal("patient-1", ["patient"]),
+        assignmentId: "assignment-1",
+        answers,
+        idempotencyKey,
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T08:00:00.000Z"),
+      }),
+    ).resolves.toEqual({ responseId: "response-1", idempotent: true });
+    expect(claimOutcome).not.toHaveBeenCalled();
+    expect(createResponse).not.toHaveBeenCalled();
+    expect(appendAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("reconoce una omisión idéntica completada entre el lookup y la carga", async () => {
+    const idempotencyKey = "omission:concurrent-replay";
+    const persistedOutcome: CheckInOutcomeRecord = {
+      ...outcome("OMITTED"),
+      idempotencyKey,
+      requestFingerprint: requestFingerprint({
+        operation: "omit-check-in",
+        assignmentId: "assignment-1",
+      }),
+    };
+    const claimOutcome = vi.fn();
+    const createNonResponse = vi.fn();
+    const appendAuditEvent = vi.fn();
+    const service = new OmitCheckInAssignmentService(
+      unitOfWork(
+        makeTransaction({
+          findOutcomeByIdempotency: async () => null,
+          getAssignment: async () => ({ ...assignment(), outcome: persistedOutcome }),
+          claimOutcome,
+          createNonResponse,
+          appendAuditEvent,
+        }),
+      ),
+    );
+
+    await expect(
+      service.execute({
+        actor: principal("patient-1", ["patient"]),
+        assignmentId: "assignment-1",
+        idempotencyKey,
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T08:00:00.000Z"),
+      }),
+    ).resolves.toEqual({ nonResponseEventId: "non-response-1", idempotent: true });
+    expect(claimOutcome).not.toHaveBeenCalled();
+    expect(createNonResponse).not.toHaveBeenCalled();
+    expect(appendAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("reconoce un vencimiento idéntico completado entre el lookup y la carga", async () => {
+    const idempotencyKey = "expiration:concurrent-replay";
+    const persistedOutcome: CheckInOutcomeRecord = {
+      ...outcome("EXPIRED"),
+      idempotencyKey,
+      requestFingerprint: requestFingerprint({
+        operation: "expire-check-in",
+        assignmentId: "assignment-1",
+      }),
+    };
+    const claimOutcome = vi.fn();
+    const createNonResponse = vi.fn();
+    const appendAuditEvent = vi.fn();
+    const service = new RecordExpiredCheckInNonResponseService(
+      unitOfWork(
+        makeTransaction({
+          findOutcomeByIdempotency: async () => null,
+          getAssignment: async () => ({ ...assignment(), outcome: persistedOutcome }),
+          claimOutcome,
+          createNonResponse,
+          appendAuditEvent,
+        }),
+      ),
+    );
+
+    await expect(
+      service.execute({
+        actor: principal("nurse-1", ["nurse"]),
+        assignmentId: "assignment-1",
+        idempotencyKey,
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T11:00:00.000Z"),
+      }),
+    ).resolves.toEqual({ nonResponseEventId: "non-response-1", idempotent: true });
+    expect(claimOutcome).not.toHaveBeenCalled();
+    expect(createNonResponse).not.toHaveBeenCalled();
+    expect(appendAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("valida pertenencia antes de devolver un outcome encontrado por clave", async () => {
+    const idempotencyKey = "response:cross-patient-replay";
+    const answers = [{ questionDefinitionId: "question-v1", scaleValue: 3 }] as const;
+    const persistedOutcome: CheckInOutcomeRecord = {
+      ...outcome("RESPONDED"),
+      recordedById: "patient-2",
+      idempotencyKey,
+      requestFingerprint: requestFingerprint({
+        operation: "submit-check-in",
+        assignmentId: "assignment-1",
+        answers,
+      }),
+    };
+    const service = new SubmitCheckInResponseService(
+      unitOfWork(
+        makeTransaction({
+          findOutcomeByIdempotency: async () => persistedOutcome,
+          getAssignment: async () => assignment(),
+        }),
+      ),
+    );
+
+    await expect(
+      service.execute({
+        actor: principal("patient-2", ["patient"]),
+        assignmentId: "assignment-1",
+        answers,
+        idempotencyKey,
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T08:00:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(CheckInDeniedError);
   });
 
   it("registra una ventana vencida como NonResponseEvent, no como respuesta", async () => {

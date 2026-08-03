@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CheckInConflictError,
+  CheckInDeniedError,
   GenerateCheckInAssignmentsService,
   OmitCheckInAssignmentService,
   RecordExpiredCheckInNonResponseService,
@@ -209,6 +210,10 @@ function nurseActor(userId: string) {
   return { userId, roles: ["nurse"] as const, sessionId: randomUUID() };
 }
 
+function clinicianActor(userId: string) {
+  return { userId, roles: ["clinician"] as const, sessionId: randomUUID() };
+}
+
 function answer(questionId: string, value = 3) {
   return [{ questionDefinitionId: questionId, scaleValue: value }] as const;
 }
@@ -226,6 +231,27 @@ function responseInput(
     idempotencyKey,
     correlationId: randomUUID(),
     now: new Date("2026-07-02T08:00:00.000Z"),
+  };
+}
+
+async function terminalPersistence(assignmentId: string) {
+  const [outcomes, responses, nonResponses] = await Promise.all([
+    prisma.checkInOutcome.findMany({ where: { assignmentId }, select: { id: true } }),
+    prisma.checkInResponse.findMany({ where: { assignmentId }, select: { id: true } }),
+    prisma.nonResponseEvent.findMany({ where: { assignmentId }, select: { id: true } }),
+  ]);
+  const resultIds = [...responses, ...nonResponses].map(({ id }) => id);
+  const terminalAuditEvents = await prisma.auditEvent.count({
+    where: {
+      resourceId: { in: resultIds },
+      action: { in: ["CHECK_IN_RESPONSE_RECORDED", "CHECK_IN_NON_RESPONSE_RECORDED"] },
+    },
+  });
+  return {
+    outcomes: outcomes.length,
+    responses: responses.length,
+    nonResponses: nonResponses.length,
+    terminalAuditEvents,
   };
 }
 
@@ -352,9 +378,12 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
     await expect(
       service.execute(responseInput(fixture, fixture.assignment!.id, key, 2)),
     ).rejects.toBeInstanceOf(CheckInConflictError);
-    await expect(
-      prisma.checkInOutcome.count({ where: { assignmentId: fixture.assignment!.id } }),
-    ).resolves.toBe(1);
+    await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+      outcomes: 1,
+      responses: 1,
+      nonResponses: 0,
+      terminalAuditEvents: 1,
+    });
   });
 
   it("hace idempotentes omisión y vencimiento concurrentes", async () => {
@@ -373,6 +402,12 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
     ]);
     expect(omitted.map(({ idempotent }) => idempotent).sort()).toEqual([false, true]);
     expect(omitted[0].nonResponseEventId).toBe(omitted[1].nonResponseEventId);
+    await expect(terminalPersistence(omittedFixture.assignment!.id)).resolves.toEqual({
+      outcomes: 1,
+      responses: 0,
+      nonResponses: 1,
+      terminalAuditEvents: 1,
+    });
 
     const expiredFixture = await setupFixture({ withAssignment: true });
     const expireService = new RecordExpiredCheckInNonResponseService(new PrismaCheckInUnitOfWork());
@@ -389,6 +424,76 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
     ]);
     expect(expired.map(({ idempotent }) => idempotent).sort()).toEqual([false, true]);
     expect(expired[0].nonResponseEventId).toBe(expired[1].nonResponseEventId);
+    await expect(terminalPersistence(expiredFixture.assignment!.id)).resolves.toEqual({
+      outcomes: 1,
+      responses: 0,
+      nonResponses: 1,
+      terminalAuditEvents: 1,
+    });
+  });
+
+  it("rechaza actor, tipo, clave o fingerprint incompatibles sobre un outcome completo", async () => {
+    const fixture = await setupFixture({ withAssignment: true });
+    const responseService = new SubmitCheckInResponseService(new PrismaCheckInUnitOfWork());
+    const omitService = new OmitCheckInAssignmentService(new PrismaCheckInUnitOfWork());
+    const key = `response-conflicts:${randomUUID()}`;
+    const original = responseInput(fixture, fixture.assignment!.id, key);
+    await responseService.execute(original);
+
+    const otherPatient = await createUser("checkin-other-patient", "patient");
+    await expect(
+      responseService.execute({ ...original, actor: patientActor(otherPatient.id) }),
+    ).rejects.toBeInstanceOf(CheckInDeniedError);
+    await expect(
+      omitService.execute({
+        actor: patientActor(fixture.patientUser.id),
+        assignmentId: fixture.assignment!.id,
+        idempotencyKey: key,
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T08:00:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(CheckInConflictError);
+    await expect(
+      responseService.execute({
+        ...original,
+        idempotencyKey: `response-different-key:${randomUUID()}`,
+      }),
+    ).rejects.toBeInstanceOf(CheckInConflictError);
+    await expect(
+      responseService.execute({
+        ...original,
+        answers: answer(fixture.protocol.questions[0]!.id, 2),
+      }),
+    ).rejects.toBeInstanceOf(CheckInConflictError);
+    await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+      outcomes: 1,
+      responses: 1,
+      nonResponses: 0,
+      terminalAuditEvents: 1,
+    });
+  });
+
+  it("no trata como replay un vencimiento idéntico solicitado por otro actor asignado", async () => {
+    const fixture = await setupFixture({ withAssignment: true });
+    const service = new RecordExpiredCheckInNonResponseService(new PrismaCheckInUnitOfWork());
+    const input = {
+      actor: nurseActor(fixture.nurse.id),
+      assignmentId: fixture.assignment!.id,
+      idempotencyKey: `expire-actor-conflict:${randomUUID()}`,
+      correlationId: randomUUID(),
+      now: new Date("2026-07-02T11:00:00.000Z"),
+    };
+    await service.execute(input);
+
+    await expect(
+      service.execute({ ...input, actor: clinicianActor(fixture.clinician.id) }),
+    ).rejects.toBeInstanceOf(CheckInConflictError);
+    await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+      outcomes: 1,
+      responses: 0,
+      nonResponses: 1,
+      terminalAuditEvents: 1,
+    });
   });
 
   it("carreras response vs omit producen un único outcome terminal", async () => {
@@ -411,13 +516,10 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
       expect(settled.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
       const rejected = settled.find(({ status }) => status === "rejected");
       expect(rejected).toMatchObject({ reason: expect.any(CheckInConflictError) });
-      const [outcomes, responses, nonResponses] = await Promise.all([
-        prisma.checkInOutcome.count({ where: { assignmentId: fixture.assignment!.id } }),
-        prisma.checkInResponse.count({ where: { assignmentId: fixture.assignment!.id } }),
-        prisma.nonResponseEvent.count({ where: { assignmentId: fixture.assignment!.id } }),
-      ]);
-      expect(outcomes).toBe(1);
-      expect(responses + nonResponses).toBe(1);
+      const persistence = await terminalPersistence(fixture.assignment!.id);
+      expect(persistence.outcomes).toBe(1);
+      expect(persistence.responses + persistence.nonResponses).toBe(1);
+      expect(persistence.terminalAuditEvents).toBe(1);
     }
   });
 
@@ -443,13 +545,45 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
       expect(settled.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
       const rejected = settled.find(({ status }) => status === "rejected");
       expect(rejected).toMatchObject({ reason: expect.any(CheckInConflictError) });
-      const [outcomes, responses, nonResponses] = await Promise.all([
-        prisma.checkInOutcome.count({ where: { assignmentId: fixture.assignment!.id } }),
-        prisma.checkInResponse.count({ where: { assignmentId: fixture.assignment!.id } }),
-        prisma.nonResponseEvent.count({ where: { assignmentId: fixture.assignment!.id } }),
+      const persistence = await terminalPersistence(fixture.assignment!.id);
+      expect(persistence.outcomes).toBe(1);
+      expect(persistence.responses + persistence.nonResponses).toBe(1);
+      expect(persistence.terminalAuditEvents).toBe(1);
+    }
+  });
+
+  it("carreras omit vs expire producen un único outcome terminal", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const fixture = await setupFixture({ withAssignment: true });
+      const omitService = new OmitCheckInAssignmentService(new PrismaCheckInUnitOfWork());
+      const expireService = new RecordExpiredCheckInNonResponseService(
+        new PrismaCheckInUnitOfWork(),
+      );
+      const settled = await Promise.allSettled([
+        omitService.execute({
+          actor: patientActor(fixture.patientUser.id),
+          assignmentId: fixture.assignment!.id,
+          idempotencyKey: `omit-expire-race:${randomUUID()}`,
+          correlationId: randomUUID(),
+          now: new Date("2026-07-02T08:00:00.000Z"),
+        }),
+        expireService.execute({
+          actor: nurseActor(fixture.nurse.id),
+          assignmentId: fixture.assignment!.id,
+          idempotencyKey: `expire-omit-race:${randomUUID()}`,
+          correlationId: randomUUID(),
+          now: new Date("2026-07-02T11:00:00.000Z"),
+        }),
       ]);
-      expect(outcomes).toBe(1);
-      expect(responses + nonResponses).toBe(1);
+      expect(settled.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+      const rejected = settled.find(({ status }) => status === "rejected");
+      expect(rejected).toMatchObject({ reason: expect.any(CheckInConflictError) });
+      await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+        outcomes: 1,
+        responses: 0,
+        nonResponses: 1,
+        terminalAuditEvents: 1,
+      });
     }
   });
 

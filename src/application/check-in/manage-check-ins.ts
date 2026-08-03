@@ -313,19 +313,19 @@ export class SubmitCheckInResponseService {
         input.actor.userId,
         idempotencyKey,
       );
-      if (existing) {
-        return {
-          responseId: resultIdForIdempotentOutcome(existing, expectedOutcome),
-          idempotent: true,
-        };
-      }
       await assertActiveRole(transaction, input.actor, role);
       const assignment = await transaction.getAssignment(input.assignmentId);
       if (!assignment) throw new CheckInNotFoundError("Assignment not found");
       if (assignment.episode.patientPortalUserId !== input.actor.userId) {
         throw new CheckInDeniedError("Patient cannot answer another episode");
       }
-      if (assignment.outcome) throw new CheckInConflictError("Assignment is already complete");
+      const replayedOutcome = existing ?? assignment.outcome;
+      if (replayedOutcome) {
+        return {
+          responseId: resultIdForIdempotentOutcome(replayedOutcome, expectedOutcome),
+          idempotent: true,
+        };
+      }
       await assertDigitalParticipation(transaction, input.actor.userId, submittedAt);
       if (submittedAt < assignment.windowStartsAt || submittedAt >= assignment.windowEndsAt) {
         throw new CheckInWindowError("Assignment is outside its configured response window");
@@ -404,19 +404,19 @@ export class OmitCheckInAssignmentService {
         input.actor.userId,
         idempotencyKey,
       );
-      if (existing) {
-        return {
-          nonResponseEventId: resultIdForIdempotentOutcome(existing, expectedOutcome),
-          idempotent: true,
-        };
-      }
       await assertActiveRole(transaction, input.actor, role);
       const assignment = await transaction.getAssignment(input.assignmentId);
       if (!assignment) throw new CheckInNotFoundError("Assignment not found");
       if (assignment.episode.patientPortalUserId !== input.actor.userId) {
         throw new CheckInDeniedError("Patient cannot omit another episode");
       }
-      if (assignment.outcome) throw new CheckInConflictError("Assignment is already complete");
+      const replayedOutcome = existing ?? assignment.outcome;
+      if (replayedOutcome) {
+        return {
+          nonResponseEventId: resultIdForIdempotentOutcome(replayedOutcome, expectedOutcome),
+          idempotent: true,
+        };
+      }
       await assertDigitalParticipation(transaction, input.actor.userId, recordedAt);
       if (recordedAt < assignment.windowStartsAt || recordedAt >= assignment.windowEndsAt) {
         throw new CheckInWindowError("Assignment is outside its configured response window");
@@ -490,12 +490,6 @@ export class RecordExpiredCheckInNonResponseService {
         input.actor.userId,
         idempotencyKey,
       );
-      if (existing) {
-        return {
-          nonResponseEventId: resultIdForIdempotentOutcome(existing, expectedOutcome),
-          idempotent: true,
-        };
-      }
       await assertActiveRole(transaction, input.actor, role);
       const assignment = await transaction.getAssignment(input.assignmentId);
       if (!assignment) throw new CheckInNotFoundError("Assignment not found");
@@ -505,7 +499,13 @@ export class RecordExpiredCheckInNonResponseService {
       ) {
         throw new CheckInDeniedError("Actor is not assigned to episode");
       }
-      if (assignment.outcome) throw new CheckInConflictError("Assignment is already complete");
+      const replayedOutcome = existing ?? assignment.outcome;
+      if (replayedOutcome) {
+        return {
+          nonResponseEventId: resultIdForIdempotentOutcome(replayedOutcome, expectedOutcome),
+          idempotent: true,
+        };
+      }
       if (recordedAt < assignment.windowEndsAt) {
         throw new CheckInWindowError("Configured response window has not expired");
       }
