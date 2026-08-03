@@ -12,6 +12,8 @@ export interface ServerEnvironment {
   readonly caregiverDemoSessionTtlHours: number;
   readonly sessionCookieSecure: boolean;
   readonly explainableTrafficLight: boolean;
+  readonly commitmentEngineConfigured: boolean;
+  readonly commitmentEngineEnabled: boolean;
 }
 
 function parseBoolean(name: string, value: string | undefined, fallback: boolean): boolean {
@@ -89,6 +91,12 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
     source.EXPLAINABLE_TRAFFIC_LIGHT,
     false,
   );
+  const commitmentEngineConfigured = source.COMMITMENT_ENGINE_ENABLED !== undefined;
+  const commitmentEngineEnabled = parseBoolean(
+    "COMMITMENT_ENGINE_ENABLED",
+    source.COMMITMENT_ENGINE_ENABLED,
+    false,
+  );
 
   if (nodeEnv === "production" && demoMode) {
     throw new Error("DEMO_MODE cannot be enabled in production");
@@ -102,6 +110,9 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
   if (nodeEnv === "production" && !sessionCookieSecure) {
     throw new Error("SESSION_COOKIE_SECURE must be enabled in production");
   }
+  if (commitmentEngineEnabled && !demoMode) {
+    throw new Error("COMMITMENT_ENGINE_ENABLED requires explicit synthetic DEMO_MODE");
+  }
 
   return {
     nodeEnv,
@@ -113,5 +124,7 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
     caregiverDemoSessionTtlHours,
     sessionCookieSecure,
     explainableTrafficLight,
+    commitmentEngineConfigured,
+    commitmentEngineEnabled,
   };
 }

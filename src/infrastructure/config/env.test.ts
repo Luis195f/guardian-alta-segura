@@ -12,6 +12,7 @@ const baseEnvironment: NodeJS.ProcessEnv = {
   CAREGIVER_DEMO_SESSION_TTL_HOURS: "8",
   SESSION_COOKIE_SECURE: "false",
   EXPLAINABLE_TRAFFIC_LIGHT: "false",
+  COMMITMENT_ENGINE_ENABLED: "false",
 };
 
 describe("server environment validation", () => {
@@ -24,6 +25,8 @@ describe("server environment validation", () => {
       caregiverDemoSessionTtlHours: 8,
       sessionCookieSecure: false,
       explainableTrafficLight: false,
+      commitmentEngineConfigured: true,
+      commitmentEngineEnabled: false,
     });
   });
 
@@ -90,6 +93,34 @@ describe("server environment validation", () => {
     expect(() =>
       readServerEnvironment({ ...baseEnvironment, EXPLAINABLE_TRAFFIC_LIGHT: "1" }),
     ).toThrow('EXPLAINABLE_TRAFFIC_LIGHT must be exactly "true" or "false"');
+  });
+
+  it("mantiene el núcleo 5B apagado y marca el gate como ausente por defecto", () => {
+    const withoutCommitmentGate = { ...baseEnvironment };
+    delete withoutCommitmentGate.COMMITMENT_ENGINE_ENABLED;
+    expect(readServerEnvironment(withoutCommitmentGate)).toMatchObject({
+      commitmentEngineConfigured: false,
+      commitmentEngineEnabled: false,
+    });
+  });
+
+  it("rechaza valores ambiguos para el gate 5B", () => {
+    expect(() =>
+      readServerEnvironment({ ...baseEnvironment, COMMITMENT_ENGINE_ENABLED: "enabled" }),
+    ).toThrow('COMMITMENT_ENGINE_ENABLED must be exactly "true" or "false"');
+  });
+
+  it("solo habilita el gate 5B junto al modo sintético local explícito", () => {
+    expect(
+      readServerEnvironment({ ...baseEnvironment, COMMITMENT_ENGINE_ENABLED: "true" }),
+    ).toMatchObject({ commitmentEngineConfigured: true, commitmentEngineEnabled: true });
+    expect(() =>
+      readServerEnvironment({
+        ...baseEnvironment,
+        DEMO_MODE: "false",
+        COMMITMENT_ENGINE_ENABLED: "true",
+      }),
+    ).toThrow("COMMITMENT_ENGINE_ENABLED requires explicit synthetic DEMO_MODE");
   });
 
   it.each(["0", "13", "8.5", "not-a-number"])(
