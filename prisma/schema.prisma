@@ -57,6 +57,9 @@ enum AuditAction {
   CAREGIVER_SESSION_LOGGED_OUT
   HOME_SAFETY_VERSION_CREATED
   SBAR_PREVIEW_GENERATED
+  COMMITMENT_DRAFT_CREATED
+  COMMITMENT_ACTIVATED
+  COMMITMENT_SUPERSEDED
 }
 
 enum IdentityVerificationState {
@@ -257,6 +260,22 @@ enum HomeSafetyProvenance {
   CLINICIAN
 }
 
+enum CommitmentDefinitionState {
+  DRAFT
+}
+
+enum EpisodeCommitmentState {
+  DRAFT
+  AWAITING_EVIDENCE
+  SUPERSEDED_BY_CORRECTION
+}
+
+enum CommitmentEventType {
+  COMMITMENT_DRAFT_CREATED
+  COMMITMENT_ACTIVATED
+  COMMITMENT_SUPERSEDED
+}
+
 model User {
   id                                  String                              @id @default(cuid())
   syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
@@ -316,6 +335,11 @@ model User {
   caregiverScopesCreated              CaregiverAuthorizationScope[]       @relation("CaregiverScopeActor")
   caregiverAccessAuditsAuthored       CaregiverAccessAudit[]              @relation("CaregiverAccessAuditActor")
   homeSafetyVersionsRecorded          HomeSafetyReviewVersion[]           @relation("HomeSafetyReviewActor")
+  commitmentDefinitionsCreated        CommitmentDefinition[]              @relation("CommitmentDefinitionCreator")
+  commitmentDefinitionVersionsCreated CommitmentDefinitionVersion[]       @relation("CommitmentDefinitionVersionCreator")
+  commitmentVersionsCreated           EpisodeCommitmentVersion[]          @relation("CommitmentVersionCreator")
+  commitmentVersionsAssigned          EpisodeCommitmentVersion[]          @relation("CommitmentVersionAssignee")
+  commitmentEventsRecorded            CommitmentEvent[]                   @relation("CommitmentEventActor")
 
   @@map("users")
 }
@@ -362,31 +386,31 @@ model Patient {
 }
 
 model DischargeEpisode {
-  id                       String                   @id @default(cuid())
-  patientId                String                   @map("patient_id")
-  dischargeDate            DateTime                 @map("discharge_date") @db.Date
-  programLengthDays        Int                      @map("program_length_days")
-  responsibleNurseId       String                   @map("responsible_nurse_id")
-  responsibleClinicianId   String                   @map("responsible_clinician_id")
-  status                   DischargeEpisodeStatus   @default(DRAFT)
-  createdById              String                   @map("created_by_id")
-  closedReason             String?                  @map("closed_reason") @db.VarChar(500)
-  closedById               String?                  @map("closed_by_id")
-  closedAt                 DateTime?                @map("closed_at")
-  createdAt                DateTime                 @default(now()) @map("created_at")
-  updatedAt                DateTime                 @updatedAt @map("updated_at")
-  version                  Int                      @default(1)
-  patient                  Patient                  @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  responsibleNurse         User                     @relation("EpisodeResponsibleNurse", fields: [responsibleNurseId], references: [id], onDelete: Restrict)
-  responsibleClinician     User                     @relation("EpisodeResponsibleClinician", fields: [responsibleClinicianId], references: [id], onDelete: Restrict)
-  createdBy                User                     @relation("EpisodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  closedBy                 User?                    @relation("EpisodeCloser", fields: [closedById], references: [id], onDelete: Restrict)
+  id                       String                        @id @default(cuid())
+  patientId                String                        @map("patient_id")
+  dischargeDate            DateTime                      @map("discharge_date") @db.Date
+  programLengthDays        Int                           @map("program_length_days")
+  responsibleNurseId       String                        @map("responsible_nurse_id")
+  responsibleClinicianId   String                        @map("responsible_clinician_id")
+  status                   DischargeEpisodeStatus        @default(DRAFT)
+  createdById              String                        @map("created_by_id")
+  closedReason             String?                       @map("closed_reason") @db.VarChar(500)
+  closedById               String?                       @map("closed_by_id")
+  closedAt                 DateTime?                     @map("closed_at")
+  createdAt                DateTime                      @default(now()) @map("created_at")
+  updatedAt                DateTime                      @updatedAt @map("updated_at")
+  version                  Int                           @default(1)
+  patient                  Patient                       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  responsibleNurse         User                          @relation("EpisodeResponsibleNurse", fields: [responsibleNurseId], references: [id], onDelete: Restrict)
+  responsibleClinician     User                          @relation("EpisodeResponsibleClinician", fields: [responsibleClinicianId], references: [id], onDelete: Restrict)
+  createdBy                User                          @relation("EpisodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  closedBy                 User?                         @relation("EpisodeCloser", fields: [closedById], references: [id], onDelete: Restrict)
   transitions              EpisodeTransition[]
   safetyPlan               SafetyPlan?
-  checkInProtocolVersionId String                   @map("check_in_protocol_version_id")
-  checkInProtocolVersion   CheckInProtocolVersion   @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "discharge_episodes_check_in_protocol_fkey")
-  checkInAssignmentBatches CheckInAssignmentBatch[] @relation("EpisodeCheckInAssignmentBatches")
-  checkInAssignments       CheckInAssignment[]      @relation("EpisodeCheckInAssignments")
+  checkInProtocolVersionId String                        @map("check_in_protocol_version_id")
+  checkInProtocolVersion   CheckInProtocolVersion        @relation(fields: [checkInProtocolVersionId], references: [id], onDelete: Restrict, map: "discharge_episodes_check_in_protocol_fkey")
+  checkInAssignmentBatches CheckInAssignmentBatch[]      @relation("EpisodeCheckInAssignmentBatches")
+  checkInAssignments       CheckInAssignment[]           @relation("EpisodeCheckInAssignments")
   ruleEvaluations          RuleEvaluation[]
   alerts                   Alert[]
   tasks                    Task[]
@@ -395,6 +419,7 @@ model DischargeEpisode {
   caregiverSessions        CaregiverSession[]
   caregiverObservations    CaregiverObservation[]
   homeSafetyVersions       HomeSafetyReviewVersion[]
+  commitments              EpisodeCommitment[]
 
   @@unique([id, checkInProtocolVersionId], map: "discharge_episodes_id_check_in_protocol_version_id_key")
   @@index([responsibleNurseId, status])
@@ -857,6 +882,133 @@ model EpisodeTransition {
   @@map("episode_transitions")
 }
 
+model CommitmentDefinition {
+  id            String                        @id @default(cuid())
+  definitionKey String                        @unique(map: "commitment_definitions_definition_key_key") @map("definition_key") @db.VarChar(128)
+  isSynthetic   Boolean                       @default(false) @map("is_synthetic")
+  createdById   String                        @map("created_by_id")
+  createdAt     DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     User                          @relation("CommitmentDefinitionCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "commitment_definitions_creator_fkey")
+  versions      CommitmentDefinitionVersion[]
+
+  @@map("commitment_definitions")
+}
+
+model CommitmentDefinitionVersion {
+  id                    String                        @id @default(cuid())
+  definitionId          String                        @map("definition_id")
+  versionNumber         Int                           @map("version_number")
+  state                 CommitmentDefinitionState     @default(DRAFT)
+  basedOnVersionId      String?                       @map("based_on_version_id")
+  isSynthetic           Boolean                       @default(false) @map("is_synthetic")
+  sourceType            String                        @map("source_type") @db.VarChar(128)
+  sourceId              String                        @map("source_id") @db.VarChar(128)
+  sourceVersion         String                        @map("source_version") @db.VarChar(128)
+  actionKey             String                        @map("action_key") @db.VarChar(128)
+  actionStatement       String                        @map("action_statement") @db.VarChar(500)
+  responsibleRoleRef    String                        @map("responsible_role_ref") @db.VarChar(128)
+  dueSourceKind         String                        @map("due_source_kind") @db.VarChar(128)
+  evidencePolicyKey     String                        @map("evidence_policy_key") @db.VarChar(128)
+  evidencePolicyVersion String                        @map("evidence_policy_version") @db.VarChar(128)
+  createdById           String                        @map("created_by_id")
+  createdAt             DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  definition            CommitmentDefinition          @relation(fields: [definitionId], references: [id], onDelete: Restrict, map: "commitment_definition_versions_definition_fkey")
+  basedOnVersion        CommitmentDefinitionVersion?  @relation("CommitmentDefinitionVersionLineage", fields: [basedOnVersionId, definitionId], references: [id, definitionId], onDelete: Restrict, map: "commitment_definition_versions_base_fkey")
+  derivedVersions       CommitmentDefinitionVersion[] @relation("CommitmentDefinitionVersionLineage")
+  createdBy             User                          @relation("CommitmentDefinitionVersionCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "commitment_definition_versions_creator_fkey")
+  commitmentVersions    EpisodeCommitmentVersion[]
+
+  @@unique([definitionId, versionNumber], map: "commitment_definition_versions_definition_version_key")
+  @@unique([id, definitionId], map: "commitment_definition_versions_id_definition_key")
+  @@index([definitionId, createdAt], map: "commitment_definition_versions_definition_created_idx")
+  @@map("commitment_definition_versions")
+}
+
+model EpisodeCommitment {
+  id               String                     @id @default(cuid())
+  episodeId        String                     @map("episode_id")
+  currentVersionId String                     @unique(map: "episode_commitments_current_version_key") @map("current_version_id")
+  currentState     EpisodeCommitmentState     @default(DRAFT) @map("current_state")
+  revision         Int                        @default(1)
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                   @map("updated_at") @db.Timestamptz(3)
+  episode          DischargeEpisode           @relation(fields: [episodeId], references: [id], onDelete: Restrict, map: "episode_commitments_episode_fkey")
+  currentVersion   EpisodeCommitmentVersion   @relation("CurrentCommitmentVersion", fields: [currentVersionId, id, episodeId], references: [id, commitmentId, episodeId], onDelete: Restrict, map: "episode_commitments_current_version_fkey")
+  versions         EpisodeCommitmentVersion[] @relation("CommitmentVersions")
+  events           CommitmentEvent[]
+
+  @@unique([id, episodeId], map: "episode_commitments_id_episode_key")
+  @@unique([id, revision], map: "episode_commitments_id_revision_key")
+  @@unique([currentVersionId, id, episodeId], map: "episode_commitments_current_identity_key")
+  @@index([episodeId, currentState, createdAt], map: "episode_commitments_episode_state_created_idx")
+  @@map("episode_commitments")
+}
+
+model EpisodeCommitmentVersion {
+  id                    String                      @id @default(cuid())
+  commitmentId          String                      @map("commitment_id")
+  episodeId             String                      @map("episode_id")
+  versionNumber         Int                         @map("version_number")
+  basedOnVersionId      String?                     @map("based_on_version_id")
+  definitionVersionId   String                      @map("definition_version_id")
+  actionKey             String                      @map("action_key") @db.VarChar(128)
+  actionStatement       String                      @map("action_statement") @db.VarChar(500)
+  responsibleRoleRef    String                      @map("responsible_role_ref") @db.VarChar(128)
+  assignedUserId        String?                     @map("assigned_user_id")
+  dueAt                 DateTime                    @map("due_at") @db.Timestamptz(3)
+  timeZone              String                      @map("time_zone") @db.VarChar(64)
+  dueSourceKind         String                      @map("due_source_kind") @db.VarChar(128)
+  dueSourceId           String                      @map("due_source_id") @db.VarChar(128)
+  dueSourceVersion      String                      @map("due_source_version") @db.VarChar(128)
+  evidencePolicyKey     String                      @map("evidence_policy_key") @db.VarChar(128)
+  evidencePolicyVersion String                      @map("evidence_policy_version") @db.VarChar(128)
+  createdById           String                      @map("created_by_id")
+  actorRole             Role                        @map("actor_role")
+  createdAt             DateTime                    @map("created_at") @db.Timestamptz(3)
+  correctionReason      String?                     @map("correction_reason") @db.VarChar(280)
+  commitment            EpisodeCommitment           @relation("CommitmentVersions", fields: [commitmentId, episodeId], references: [id, episodeId], onDelete: Restrict, map: "episode_commitment_versions_commitment_fkey")
+  currentFor            EpisodeCommitment?          @relation("CurrentCommitmentVersion")
+  basedOnVersion        EpisodeCommitmentVersion?   @relation("EpisodeCommitmentVersionLineage", fields: [basedOnVersionId, commitmentId, episodeId], references: [id, commitmentId, episodeId], onDelete: Restrict, map: "episode_commitment_versions_base_fkey")
+  derivedVersions       EpisodeCommitmentVersion[]  @relation("EpisodeCommitmentVersionLineage")
+  definitionVersion     CommitmentDefinitionVersion @relation(fields: [definitionVersionId], references: [id], onDelete: Restrict, map: "episode_commitment_versions_definition_fkey")
+  assignedUser          User?                       @relation("CommitmentVersionAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict, map: "episode_commitment_versions_assignee_fkey")
+  createdBy             User                        @relation("CommitmentVersionCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "episode_commitment_versions_creator_fkey")
+  sourceEvents          CommitmentEvent[]           @relation("CommitmentEventSourceVersion")
+  resultingEvents       CommitmentEvent[]           @relation("CommitmentEventResultingVersion")
+
+  @@unique([commitmentId, versionNumber], map: "episode_commitment_versions_commitment_version_key")
+  @@unique([id, commitmentId, episodeId], map: "episode_commitment_versions_identity_key")
+  @@index([commitmentId, createdAt], map: "episode_commitment_versions_commitment_created_idx")
+  @@map("episode_commitment_versions")
+}
+
+model CommitmentEvent {
+  id                 String                    @id @default(cuid())
+  commitmentId       String                    @map("commitment_id")
+  episodeId          String                    @map("episode_id")
+  type               CommitmentEventType
+  fromState          EpisodeCommitmentState?   @map("from_state")
+  toState            EpisodeCommitmentState    @map("to_state")
+  sourceVersionId    String?                   @map("source_version_id")
+  resultingVersionId String                    @map("resulting_version_id")
+  actorUserId        String                    @map("actor_user_id")
+  actorRole          Role                      @map("actor_role")
+  idempotencyKey     String                    @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String                    @map("request_fingerprint") @db.Char(64)
+  resultingRevision  Int                       @map("resulting_revision")
+  correctionReason   String?                   @map("correction_reason") @db.VarChar(280)
+  occurredAt         DateTime                  @map("occurred_at") @db.Timestamptz(3)
+  commitment         EpisodeCommitment         @relation(fields: [commitmentId, episodeId], references: [id, episodeId], onDelete: Restrict, map: "commitment_events_commitment_fkey")
+  sourceVersion      EpisodeCommitmentVersion? @relation("CommitmentEventSourceVersion", fields: [sourceVersionId, commitmentId, episodeId], references: [id, commitmentId, episodeId], onDelete: Restrict, map: "commitment_events_source_version_fkey")
+  resultingVersion   EpisodeCommitmentVersion  @relation("CommitmentEventResultingVersion", fields: [resultingVersionId, commitmentId, episodeId], references: [id, commitmentId, episodeId], onDelete: Restrict, map: "commitment_events_resulting_version_fkey")
+  actor              User                      @relation("CommitmentEventActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "commitment_events_actor_fkey")
+
+  @@unique([actorUserId, idempotencyKey], map: "commitment_events_actor_idempotency_key")
+  @@unique([commitmentId, resultingRevision], map: "commitment_events_commitment_revision_key")
+  @@index([commitmentId, occurredAt], map: "commitment_events_commitment_occurred_idx")
+  @@map("commitment_events")
+}
+
 model PolicyVersion {
   id                          String                       @id @default(cuid())
   policyKey                   String                       @map("policy_key") @db.VarChar(64)
@@ -1088,18 +1240,18 @@ model CaregiverAccessAudit {
 }
 
 model HomeSafetyReviewVersion {
-  id                                 String                 @id @default(cuid())
-  dischargeEpisodeId                 String                 @map("discharge_episode_id")
-  versionNumber                      Int                    @map("version_number")
-  templateKey                        String                 @map("template_key") @db.VarChar(64)
-  templateVersion                    String                 @map("template_version") @db.VarChar(32)
-  informationalPurposeAcknowledged   Boolean                @map("informational_purpose_acknowledged")
-  humanReviewed                      Boolean                @map("human_reviewed")
-  actorUserId                        String                 @map("actor_user_id")
-  recordedAt                         DateTime               @default(now()) @map("recorded_at")
-  dischargeEpisode                   DischargeEpisode       @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "home_safety_versions_episode_fkey")
-  actor                              User                   @relation("HomeSafetyReviewActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "home_safety_versions_actor_fkey")
-  items                              HomeSafetyItem[]
+  id                               String           @id @default(cuid())
+  dischargeEpisodeId               String           @map("discharge_episode_id")
+  versionNumber                    Int              @map("version_number")
+  templateKey                      String           @map("template_key") @db.VarChar(64)
+  templateVersion                  String           @map("template_version") @db.VarChar(32)
+  informationalPurposeAcknowledged Boolean          @map("informational_purpose_acknowledged")
+  humanReviewed                    Boolean          @map("human_reviewed")
+  actorUserId                      String           @map("actor_user_id")
+  recordedAt                       DateTime         @default(now()) @map("recorded_at")
+  dischargeEpisode                 DischargeEpisode @relation(fields: [dischargeEpisodeId], references: [id], onDelete: Restrict, map: "home_safety_versions_episode_fkey")
+  actor                            User             @relation("HomeSafetyReviewActor", fields: [actorUserId], references: [id], onDelete: Restrict, map: "home_safety_versions_actor_fkey")
+  items                            HomeSafetyItem[]
 
   @@unique([dischargeEpisodeId, versionNumber], map: "home_safety_versions_episode_version_key")
   @@index([dischargeEpisodeId, recordedAt], map: "home_safety_versions_episode_time_idx")
@@ -1107,12 +1259,12 @@ model HomeSafetyReviewVersion {
 }
 
 model HomeSafetyItem {
-  id                    String                  @id @default(cuid())
-  reviewVersionId       String                  @map("review_version_id")
-  itemKey               String                  @map("item_key") @db.VarChar(64)
-  state                 HomeSafetyItemState
-  provenance            HomeSafetyProvenance
-  reviewVersion         HomeSafetyReviewVersion @relation(fields: [reviewVersionId], references: [id], onDelete: Restrict, map: "home_safety_items_version_fkey")
+  id              String                  @id @default(cuid())
+  reviewVersionId String                  @map("review_version_id")
+  itemKey         String                  @map("item_key") @db.VarChar(64)
+  state           HomeSafetyItemState
+  provenance      HomeSafetyProvenance
+  reviewVersion   HomeSafetyReviewVersion @relation(fields: [reviewVersionId], references: [id], onDelete: Restrict, map: "home_safety_items_version_fkey")
 
   @@unique([reviewVersionId, itemKey], map: "home_safety_items_version_item_key")
   @@map("home_safety_items")
