@@ -4,6 +4,8 @@ MVP técnico de continuidad postalta en salud mental. Esta rama contiene infraes
 
 > **SINTÉTICO / NO USO CLÍNICO.** No diagnostica, prescribe ni predice riesgo. No sustituye decisiones profesionales ni acredita validación clínica, jurídica, institucional, RGPD o MDR.
 
+> **PROYECTO PERSONAL INDEPENDIENTE.** Guardián Alta Segura es un proyecto personal desarrollado de manera independiente. Actualmente ninguna institución sanitaria, empresa, sociedad profesional, universidad, organismo público o grupo de investigación patrocina, posee, codesarrolla, respalda, valida, integra, despliega ni autoriza este proyecto.
+
 ## Stack y requisitos
 
 - Node.js 22.14–24 y pnpm 11.7 (único gestor; `pnpm-lock.yaml` es obligatorio).
@@ -102,7 +104,15 @@ Las rutas protegidas vuelven a comprobar sesión y autorización en servidor. `a
 
 Véanse [docs/platform-foundation-security.md](docs/platform-foundation-security.md) y [ADR-0003](docs/adr/0003-demo-identity-vs-institutional-sso.md).
 
+## Neutralidad tecnológica y comunicaciones futuras
+
+Guardián es una capa de orquestación y trazabilidad. No se ha seleccionado ningún proveedor externo ni se ha implementado integración con telefonía, mensajería, telemonitorización, wearables, sensores, geolocalización, domótica, HCE/EHR, FHIR operativo, SSO institucional, videollamada, chatbot, voz automatizada o servicios hospitalarios.
+
+Una futura llamada al profesional y una futura llamada al paciente serían capacidades diferentes y no equivalentes. Cada una necesitaría propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo propios. Ningún aviso o compromiso puede iniciarlas automáticamente. No hay proveedor, consentimiento, base jurídica, protocolo, horario, SLA o responsable seleccionados: ambas permanecen `FUTURE_ONLY / NO_GO` y no tienen interfaz ni implementación.
+
 ## OpenAI Build Week 2026
+
+Guardián Alta Segura is a personal project developed independently. No healthcare institution, company, professional society, university, public body or research group currently sponsors, owns, co-develops, endorses, validates, integrates, deploys or authorizes this project.
 
 ### Problem
 

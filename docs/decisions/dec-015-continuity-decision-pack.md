@@ -518,9 +518,10 @@ aprobación sin PHI/PII.
 
 ## 18. External dependencies y experiencia de usuario
 
-LAGUN, Tucuvi, Huma, MeMind, HCE/EHR, IdP, messaging, monitoring e ITSM son
-terceros potenciales; no se presume ninguna integración activa. Por cada
-dependencia futura debe decidirse qué capability queda bloqueada/stale, quién
+Los proveedores de servicios clínicos, telemonitorización, HCE/EHR, IdP,
+messaging, monitoring e ITSM son terceros futuros no seleccionados; no se
+presume ninguna integración activa. Por cada dependencia futura debe decidirse
+qué capability queda bloqueada/stale, quién
 declara degraded state, qué evidencia se conserva y si Guardián puede operar sin
 ella.
 

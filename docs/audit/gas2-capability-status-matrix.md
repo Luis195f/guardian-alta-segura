@@ -102,5 +102,5 @@ the Core circuit-assurance capability or as detection of non-compliance.
 | Guardián Core | Episode governance bounded to organizational facts, human authorization, task accountability, technical evidence/audit and future circuit assurance after ADR-0015 approval |
 | Clinical Rules | Rule catalog/approval/evaluation, clinical input semantics, matched notices and their clinical presentation; separate intended purpose and regulatory assessment required |
 | Shared safety interface | Provenance and human-review references used across the current boundary; these do not prove deployment or regulatory independence |
-| Integrate when approved | HCE/EHR, institutional identity, messaging, LAGUN, Tucuvi, Huma, MeMind, RPM and wearables |
+| Integrate when approved | HCE/EHR, institutional identity, messaging, telephony, external clinical or telemonitoring services, RPM and wearables; no provider is selected |
 | Do not build | Own EHR, generic RPM, clinical voice platform, wearable, autonomous therapeutic chatbot, opaque predictor, speculative graph DB, complete FHIR server without requirement |

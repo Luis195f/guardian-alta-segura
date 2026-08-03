@@ -483,8 +483,9 @@ Un registro futuro podría conservar, sin PHI:
 - decisiones, mitigación y root cause sanitizados;
 - referencias de evidencia y acciones correctivas.
 
-LAGUN, Tucuvi, Huma, MeMind, HCE, IdP, cloud o monitoring vendors son solo
-terceros potenciales. No se presume contrato, canal o permiso de datos.
+Los proveedores de servicios clínicos, telemonitorización, HCE, IdP, cloud o
+monitoring son solo terceros futuros no seleccionados. No se presume contrato,
+canal o permiso de datos.
 
 La institución debe decidir cuándo exige RCA/postmortem, participantes,
 seguimiento de acciones, evidencia de cierre y enfoque no culpabilizante. El

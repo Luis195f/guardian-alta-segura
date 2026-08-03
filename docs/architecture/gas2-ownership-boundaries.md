@@ -33,10 +33,7 @@ separado.
 | `CLINICAL RULES` | Catálogo y evaluación de reglas clínicas | Separar de Core; evaluación regulatoria propia | Poseer DSL, inputs, umbrales, ventanas, evaluación, explicación y evidencia de rendimiento por intended purpose |
 | `CLINICAL RULES` | Avisos clínicos | Separar de Core; solo solicitud de revisión | Un `matched` puede solicitar revisión humana, pero no mutar tareas, episodios, comunicaciones o tratamiento |
 | `INTEGRATE` | HCE/EHR | Sistema externo | Consumir o publicar solo mediante contrato y autorización institucional; no replicar la HCE |
-| `INTEGRATE` | LAGUN | Proveedor potencial | No asumir API, contrato, acceso, payload, finalidad, DPA ni capacidad clínica |
-| `INTEGRATE` | Tucuvi | Proveedor potencial | Igual que LAGUN; realizar discovery y evaluación separada |
-| `INTEGRATE` | Huma | Proveedor potencial | Igual que LAGUN; no codificar un adapter especulativo |
-| `INTEGRATE` | MeMind | Proveedor potencial | Igual que LAGUN; no inferir equivalencias de cuestionarios o señales |
+| `INTEGRATE` | Servicio clínico o de telemonitorización externo | Proveedor futuro no seleccionado | No asumir API, contrato, acceso, payload, finalidad, DPA, equivalencia semántica ni capacidad clínica |
 | `INTEGRATE` | Wearables | Fuente externa potencial | Ingerir solo datos y finalidades aprobados; no controlar el dispositivo |
 | `INTEGRATE` | Messaging | Canal externo | Integrar proveedor aprobado respetando permiso por canal/finalidad y evidencia de entrega |
 | `INTEGRATE` | Identity provider | Autoridad institucional externa | Implementar `InstitutionalIdentityProvider`, validación de claims y mapeo aprobado; no gestionar credenciales propias |
@@ -49,6 +46,12 @@ separado.
 | `NEVER BUILD` | Predictor clínico opaco | `DO-NOT-BUILD` | Contradice la prohibición de scoring/predicción y no es explicable |
 | `NEVER BUILD` | Graph database | `DO-NOT-BUILD` sin evidencia | La responsabilidad actual cabe en relaciones y proyecciones; no hay consulta o escala demostrada |
 | `NEVER BUILD` | Servidor FHIR completo | `DO-NOT-BUILD` sin requisito | Si se requiere FHIR, construir solo anti-corruption layer y adapters de perfiles institucionales |
+
+## Telefonía futura: capacidades separadas
+
+Una futura llamada al profesional y una futura llamada al paciente son capacidades diferentes y no equivalentes. Deben mantener separados propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo. Ningún aviso o compromiso puede iniciar automáticamente ninguna de las dos.
+
+No se selecciona proveedor ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Ambas capacidades permanecen `FUTURE_ONLY / NO_GO`; este documento no autoriza ni implementa telefonía, voz automatizada o interfaces de llamada.
 
 ## Riesgo de duplicación por concepto propuesto
 
@@ -107,8 +110,8 @@ proveedor.
 
 ## Decisiones pendientes antes de integrar
 
-Para cualquier HCE, LAGUN, Tucuvi, Huma, MeMind, wearable, mensajería o RPM se
-requiere evidencia de:
+Para cualquier HCE, proveedor clínico o de telemonitorización, wearable,
+mensajería, telefonía o RPM se requiere evidencia de:
 
 - propietario y finalidad;
 - API y versión realmente disponibles;

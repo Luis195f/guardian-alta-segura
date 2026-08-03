@@ -4,6 +4,8 @@
 
 Este documento define la base de producto del MVP. No acredita validación clínica, evaluación jurídica, conformidad regulatoria ni aprobación institucional. El desarrollo, las pruebas y las demostraciones usan exclusivamente datos sintéticos hasta que el gate institucional correspondiente autorice otra cosa.
 
+Guardián Alta Segura es un proyecto personal desarrollado de manera independiente. Actualmente ninguna institución sanitaria, empresa, sociedad profesional, universidad, organismo público o grupo de investigación patrocina, posee, codesarrolla, respalda, valida, integra, despliega ni autoriza este proyecto.
+
 ## Problema
 
 Tras un alta en salud mental, la información necesaria para la continuidad puede quedar repartida entre documentos, comunicaciones y tareas sin una vista común ni una trazabilidad uniforme. Esto dificulta organizar el seguimiento, conocer qué información fue revisada por una persona y conservar el historial de cambios.

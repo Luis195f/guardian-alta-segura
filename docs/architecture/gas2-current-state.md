@@ -351,9 +351,9 @@ La observabilidad operativa es parcial:
 
 ## Interoperabilidad y conectores
 
-No existe FHIR, HL7, HCE/EHR, LAGUN, Tucuvi, Huma, MeMind, wearable, RPM o
+No existe FHIR, HL7, HCE/EHR, proveedor de telemonitorización, wearable, RPM o
 mensajería real. Tampoco hay registro de conectores, outbox o contratos canónicos
-de entrada.
+de entrada ni un proveedor externo seleccionado.
 
 Existen seams reutilizables:
 
