@@ -7,6 +7,7 @@ import type {
   AlertRecord,
   ExplainableAlertsTransaction,
   ExplainableAlertsUnitOfWork,
+  RecordedAlertReview,
   RuleDefinitionRecord,
   RuleVersionRecord,
 } from "@/application/ports/explainable-alerts-unit-of-work";
@@ -574,40 +575,86 @@ class PrismaExplainableAlertsTransaction implements ExplainableAlertsTransaction
   }
 
   async getAlert(alertId: string): Promise<AlertRecord | null> {
-    const alert = await this.transaction.alert.findUnique({
-      where: { id: alertId },
+    const rows = await this.transaction.$queryRaw<
+      {
+        id: string;
+        episodeId: string;
+        currentState: PrismaAlertState;
+        responsibleNurseId: string;
+        responsibleClinicianId: string;
+      }[]
+    >(Prisma.sql`
+      SELECT
+        alert."id",
+        alert."episode_id" AS "episodeId",
+        alert."current_state" AS "currentState",
+        episode."responsible_nurse_id" AS "responsibleNurseId",
+        episode."responsible_clinician_id" AS "responsibleClinicianId"
+      FROM "alerts" AS alert
+      INNER JOIN "discharge_episodes" AS episode ON episode."id" = alert."episode_id"
+      WHERE alert."id" = ${alertId}
+      FOR UPDATE OF alert
+    `);
+    const alert = rows[0];
+    return alert ? { ...alert, currentState: alertStateFromPrisma(alert.currentState) } : null;
+  }
+
+  async findAlertReviewByIdempotency(
+    reviewedById: string,
+    idempotencyKey: string,
+  ): Promise<RecordedAlertReview | null> {
+    const review = await this.transaction.alertReview.findUnique({
+      where: {
+        reviewedById_idempotencyKey: { reviewedById, idempotencyKey },
+      },
       select: {
         id: true,
-        episodeId: true,
-        currentState: true,
-        episode: {
-          select: { responsibleNurseId: true, responsibleClinicianId: true },
-        },
+        alertId: true,
+        fromState: true,
+        toState: true,
+        reviewedById: true,
+        idempotencyKey: true,
+        requestFingerprint: true,
       },
     });
-    return alert
+    return review
       ? {
-          id: alert.id,
-          episodeId: alert.episodeId,
-          currentState: alertStateFromPrisma(alert.currentState),
-          responsibleNurseId: alert.episode.responsibleNurseId,
-          responsibleClinicianId: alert.episode.responsibleClinicianId,
+          reviewId: review.id,
+          alertId: review.alertId,
+          fromState: alertStateFromPrisma(review.fromState),
+          toState: alertStateFromPrisma(review.toState) as Exclude<DomainAlertState, "open">,
+          reviewedById: review.reviewedById,
+          idempotencyKey: review.idempotencyKey,
+          requestFingerprint: review.requestFingerprint,
+          created: false,
         }
       : null;
   }
 
   async appendAlertReview(input: Parameters<ExplainableAlertsTransaction["appendAlertReview"]>[0]) {
-    const review = await this.transaction.alertReview.create({
+    const reviewId = randomUUID();
+    const created = await this.transaction.alertReview.createMany({
       data: {
+        id: reviewId,
         alertId: input.alertId,
         fromState: alertStateToPrisma(input.fromState),
         toState: alertStateToPrisma(input.toState),
         reason: input.reason,
         reviewedById: input.reviewedById,
+        idempotencyKey: input.idempotencyKey,
+        requestFingerprint: input.requestFingerprint,
         reviewedAt: input.reviewedAt,
       },
-      select: { id: true },
+      skipDuplicates: true,
     });
+    if (created.count === 0) {
+      const existing = await this.findAlertReviewByIdempotency(
+        input.reviewedById,
+        input.idempotencyKey,
+      );
+      if (!existing) throw new ExplainableAlertConflictError("Concurrent alert review conflict");
+      return existing;
+    }
     const updated = await this.transaction.alert.updateMany({
       where: {
         id: input.alertId,
@@ -618,7 +665,16 @@ class PrismaExplainableAlertsTransaction implements ExplainableAlertsTransaction
     if (updated.count !== 1) {
       throw new ExplainableAlertConflictError("Alert was reviewed concurrently");
     }
-    return { reviewId: review.id };
+    return {
+      reviewId,
+      alertId: input.alertId,
+      fromState: input.fromState,
+      toState: input.toState,
+      reviewedById: input.reviewedById,
+      idempotencyKey: input.idempotencyKey,
+      requestFingerprint: input.requestFingerprint,
+      created: true,
+    };
   }
 
   appendAuditEvent(input: NewAuditEvent) {
@@ -635,11 +691,15 @@ export class PrismaExplainableAlertsUnitOfWork implements ExplainableAlertsUnitO
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
-        if (!(
+        const isSerializationConflict =
           error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2034" &&
-          attempt < 3
-        )) {
+          (error.code === "P2034" ||
+            (error.code === "P2010" &&
+              typeof error.meta === "object" &&
+              error.meta !== null &&
+              "code" in error.meta &&
+              error.meta.code === "40001"));
+        if (!isSerializationConflict || attempt >= 3) {
           throw error;
         }
       }

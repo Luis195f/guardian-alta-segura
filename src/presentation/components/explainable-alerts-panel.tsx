@@ -90,17 +90,27 @@ export function ExplainableAlertsPanel({ enabled }: { readonly enabled: boolean 
     };
   }, [enabled]);
 
-  async function markReviewed(alertId: string) {
+  async function markReviewed(alert: AlertItem) {
     setPending(true);
     try {
-      const response = await fetch(`/api/demo/alerts/${alertId}/reviews`, {
+      const response = await fetch(`/api/demo/alerts/${alert.id}/reviews`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nextState: "reviewed" }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `alert-review:${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ expectedState: alert.state, nextState: "reviewed" }),
       });
+      if (response.status === 409) {
+        await loadAlerts();
+        setMessage(
+          "El aviso cambió desde que se mostró. Se ha recargado sin registrar una segunda revisión.",
+        );
+        return;
+      }
       if (!response.ok) throw new Error();
-      setMessage("Revisión humana registrada; no se ha creado ninguna acción clínica automática.");
       await loadAlerts();
+      setMessage("Revisión humana registrada; no se ha creado ninguna acción clínica automática.");
     } catch {
       setMessage("No se pudo registrar la revisión humana.");
       setPending(false);
@@ -154,7 +164,7 @@ export function ExplainableAlertsPanel({ enabled }: { readonly enabled: boolean 
               </small>
               <small>Evaluación trazable: {alert.evaluationId}</small>
               {alert.state === "open" && (
-                <button type="button" onClick={() => markReviewed(alert.id)} disabled={pending}>
+                <button type="button" onClick={() => markReviewed(alert)} disabled={pending}>
                   Revisar
                 </button>
               )}

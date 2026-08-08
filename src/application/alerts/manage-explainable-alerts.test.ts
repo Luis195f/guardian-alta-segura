@@ -15,6 +15,7 @@ import {
 import type {
   ExplainableAlertsTransaction,
   ExplainableAlertsUnitOfWork,
+  RecordedAlertReview,
   RecordedEvaluation,
   RuleVersionRecord,
 } from "@/application/ports/explainable-alerts-unit-of-work";
@@ -131,7 +132,17 @@ function transaction(
       responsibleNurseId: "nurse-1",
       responsibleClinicianId: "clinician-1",
     }),
-    appendAlertReview: async () => ({ reviewId: "review-1" }),
+    findAlertReviewByIdempotency: async () => null,
+    appendAlertReview: async (input) => ({
+      reviewId: "review-1",
+      alertId: input.alertId,
+      fromState: input.fromState,
+      toState: input.toState,
+      reviewedById: input.reviewedById,
+      idempotencyKey: input.idempotencyKey,
+      requestFingerprint: input.requestFingerprint,
+      created: true,
+    }),
     appendAuditEvent: async () => ({ id: "audit-1" }),
     ...overrides,
   };
@@ -266,6 +277,38 @@ describe("explainable alert application services", () => {
     expect(appendAlertReview).not.toHaveBeenCalled();
   });
 
+  it("persiste ABSTAINED ante un dato requerido ausente sin crear aviso ni acción", async () => {
+    const recordEvaluation = vi.fn(transaction().recordEvaluation);
+    const appendAlertReview = vi.fn(transaction().appendAlertReview);
+    const result = await new EvaluateRuleService(
+      unitOfWork(
+        transaction({
+          getVersion: async () => activeVersion,
+          recordEvaluation,
+          appendAlertReview,
+        }),
+      ),
+    ).execute({
+      actor: principal("nurse-1", ["nurse"]),
+      ruleVersionId: activeVersion.id,
+      episodeId: "episode-1",
+      inputs: [],
+      idempotencyKey: "alert:abstained-test",
+      correlationId: randomUUID(),
+      evaluatedAt: new Date("2026-07-17T12:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      outcome: "abstained",
+      alertId: null,
+      missingInputs: ["non_response_hours"],
+    });
+    expect(recordEvaluation).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "abstained", alert: null }),
+    );
+    expect(appendAlertReview).not.toHaveBeenCalled();
+  });
+
   it("reutiliza una evaluación por clave idempotente y rechaza otro payload", async () => {
     let saved: RecordedEvaluation | null = null;
     const appendAuditEvent = vi.fn(transaction().appendAuditEvent);
@@ -371,7 +414,9 @@ describe("explainable alert application services", () => {
     ).execute({
       actor: principal("nurse-1", ["nurse"]),
       alertId: "alert-1",
+      expectedState: "open",
       nextState: "reviewed",
+      idempotencyKey: "alert-review:explicit",
       correlationId: randomUUID(),
     });
     expect(result.state).toBe("reviewed");
@@ -380,7 +425,110 @@ describe("explainable alert application services", () => {
         fromState: "open",
         toState: "reviewed",
         reviewedById: "nurse-1",
+        idempotencyKey: "alert-review:explicit",
+        requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
       }),
     );
+  });
+
+  it("reutiliza una revisión por clave idempotente, no duplica auditoría y rechaza otra huella", async () => {
+    let saved: RecordedAlertReview | null = null;
+    const appendAuditEvent = vi.fn(transaction().appendAuditEvent);
+    const tx = transaction({
+      findAlertReviewByIdempotency: async () => saved,
+      appendAlertReview: async (input) => {
+        saved = {
+          reviewId: "review-idempotent",
+          alertId: input.alertId,
+          fromState: input.fromState,
+          toState: input.toState,
+          reviewedById: input.reviewedById,
+          idempotencyKey: input.idempotencyKey,
+          requestFingerprint: input.requestFingerprint,
+          created: true,
+        };
+        return saved;
+      },
+      appendAuditEvent,
+    });
+    const service = new ReviewAlertService(unitOfWork(tx));
+    const request = {
+      actor: principal("nurse-1", ["nurse"]),
+      alertId: "alert-1",
+      expectedState: "open",
+      nextState: "reviewed",
+      idempotencyKey: "alert-review:replay",
+      correlationId: randomUUID(),
+    } as const;
+
+    await expect(service.execute(request)).resolves.toMatchObject({
+      reviewId: "review-idempotent",
+      idempotent: false,
+    });
+    await expect(service.execute(request)).resolves.toMatchObject({
+      reviewId: "review-idempotent",
+      idempotent: true,
+    });
+    expect(appendAuditEvent).toHaveBeenCalledOnce();
+
+    await expect(
+      service.execute({ ...request, nextState: "dismissed-with-reason", reason: "Otro motivo" }),
+    ).rejects.toBeInstanceOf(ExplainableAlertConflictError);
+  });
+
+  it("exige clave idempotente y motivo al descartar", async () => {
+    const appendAlertReview = vi.fn(transaction().appendAlertReview);
+    const service = new ReviewAlertService(unitOfWork(transaction({ appendAlertReview })));
+    await expect(
+      service.execute({
+        actor: principal("nurse-1", ["nurse"]),
+        alertId: "alert-1",
+        expectedState: "open",
+        nextState: "reviewed",
+        idempotencyKey: "",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(ExplainableAlertInvalidError);
+    await expect(
+      service.execute({
+        actor: principal("nurse-1", ["nurse"]),
+        alertId: "alert-1",
+        expectedState: "open",
+        nextState: "dismissed-with-reason",
+        idempotencyKey: "alert-review:dismiss",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(ExplainableAlertInvalidError);
+    expect(appendAlertReview).not.toHaveBeenCalled();
+  });
+
+  it("deniega patient, caregiver, support y profesionales ajenos al episodio", async () => {
+    const appendAlertReview = vi.fn(transaction().appendAlertReview);
+    const service = new ReviewAlertService(unitOfWork(transaction({ appendAlertReview })));
+    for (const role of ["patient", "caregiver", "support"] as const) {
+      await expect(
+        service.execute({
+          actor: principal(`${role}-1`, [role]),
+          alertId: "alert-1",
+          expectedState: "open",
+          nextState: "reviewed",
+          idempotencyKey: `alert-review:${role}`,
+          correlationId: randomUUID(),
+        }),
+      ).rejects.toBeInstanceOf(ExplainableAlertDeniedError);
+    }
+    for (const role of ["nurse", "clinician"] as const) {
+      await expect(
+        service.execute({
+          actor: principal(`${role}-other`, [role]),
+          alertId: "alert-1",
+          expectedState: "open",
+          nextState: "reviewed",
+          idempotencyKey: `alert-review:${role}-other`,
+          correlationId: randomUUID(),
+        }),
+      ).rejects.toBeInstanceOf(ExplainableAlertDeniedError);
+    }
+    expect(appendAlertReview).not.toHaveBeenCalled();
   });
 });

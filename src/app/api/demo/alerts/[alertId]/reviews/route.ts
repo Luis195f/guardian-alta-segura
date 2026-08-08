@@ -29,15 +29,17 @@ export async function POST(
       result = await new ReviewAlertService(new PrismaExplainableAlertsUnitOfWork()).execute({
         actor: principal,
         alertId,
+        expectedState: body.expectedState as AlertState,
         nextState: body.nextState as Exclude<AlertState, "open">,
         reason: typeof body.reason === "string" ? body.reason : null,
+        idempotencyKey: request.headers.get("idempotency-key") ?? "",
         correlationId,
       });
     } catch (error) {
       mapExplainableAlertError(error);
     }
     return NextResponse.json(result, {
-      status: 201,
+      status: result.idempotent ? 200 : 201,
       headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId },
     });
   } catch (error) {

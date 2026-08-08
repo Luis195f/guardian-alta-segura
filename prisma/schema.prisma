@@ -716,16 +716,19 @@ model Alert {
 }
 
 model AlertReview {
-  id           String     @id @default(cuid())
-  alertId      String     @map("alert_id")
-  fromState    AlertState @map("from_state")
-  toState      AlertState @map("to_state")
-  reason       String?    @db.VarChar(500)
-  reviewedById String     @map("reviewed_by_id")
-  reviewedAt   DateTime   @default(now()) @map("reviewed_at")
-  alert        Alert      @relation(fields: [alertId], references: [id], onDelete: Restrict, map: "alert_reviews_alert_fkey")
-  reviewedBy   User       @relation("AlertReviewActor", fields: [reviewedById], references: [id], onDelete: Restrict, map: "alert_reviews_actor_fkey")
+  id                 String     @id @default(cuid())
+  alertId            String     @map("alert_id")
+  fromState          AlertState @map("from_state")
+  toState            AlertState @map("to_state")
+  reason             String?    @db.VarChar(500)
+  reviewedById       String     @map("reviewed_by_id")
+  idempotencyKey     String     @map("idempotency_key") @db.VarChar(112)
+  requestFingerprint String     @map("request_fingerprint") @db.Char(64)
+  reviewedAt         DateTime   @default(now()) @map("reviewed_at")
+  alert              Alert      @relation(fields: [alertId], references: [id], onDelete: Restrict, map: "alert_reviews_alert_fkey")
+  reviewedBy         User       @relation("AlertReviewActor", fields: [reviewedById], references: [id], onDelete: Restrict, map: "alert_reviews_actor_fkey")
 
+  @@unique([reviewedById, idempotencyKey], map: "alert_reviews_actor_idempotency_key")
   @@index([alertId, reviewedAt], map: "alert_reviews_alert_time_idx")
   @@map("alert_reviews")
 }

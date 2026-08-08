@@ -6,6 +6,7 @@ import type {
   RecordedEvaluation,
 } from "@/application/ports/explainable-alerts-unit-of-work";
 import {
+  ALERT_STATES,
   assertAlertStateTransition,
   evaluateExplainableRule,
   type AlertState,
@@ -49,6 +50,27 @@ function fingerprintEvaluationRequest(input: {
           ruleVersionId: input.ruleVersionId,
           episodeId: input.episodeId,
           inputs: normalizedInputs,
+        }),
+      ),
+    )
+    .digest("hex");
+}
+
+function fingerprintAlertReviewRequest(input: {
+  readonly alertId: string;
+  readonly expectedState: AlertState;
+  readonly nextState: Exclude<AlertState, "open">;
+  readonly reason: string | null;
+}): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify(
+        canonicalize({
+          operation: "review-explainable-alert",
+          alertId: input.alertId,
+          expectedState: input.expectedState,
+          nextState: input.nextState,
+          reason: input.reason,
         }),
       ),
     )
@@ -495,21 +517,69 @@ export class ReviewAlertService {
   async execute(input: {
     readonly actor: AuthenticatedPrincipal;
     readonly alertId: string;
+    readonly expectedState: AlertState;
     readonly nextState: Exclude<AlertState, "open">;
     readonly reason?: string | null;
+    readonly idempotencyKey: string;
     readonly correlationId: string;
     readonly now?: Date;
-  }): Promise<{ readonly alertId: string; readonly reviewId: string; readonly state: AlertState }> {
+  }): Promise<{
+    readonly alertId: string;
+    readonly reviewId: string;
+    readonly state: AlertState;
+    readonly idempotent: boolean;
+  }> {
     const role = requireRole(input.actor, ["nurse", "clinician"]);
+    const expectedState: unknown = input.expectedState;
+    const nextState: unknown = input.nextState;
+    if (
+      !ALERT_STATES.some((state) => state === expectedState) ||
+      nextState === "open" ||
+      !ALERT_STATES.some((state) => state === nextState)
+    ) {
+      throw new ExplainableAlertInvalidError("Invalid alert review transition state");
+    }
+    const idempotencyKey = validateIdempotencyKey(input.idempotencyKey);
+    const reason = input.reason?.trim() || null;
+    const requestFingerprint = fingerprintAlertReviewRequest({
+      alertId: input.alertId,
+      expectedState: input.expectedState,
+      nextState: input.nextState,
+      reason,
+    });
     const reviewedAt = input.now ?? new Date();
     return this.unitOfWork.run(async (transaction) => {
       await assertActiveRole(transaction, input.actor, role);
       const alert = await transaction.getAlert(input.alertId);
       if (!alert) throw new ExplainableAlertNotFoundError("Alert not found");
       assertAssignedToEpisode(input.actor, alert);
-      const reason = input.reason?.trim() || null;
+      const existing = await transaction.findAlertReviewByIdempotency(
+        input.actor.userId,
+        idempotencyKey,
+      );
+      if (existing) {
+        if (
+          existing.alertId !== input.alertId ||
+          existing.reviewedById !== input.actor.userId ||
+          existing.idempotencyKey !== idempotencyKey ||
+          existing.requestFingerprint !== requestFingerprint
+        ) {
+          throw new ExplainableAlertConflictError(
+            "Idempotency key already identifies another alert review",
+          );
+        }
+        return {
+          alertId: existing.alertId,
+          reviewId: existing.reviewId,
+          state: existing.toState,
+          idempotent: true,
+        };
+      }
+      if (alert.currentState !== input.expectedState) {
+        throw new ExplainableAlertConflictError("Alert state changed before review");
+      }
       try {
-        assertAlertStateTransition(alert.currentState, input.nextState, reason);
+        assertAlertStateTransition(input.expectedState, input.nextState, reason);
       } catch (error) {
         if (error instanceof ExplainableRuleValidationError) {
           throw new ExplainableAlertInvalidError(error.message);
@@ -522,8 +592,28 @@ export class ReviewAlertService {
         toState: input.nextState,
         reason,
         reviewedById: input.actor.userId,
+        idempotencyKey,
+        requestFingerprint,
         reviewedAt,
       });
+      if (!review.created) {
+        if (
+          review.alertId !== input.alertId ||
+          review.reviewedById !== input.actor.userId ||
+          review.idempotencyKey !== idempotencyKey ||
+          review.requestFingerprint !== requestFingerprint
+        ) {
+          throw new ExplainableAlertConflictError(
+            "Idempotency key already identifies another alert review",
+          );
+        }
+        return {
+          alertId: review.alertId,
+          reviewId: review.reviewId,
+          state: review.toState,
+          idempotent: true,
+        };
+      }
       await transaction.appendAuditEvent({
         actorUserId: input.actor.userId,
         actorRole: role,
@@ -534,7 +624,12 @@ export class ReviewAlertService {
         correlationId: input.correlationId,
         createdAt: reviewedAt,
       });
-      return { alertId: alert.id, reviewId: review.reviewId, state: input.nextState };
+      return {
+        alertId: alert.id,
+        reviewId: review.reviewId,
+        state: input.nextState,
+        idempotent: false,
+      };
     });
   }
 }

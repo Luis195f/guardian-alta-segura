@@ -337,7 +337,9 @@ describe.sequential("PostgreSQL governance evidence projection", () => {
     const review = await new ReviewAlertService(alertUnitOfWork).execute({
       actor: principal(fixture.nurse.id, "nurse"),
       alertId: evaluation.alertId!,
+      expectedState: "open",
       nextState: "reviewed",
+      idempotencyKey: `evidence-alert-review:${randomUUID()}`,
       correlationId: randomUUID(),
       now: new Date("2026-07-27T08:20:00.000Z"),
     });

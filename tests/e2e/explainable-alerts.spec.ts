@@ -11,7 +11,13 @@ let episodeId = "";
 let nonResponseSourceId = "";
 
 async function createAuthenticatedContext(
-  alias: "demo-admin" | "demo-nurse" | "demo-clinician",
+  alias:
+    | "demo-admin"
+    | "demo-nurse"
+    | "demo-clinician"
+    | "demo-patient"
+    | "demo-caregiver"
+    | "demo-support",
 ): Promise<APIRequestContext> {
   const context = await apiRequest.newContext({
     baseURL,
@@ -291,20 +297,71 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
     0,
   );
 
+  for (const alias of ["demo-patient", "demo-caregiver", "demo-support"] as const) {
+    const forbiddenActor = await createAuthenticatedContext(alias);
+    const forbiddenReview = await forbiddenActor.post(
+      `/api/demo/alerts/${evaluated.alertId}/reviews`,
+      {
+        headers: { "Idempotency-Key": `alert-review-forbidden:${randomUUID()}` },
+        data: { expectedState: "open", nextState: "reviewed" },
+      },
+    );
+    expect(forbiddenReview.status(), alias).toBe(403);
+    await forbiddenActor.dispose();
+  }
+
+  const reviewKey = `alert-review-e2e:${randomUUID()}`;
+  const reviewPayload = { expectedState: "open", nextState: "reviewed" } as const;
   const review = await clinician.post(`/api/demo/alerts/${evaluated.alertId}/reviews`, {
-    data: { nextState: "reviewed" },
+    headers: { "Idempotency-Key": reviewKey },
+    data: reviewPayload,
   });
   expect(review.status()).toBe(201);
+  const reviewed = (await review.json()) as {
+    readonly alertId: string;
+    readonly reviewId: string;
+    readonly state: string;
+    readonly idempotent: boolean;
+  };
+  expect(reviewed).toMatchObject({ state: "reviewed", idempotent: false });
+  const reviewReplay = await clinician.post(`/api/demo/alerts/${evaluated.alertId}/reviews`, {
+    headers: { "Idempotency-Key": reviewKey },
+    data: reviewPayload,
+  });
+  expect(reviewReplay.status()).toBe(200);
+  await expect(reviewReplay.json()).resolves.toEqual({ ...reviewed, idempotent: true });
+  const reviewConflict = await clinician.post(`/api/demo/alerts/${evaluated.alertId}/reviews`, {
+    headers: { "Idempotency-Key": reviewKey },
+    data: { ...reviewPayload, reason: "Huella distinta" },
+  });
+  expect(reviewConflict.status()).toBe(409);
+
+  const taskKey = `task-alert-reviewed:${randomUUID()}`;
+  const taskPayload = {
+    episodeId,
+    alertId: evaluated.alertId,
+    summary: "Tarea explícita tras revisión humana",
+  } as const;
   const taskAfterReview = await nurse.post("/api/demo/tasks", {
-    headers: { "Idempotency-Key": `task-alert-reviewed:${randomUUID()}` },
-    data: {
-      episodeId,
-      alertId: evaluated.alertId,
-      summary: "Tarea explícita tras revisión humana",
-    },
+    headers: { "Idempotency-Key": taskKey },
+    data: taskPayload,
   });
   expect(taskAfterReview.status()).toBe(201);
-  const createdTask = (await taskAfterReview.json()) as { readonly taskId: string };
+  const createdTask = (await taskAfterReview.json()) as {
+    readonly taskId: string;
+    readonly idempotent: boolean;
+  };
+  const taskReplay = await nurse.post("/api/demo/tasks", {
+    headers: { "Idempotency-Key": taskKey },
+    data: taskPayload,
+  });
+  expect(taskReplay.status()).toBe(200);
+  await expect(taskReplay.json()).resolves.toEqual({ ...createdTask, idempotent: true });
+  const taskConflict = await nurse.post("/api/demo/tasks", {
+    headers: { "Idempotency-Key": taskKey },
+    data: { ...taskPayload, summary: "Huella distinta de tarea" },
+  });
+  expect(taskConflict.status()).toBe(409);
   const [storedReview, storedTask] = await Promise.all([
     prisma.alertReview.findFirstOrThrow({
       where: { alertId: evaluated.alertId },
@@ -316,6 +373,20 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
   await expect(prisma.alertReview.count({ where: { alertId: evaluated.alertId } })).resolves.toBe(
     1,
   );
+  await expect(
+    prisma.auditEvent.count({
+      where: {
+        resourceType: "Alert",
+        resourceId: evaluated.alertId,
+        action: "ALERT_REVIEWED",
+      },
+    }),
+  ).resolves.toBe(1);
+  await expect(
+    prisma.auditEvent.count({
+      where: { resourceType: "Task", resourceId: createdTask.taskId, action: "TASK_CREATED" },
+    }),
+  ).resolves.toBe(1);
   await expect(
     prisma.auditEvent.count({
       where: {
@@ -338,19 +409,124 @@ test("flujo HTTP conserva linaje, idempotencia, auditoría y revisión humana", 
   await Promise.all([admin.dispose(), clinician.dispose(), nurse.dispose()]);
 });
 
-test("UI prioriza texto/estado con semáforo apagado y sin acción automática", async ({ page }) => {
+test("UI muestra explicación y confirma revisión por teclado sin acción automática", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Lista de avisos" })).toHaveCount(0);
 
   await page.getByLabel("Usuario demo").selectOption("demo-nurse");
   await page.getByRole("button", { name: "INICIAR DEMO" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
+
+  let alertState: "open" | "reviewed" = "open";
+  let reviewRequest: { readonly expectedState?: string; readonly nextState?: string } = {};
+  let reviewKey = "";
+  let taskRequestCount = 0;
+  await page.route("**/api/demo/alerts", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        explainableTrafficLight: false,
+        alerts: [
+          {
+            id: "synthetic-ui-alert",
+            evaluationId: "synthetic-ui-evaluation",
+            ruleName: "Regla sintética para interacción",
+            ruleVersionId: "synthetic-rule-version",
+            ruleVersionNumber: 1,
+            explanation: "Explicación determinista visible para revisión humana.",
+            administrativeSeverity: "standard",
+            reviewOwner: "nurse",
+            triggeredAt: "2026-08-08T10:00:00.000Z",
+            state: alertState,
+          },
+        ],
+      }),
+    });
+  });
+  await page.route("**/api/demo/alerts/synthetic-ui-alert/reviews", async (route) => {
+    reviewKey = route.request().headers()["idempotency-key"] ?? "";
+    reviewRequest = route.request().postDataJSON() as typeof reviewRequest;
+    alertState = "reviewed";
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        alertId: "synthetic-ui-alert",
+        reviewId: "synthetic-ui-review",
+        state: "reviewed",
+        idempotent: false,
+      }),
+    });
+  });
+  await page.route("**/api/demo/tasks", async (route) => {
+    taskRequestCount += 1;
+    await route.abort();
+  });
   await page.goto("/alerts");
   await expect(page.getByRole("heading", { name: "Lista de avisos" })).toBeVisible();
   await expect(page.getByTestId("traffic-light-status")).toHaveText(
     "Semáforo visual: desactivado.",
   );
-  await expect(page.locator("section.explainable-alerts").getByRole("status")).toContainText(
-    /No hay avisos|aviso\(s\), ordenados por estado y texto/,
+  await expect(
+    page.getByText("Explicación determinista visible para revisión humana."),
+  ).toBeVisible();
+  const reviewButton = page.getByRole("button", { name: "Revisar" });
+  await reviewButton.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("section.explainable-alerts").getByRole("status")).toHaveText(
+    "Revisión humana registrada; no se ha creado ninguna acción clínica automática.",
   );
+  expect(reviewKey).toMatch(/^alert-review:[0-9a-f-]{36}$/);
+  expect(reviewRequest).toEqual({ expectedState: "open", nextState: "reviewed" });
+  expect(taskRequestCount).toBe(0);
+});
+
+test("UI trata un conflicto stale como recarga sin segunda revisión", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption("demo-nurse");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  let alertState: "open" | "reviewed" = "open";
+  await page.route("**/api/demo/alerts", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        explainableTrafficLight: false,
+        alerts: [
+          {
+            id: "synthetic-stale-alert",
+            evaluationId: "synthetic-stale-evaluation",
+            ruleName: "Regla sintética stale",
+            ruleVersionId: "synthetic-stale-version",
+            ruleVersionNumber: 1,
+            explanation: "Explicación disponible antes y después del conflicto.",
+            administrativeSeverity: "standard",
+            reviewOwner: "nurse",
+            triggeredAt: "2026-08-08T10:00:00.000Z",
+            state: alertState,
+          },
+        ],
+      }),
+    });
+  });
+  await page.route("**/api/demo/alerts/synthetic-stale-alert/reviews", async (route) => {
+    alertState = "reviewed";
+    await route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "CONFLICT" } }),
+    });
+  });
+
+  await page.goto("/alerts");
+  await page.getByRole("button", { name: "Revisar" }).click();
+  await expect(page.locator("section.explainable-alerts").getByRole("status")).toHaveText(
+    "El aviso cambió desde que se mostró. Se ha recargado sin registrar una segunda revisión.",
+  );
+  await expect(page.getByText("Revisado", { exact: true })).toBeVisible();
 });
