@@ -34,12 +34,13 @@ Este repositorio contiene un MVP de apoyo organizativo y de continuidad postalta
 2. Explicar brevemente el plan antes de modificar código.
 3. Implementar solo el alcance de la rama.
 4. Ejecutar, cuando existan:
-   - `npm run format:check`
-   - `npm run lint`
-   - `npm run typecheck`
-   - `npm run test`
-   - `npm run test:e2e`
-   - `npm run build`
+   - `pnpm format:check`
+   - `pnpm lint`
+   - `pnpm typecheck`
+   - `pnpm test`
+   - `pnpm traceability:check`
+   - `pnpm build`
+   - `pnpm test:e2e`
 5. Corregir los fallos introducidos por la tarea.
 6. Actualizar documentación, matriz de trazabilidad y ADR cuando corresponda.
 7. Mostrar:
