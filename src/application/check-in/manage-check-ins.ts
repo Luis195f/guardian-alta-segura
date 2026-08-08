@@ -70,6 +70,12 @@ async function assertDigitalParticipation(
   }
 }
 
+function assertEpisodeAcceptsNewCheckIn(status: "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED") {
+  if (status !== "ACTIVE") {
+    throw new CheckInDeniedError("Episode does not accept new check-in activity");
+  }
+}
+
 function assignmentIdsForIdempotentBatch(
   batch: CheckInAssignmentBatchRecord,
   expected: {
@@ -230,6 +236,7 @@ export class GenerateCheckInAssignmentsService {
       ) {
         throw new CheckInDeniedError("Actor is not assigned to episode");
       }
+      assertEpisodeAcceptsNewCheckIn(episode.status);
       if (!episode.patientIsSynthetic || !protocol.isSyntheticFixture) {
         throw new CheckInDeniedError("Demo check-ins require synthetic data");
       }
@@ -326,6 +333,7 @@ export class SubmitCheckInResponseService {
           idempotent: true,
         };
       }
+      assertEpisodeAcceptsNewCheckIn(assignment.episode.status);
       await assertDigitalParticipation(transaction, input.actor.userId, submittedAt);
       if (submittedAt < assignment.windowStartsAt || submittedAt >= assignment.windowEndsAt) {
         throw new CheckInWindowError("Assignment is outside its configured response window");
@@ -417,6 +425,7 @@ export class OmitCheckInAssignmentService {
           idempotent: true,
         };
       }
+      assertEpisodeAcceptsNewCheckIn(assignment.episode.status);
       await assertDigitalParticipation(transaction, input.actor.userId, recordedAt);
       if (recordedAt < assignment.windowStartsAt || recordedAt >= assignment.windowEndsAt) {
         throw new CheckInWindowError("Assignment is outside its configured response window");
