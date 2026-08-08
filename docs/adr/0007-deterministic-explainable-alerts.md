@@ -36,9 +36,11 @@ Cada aviso conserva regla, versión, referencias estructuradas de origen, explic
 
 Descartar exige motivo. La evaluación no crea tareas, derivaciones, comunicaciones, firmas, cierres ni acciones clínicas.
 
+Cada petición de revisión declara el estado esperado, exige una clave idempotente por actor y conserva un fingerprint canónico de aviso, transición y motivo normalizado. Un replay idéntico devuelve la revisión existente sin duplicar historia ni auditoría; reutilizar la clave con otra huella o actuar sobre un estado obsoleto produce conflicto explícito. La serialización de la fila del aviso impide que dos revisores concurrentes encadenen transiciones que ninguno solicitó sobre el estado resultante del otro.
+
 ## Controles de persistencia y presentación
 
-Las claves foráneas compuestas mantienen alineadas definición, versión, evaluación, episodio y aviso. Triggers PostgreSQL impiden sobrescribir definiciones, aprobaciones, evaluaciones y revisiones, exigen que cada versión derive de la anterior y validan que una revisión parta del estado vigente; el estado de un aviso solo puede cambiar si existe la revisión humana correspondiente.
+Las claves foráneas compuestas mantienen alineadas definición, versión, evaluación, episodio y aviso. Triggers PostgreSQL impiden sobrescribir definiciones, aprobaciones, evaluaciones y revisiones, exigen que cada versión derive de la anterior y validan que una revisión parta del estado vigente; el estado de un aviso solo puede cambiar si existe la revisión humana correspondiente. La unicidad por reviewer y clave idempotente, junto con el fingerprint, protege el replay durable sin convertir la revisión en resolución ni autorización automática.
 
 La auditoría técnica registra separadamente `RULE_EVALUATED` y, si corresponde, `ALERT_CREATED`, limitada a metadatos de acción y recurso; no copia el snapshot ni la explicación. La UI ordena por estado y nombre de regla y expresa la severidad con texto. `EXPLAINABLE_TRAFFIC_LIGHT=false` por defecto; DEC-009 debe resolverse antes de habilitar tratamiento visual por severidad.
 

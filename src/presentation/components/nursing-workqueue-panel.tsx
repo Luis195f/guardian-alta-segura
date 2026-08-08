@@ -353,14 +353,23 @@ export function NursingWorkQueuePanel({
     }
   }
 
-  async function markAlertReviewed(alertId: string) {
+  async function markAlertReviewed(alert: QueueEntry["openAlerts"][number]) {
     setPending(true);
     try {
-      const response = await fetch(`/api/demo/alerts/${alertId}/reviews`, {
+      const response = await fetch(`/api/demo/alerts/${alert.id}/reviews`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nextState: "reviewed" }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": newKey("alert-review"),
+        },
+        body: JSON.stringify({ expectedState: alert.state, nextState: "reviewed" }),
       });
+      if (response.status === 409) {
+        await loadQueue(
+          "El aviso cambió desde que se mostró. Se ha recargado sin registrar una segunda revisión.",
+        );
+        return;
+      }
       if (!response.ok) throw new Error();
       await loadQueue("Aviso revisado por una persona; no se ha creado ninguna tarea.");
     } catch {
@@ -527,7 +536,7 @@ export function NursingWorkQueuePanel({
                         <button
                           type="button"
                           disabled={pending}
-                          onClick={() => void markAlertReviewed(alert.id)}
+                          onClick={() => void markAlertReviewed(alert)}
                         >
                           Marcar aviso como revisado
                         </button>

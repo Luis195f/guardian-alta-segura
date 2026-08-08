@@ -231,12 +231,26 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
       prisma.alertReview.count({ where: { alertId: evaluated.alertId! } }),
     ).resolves.toBe(0);
 
-    await new ReviewAlertService(unitOfWork).execute({
+    const reviewService = new ReviewAlertService(unitOfWork);
+    const reviewInput = {
       actor: actor(users.nurse.id, "nurse"),
       alertId: evaluated.alertId!,
+      expectedState: "open",
       nextState: "reviewed",
+      idempotencyKey: `alert-review:${randomUUID()}`,
       correlationId,
-    });
+    } as const;
+    const firstReview = await reviewService.execute(reviewInput);
+    const replayedReview = await reviewService.execute(reviewInput);
+    expect(firstReview).toMatchObject({ idempotent: false, state: "reviewed" });
+    expect(replayedReview).toEqual({ ...firstReview, idempotent: true });
+    await expect(
+      reviewService.execute({
+        ...reviewInput,
+        nextState: "dismissed-with-reason",
+        reason: "Huella distinta explícita",
+      }),
+    ).rejects.toBeInstanceOf(ExplainableAlertConflictError);
 
     const [version, evaluation, alert, reviews, audits] = await Promise.all([
       prisma.ruleVersion.findUniqueOrThrow({
@@ -265,6 +279,10 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
       explanation: expect.stringContaining(nonResponseSource.id),
     });
     expect(reviews).toHaveLength(1);
+    expect(reviews[0]).toMatchObject({
+      idempotencyKey: reviewInput.idempotencyKey,
+      requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     expect(audits.map(({ action }) => action)).toEqual(
       expect.arrayContaining([
         "RULE_VERSION_CREATED",
@@ -338,6 +356,42 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
         },
       }),
     ).resolves.toBe(2);
+    const reviewerRace = await Promise.allSettled([
+      reviewService.execute({
+        actor: actor(users.nurse.id, "nurse"),
+        alertId: concurrentResults[0]!.alertId!,
+        expectedState: "open",
+        nextState: "reviewed",
+        idempotencyKey: `alert-review-race:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+      reviewService.execute({
+        actor: actor(users.clinician.id, "clinician"),
+        alertId: concurrentResults[0]!.alertId!,
+        expectedState: "open",
+        nextState: "dismissed-with-reason",
+        reason: "Revisión concurrente sintética",
+        idempotencyKey: `alert-review-race:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ]);
+    expect(reviewerRace.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    expect(reviewerRace.filter(({ status }) => status === "rejected")).toHaveLength(1);
+    expect(reviewerRace.find(({ status }) => status === "rejected")).toMatchObject({
+      reason: expect.any(ExplainableAlertConflictError),
+    });
+    await expect(
+      prisma.alertReview.count({ where: { alertId: concurrentResults[0]!.alertId! } }),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.auditEvent.count({
+        where: {
+          resourceType: "Alert",
+          resourceId: concurrentResults[0]!.alertId!,
+          action: { in: ["ALERT_REVIEWED", "ALERT_DISMISSED"] },
+        },
+      }),
+    ).resolves.toBe(1);
     await expect(
       prisma.alertReview.create({
         data: {
@@ -346,6 +400,8 @@ describe.sequential("PostgreSQL explainable alert guarantees", () => {
           toState: "DISMISSED_WITH_REASON",
           reason: "Revisión obsoleta sintética",
           reviewedById: users.nurse.id,
+          idempotencyKey: `alert-review-stale:${randomUUID()}`,
+          requestFingerprint: "c".repeat(64),
         },
       }),
     ).rejects.toThrow("alert review must start from the current alert state");

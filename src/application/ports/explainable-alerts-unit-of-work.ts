@@ -61,6 +61,17 @@ export interface RecordedEvaluation {
   readonly missingInputs: readonly string[];
 }
 
+export interface RecordedAlertReview {
+  readonly reviewId: string;
+  readonly alertId: string;
+  readonly fromState: AlertState;
+  readonly toState: Exclude<AlertState, "open">;
+  readonly reviewedById: string;
+  readonly idempotencyKey: string;
+  readonly requestFingerprint: string;
+  readonly created: boolean;
+}
+
 export interface ExplainableAlertsTransaction {
   isActiveUserWithRole(userId: string, role: Role): Promise<boolean>;
   findDefinitionByKey(ruleKey: string): Promise<RuleDefinitionRecord | null>;
@@ -124,14 +135,20 @@ export interface ExplainableAlertsTransaction {
     } | null;
   }): Promise<RecordedEvaluation>;
   getAlert(alertId: string): Promise<AlertRecord | null>;
+  findAlertReviewByIdempotency(
+    reviewedById: string,
+    idempotencyKey: string,
+  ): Promise<RecordedAlertReview | null>;
   appendAlertReview(input: {
     readonly alertId: string;
     readonly fromState: AlertState;
     readonly toState: Exclude<AlertState, "open">;
     readonly reason: string | null;
     readonly reviewedById: string;
+    readonly idempotencyKey: string;
+    readonly requestFingerprint: string;
     readonly reviewedAt: Date;
-  }): Promise<{ readonly reviewId: string }>;
+  }): Promise<RecordedAlertReview>;
   appendAuditEvent(input: NewAuditEvent): Promise<{ readonly id: string }>;
 }
 

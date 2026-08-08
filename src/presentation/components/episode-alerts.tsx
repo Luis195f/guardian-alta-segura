@@ -66,19 +66,29 @@ export function EpisodeAlerts({
     };
   }, [episodeId]);
 
-  async function review(alertId: string) {
+  async function review(alert: ProfessionalQueueEntry["openAlerts"][number]) {
     setMessage("");
-    const response = await fetch(`/api/demo/alerts/${alertId}/reviews`, {
+    const response = await fetch(`/api/demo/alerts/${alert.id}/reviews`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nextState: "reviewed" }),
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": `alert-review:${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({ expectedState: alert.state, nextState: "reviewed" }),
     });
+    if (response.status === 409) {
+      await load();
+      setMessage(
+        "El aviso cambió desde que se mostró. Se ha recargado sin registrar una segunda revisión.",
+      );
+      return;
+    }
     if (!response.ok) {
       setMessage("No se pudo registrar la revisión.");
       return;
     }
-    setMessage("Revisar el aviso no ha creado ninguna actuación automática.");
     await load();
+    setMessage("Revisar el aviso no ha creado ninguna actuación automática.");
   }
 
   if (state === "loading") return <LoadingState label="Cargando avisos del episodio…" />;
@@ -132,7 +142,7 @@ export function EpisodeAlerts({
                 </div>
               </dl>
               {alert.state === "open" ? (
-                <button type="button" onClick={() => void review(alert.id)}>
+                <button type="button" onClick={() => void review(alert)}>
                   Revisar
                 </button>
               ) : (

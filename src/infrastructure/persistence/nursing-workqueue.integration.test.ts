@@ -409,7 +409,9 @@ describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
     const review = await new ReviewAlertService(new PrismaExplainableAlertsUnitOfWork()).execute({
       actor: principal(users.clinician.id, "clinician"),
       alertId,
+      expectedState: "open",
       nextState: "reviewed",
+      idempotencyKey: `queue-alert-review:${randomUUID()}`,
       correlationId: randomUUID(),
     });
     await expect(prisma.task.count({ where: { alertId } })).resolves.toBe(0);
@@ -481,7 +483,9 @@ describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
     await new ReviewAlertService(new PrismaExplainableAlertsUnitOfWork()).execute({
       actor: principal(users.clinician.id, "clinician"),
       alertId,
+      expectedState: "open",
       nextState: "reviewed",
+      idempotencyKey: `queue-alert-review:${randomUUID()}`,
       correlationId: randomUUID(),
     });
     const roleAssignment = await prisma.roleAssignment.findFirstOrThrow({
