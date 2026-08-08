@@ -544,16 +544,17 @@ export async function listCheckInProtocols() {
 
 type Availability = "OPEN" | "UPCOMING" | "BLOCKED" | "CLOSED";
 
-function availabilityFor(input: {
+export function availabilityFor(input: {
   readonly now: Date;
   readonly windowStartsAt: Date;
   readonly windowEndsAt: Date;
   readonly terminal: boolean;
+  readonly episodeActive: boolean;
   readonly participationAllowed: boolean;
 }): Availability {
   if (input.terminal || input.now >= input.windowEndsAt) return "CLOSED";
   if (input.now < input.windowStartsAt) return "UPCOMING";
-  if (!input.participationAllowed) return "BLOCKED";
+  if (!input.episodeActive || !input.participationAllowed) return "BLOCKED";
   return "OPEN";
 }
 
@@ -602,6 +603,7 @@ export async function listVisibleCheckInAssignments(
       episode: {
         select: {
           id: true,
+          status: true,
           patient: { select: { externalPseudonymousId: true } },
           checkInProtocolVersion: { include: protocolInclude },
         },
@@ -630,6 +632,7 @@ export async function listVisibleCheckInAssignments(
       windowStartsAt: assignment.windowStartsAt,
       windowEndsAt: assignment.windowEndsAt,
       terminal: assignment.outcome !== null,
+      episodeActive: assignment.episode.status === "ACTIVE",
       participationAllowed,
     });
     return {
@@ -648,7 +651,9 @@ export async function listVisibleCheckInAssignments(
       availability,
       availabilityReason:
         availability === "BLOCKED"
-          ? "DIGITAL_PARTICIPATION_NOT_ACTIVE"
+          ? assignment.episode.status !== "ACTIVE"
+            ? "EPISODE_NOT_ACTIVE"
+            : "DIGITAL_PARTICIPATION_NOT_ACTIVE"
           : availability === "UPCOMING"
             ? "WINDOW_NOT_OPEN"
             : availability === "CLOSED"

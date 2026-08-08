@@ -26,12 +26,19 @@ interface AssignmentView {
   readonly status: "PENDING" | "RESPONDED" | "EXPIRED" | "OMITTED";
   readonly availability: "OPEN" | "UPCOMING" | "BLOCKED" | "CLOSED";
   readonly availabilityReason:
-    "DIGITAL_PARTICIPATION_NOT_ACTIVE" | "WINDOW_NOT_OPEN" | "TERMINAL_OR_WINDOW_CLOSED" | null;
+    | "DIGITAL_PARTICIPATION_NOT_ACTIVE"
+    | "EPISODE_NOT_ACTIVE"
+    | "WINDOW_NOT_OPEN"
+    | "TERMINAL_OR_WINDOW_CLOSED"
+    | null;
   readonly isActionable: boolean;
   readonly protocol: {
     readonly versionNumber: number;
     readonly title: string;
     readonly questions: readonly QuestionView[];
+    readonly schedule: {
+      readonly timeZone: string;
+    };
   };
   readonly response: {
     readonly submittedAt: string;
@@ -59,11 +66,20 @@ function answerFor(question: QuestionView, raw: string) {
   return { questionDefinitionId: question.id, shortTextValue: raw };
 }
 
+function formatConfiguredDateTime(value: string, timeZone: string): string {
+  return new Date(value).toLocaleString("es-ES", {
+    timeZone,
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
 export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) {
   const [assignments, setAssignments] = useState<readonly AssignmentView[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
+  const [errorFocusRequest, setErrorFocusRequest] = useState(0);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -76,7 +92,9 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
   const next = active
     ? undefined
     : assignments.find(({ availability }) => availability === "UPCOMING");
-  const participationBlocked = assignments.some(({ availability }) => availability === "BLOCKED");
+  const blockedReason = assignments.find(
+    ({ availability }) => availability === "BLOCKED",
+  )?.availabilityReason;
 
   useEffect(() => {
     if (!active) return;
@@ -89,7 +107,7 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
 
   useEffect(() => {
     if (formError) errorSummaryRef.current?.focus();
-  }, [formError]);
+  }, [formError, errorFocusRequest]);
 
   function stableRetryKey(kind: "response" | "omit", assignmentId: string): string {
     const existing = retryKeys.current[kind];
@@ -160,6 +178,7 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
     const errors = validateRequiredAnswers(active.protocol.questions);
     if (Object.keys(errors).length > 0) {
       setFormError("Revisa los campos obligatorios indicados antes de registrar.");
+      setErrorFocusRequest((current) => current + 1);
       return;
     }
     setPending(true);
@@ -236,8 +255,11 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
           noValidate
         >
           <p className="policy-note">
-            {active.protocol.title} · versión {active.protocol.versionNumber} · disponible hasta{" "}
-            {new Date(active.windowEndsAt).toLocaleString("es-ES")}
+            Configuración asignada: {active.protocol.title} · versión{" "}
+            {active.protocol.versionNumber}. Ventana configurada:{" "}
+            {formatConfiguredDateTime(active.windowStartsAt, active.protocol.schedule.timeZone)} –{" "}
+            {formatConfiguredDateTime(active.windowEndsAt, active.protocol.schedule.timeZone)} ·
+            zona {active.protocol.schedule.timeZone}.
           </p>
           {formError && (
             <p
@@ -381,8 +403,11 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
         <section className="upcoming-check-in" aria-labelledby="upcoming-check-in-title">
           <h3 id="upcoming-check-in-title">Próximo check-in</h3>
           <p>
-            Se habilitará el {new Date(next.windowStartsAt).toLocaleString("es-ES")}. La
-            autorización se comprobará de nuevo en el servidor.
+            Configuración asignada: {next.protocol.title} · versión {next.protocol.versionNumber}.
+            Se habilitará el{" "}
+            {formatConfiguredDateTime(next.windowStartsAt, next.protocol.schedule.timeZone)} · zona{" "}
+            {next.protocol.schedule.timeZone}. La autorización se comprobará de nuevo en el
+            servidor.
           </p>
           <button type="button" disabled>
             Responder cuando se abra
@@ -390,10 +415,12 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
         </section>
       )}
 
-      {!active && participationBlocked && (
+      {!active && blockedReason && (
         <p className="policy-note">
-          No hay check-ins respondibles porque la participación digital no está vigente. El
-          histórico se conserva.
+          {blockedReason === "EPISODE_NOT_ACTIVE"
+            ? "No hay check-ins respondibles porque el episodio no está activo."
+            : "No hay check-ins respondibles porque la participación digital no está vigente."}{" "}
+          El histórico se conserva.
         </p>
       )}
 
@@ -404,13 +431,25 @@ export function PatientCheckInPanel({ enabled }: { readonly enabled: boolean }) 
         ) : (
           <ol className="timeline">
             {assignments.map((assignment) => (
-              <li key={assignment.id}>
+              <li key={assignment.id} data-assignment-id={assignment.id}>
                 <strong>{statusLabels[assignment.status]}</strong>
                 <span>
-                  {assignment.patientPseudonymousId} · protocolo v
+                  {assignment.patientPseudonymousId} · {assignment.protocol.title} · versión{" "}
                   {assignment.protocol.versionNumber}
                 </span>
-                <span>{new Date(assignment.scheduledFor).toLocaleString("es-ES")}</span>
+                <span>
+                  Ventana configurada:{" "}
+                  {formatConfiguredDateTime(
+                    assignment.windowStartsAt,
+                    assignment.protocol.schedule.timeZone,
+                  )}{" "}
+                  –{" "}
+                  {formatConfiguredDateTime(
+                    assignment.windowEndsAt,
+                    assignment.protocol.schedule.timeZone,
+                  )}{" "}
+                  · zona {assignment.protocol.schedule.timeZone}
+                </span>
               </li>
             ))}
           </ol>

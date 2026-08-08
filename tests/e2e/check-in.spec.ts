@@ -19,6 +19,10 @@ let episodeId = "";
 let batchId = "";
 let protocolId = "";
 let nurseId = "";
+let patientUserId = "";
+let clinicianId = "";
+let participationId = "";
+let participationPolicyId = "";
 
 test.use({ userAgent: "guardian-check-in-e2e/1.0" });
 
@@ -28,6 +32,24 @@ async function focusByKeyboard(page: Page, locator: Locator) {
     await page.keyboard.press("Tab");
   }
   throw new Error("Keyboard focus did not reach the expected control");
+}
+
+async function answerForm(form: Locator) {
+  const fieldsets = form.locator("fieldset");
+  for (let index = 0; index < (await fieldsets.count()); index += 1) {
+    const fieldset = fieldsets.nth(index);
+    const radio = fieldset.locator('input[type="radio"]');
+    if ((await radio.count()) > 0) {
+      await radio.first().check();
+      continue;
+    }
+    const select = fieldset.locator("select");
+    if ((await select.count()) > 0) {
+      await select.selectOption({ index: 1 });
+      continue;
+    }
+    await fieldset.locator("textarea").fill("Ejemplo sintético");
+  }
 }
 
 test.beforeAll(async () => {
@@ -59,7 +81,7 @@ test.beforeAll(async () => {
       evidenceRef: "SYNTHETIC-ONLY",
     },
   });
-  await prisma.digitalParticipationRecord.create({
+  const participation = await prisma.digitalParticipationRecord.create({
     data: {
       subjectUserId: patientUser.id,
       state: "ACTIVE",
@@ -145,6 +167,10 @@ test.beforeAll(async () => {
   batchId = batch.id;
   protocolId = protocol.id;
   nurseId = nurse.id;
+  patientUserId = patientUser.id;
+  clinicianId = clinician.id;
+  participationId = participation.id;
+  participationPolicyId = digitalParticipationPolicy.id;
 });
 
 test.afterAll(async () => {
@@ -198,6 +224,21 @@ test("panel admin solo crea protocolos sintéticos no aprobados", async ({ page 
   expect(adminClinicalResponse.status()).toBe(403);
 });
 
+test("paciente ve el estado vacío sin inventar asignaciones", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
+  await page.route("**/api/demo/check-ins", async (route) => {
+    await route.fulfill({ json: { assignments: [] } });
+  });
+  await page.goto("/my-check-ins");
+
+  await expect(page.getByText("Sin check-ins cargados.")).toBeVisible();
+  await expect(page.getByText("No hay check-ins asignados.")).toBeVisible();
+  await expect(page.locator("form.check-in-form")).toHaveCount(0);
+});
+
 test("paciente usa teclado, recibe errores accesibles y no selecciona la última futura", async ({
   page,
 }) => {
@@ -215,6 +256,8 @@ test("paciente usa teclado, recibe errores accesibles y no selecciona la última
   await expect(form.locator("fieldset")).toHaveCount(8);
   await expect(form.locator("legend")).toHaveCount(8);
   await expect(form.locator("input").first()).toBeFocused();
+  await expect(form.getByText(/Configuración asignada:/)).toContainText("Europe/Madrid");
+  await expect(form.getByText(/Configuración asignada:/)).toContainText("Ventana configurada:");
 
   const submit = page.getByRole("button", { name: "Registrar respuestas" });
   await focusByKeyboard(page, submit);
@@ -227,6 +270,11 @@ test("paciente usa teclado, recibe errores accesibles y no selecciona la última
     /-help .*?-error/,
   );
   await expect(form.locator(".field-error").first()).toHaveText("Este campo es obligatorio.");
+  const retainedAnswer = form.locator('input[type="radio"]').first();
+  await retainedAnswer.check();
+  await submit.click();
+  await expect(summary).toBeFocused();
+  await expect(retainedAnswer).toBeChecked();
 
   const omit = page.getByRole("button", { name: "Omitir este check-in" });
   await focusByKeyboard(page, omit);
@@ -242,6 +290,38 @@ test("paciente usa teclado, recibe errores accesibles y no selecciona la última
   expect(patientAdminResponse.status()).toBe(403);
 });
 
+test("paciente envía el formulario y recibe confirmación sin interpretación", async ({ page }) => {
+  const now = Date.now();
+  const uiAssignment = await prisma.checkInAssignment.create({
+    data: {
+      batchId,
+      episodeId,
+      checkInProtocolVersionId: protocolId,
+      sequence: 3,
+      scheduledFor: new Date(now - 30_000),
+      windowStartsAt: new Date(now - 90_000),
+      windowEndsAt: new Date(now + 30 * 60_000),
+      createdById: nurseId,
+    },
+  });
+  await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
+  await page.goto("/my-check-ins");
+
+  const form = page.locator(`form[data-assignment-id="${uiAssignment.id}"]`);
+  await expect(form).toBeVisible();
+  await answerForm(form);
+  await form.getByRole("button", { name: "Registrar respuestas" }).click();
+
+  await expect(
+    page.getByText("Respuesta registrada para revisión humana, sin interpretación automática."),
+  ).toBeVisible();
+  await expect(page.locator(`form[data-assignment-id="${uiAssignment.id}"]`)).toHaveCount(0);
+  expect(await prisma.checkInResponse.count({ where: { assignmentId: uiAssignment.id } })).toBe(1);
+});
+
 test("reintento HTTP concurrente devuelve 201/200 y nunca 500", async ({ page }) => {
   const now = Date.now();
   const httpAssignment = await prisma.checkInAssignment.create({
@@ -249,7 +329,7 @@ test("reintento HTTP concurrente devuelve 201/200 y nunca 500", async ({ page })
       batchId,
       episodeId,
       checkInProtocolVersionId: protocolId,
-      sequence: 3,
+      sequence: 4,
       scheduledFor: new Date(now - 30_000),
       windowStartsAt: new Date(now - 90_000),
       windowEndsAt: new Date(now + 30 * 60_000),
@@ -331,4 +411,46 @@ test("reintento HTTP concurrente devuelve 201/200 y nunca 500", async ({ page })
     data: { answers: changedAnswers },
   });
   expect(conflict.status()).toBe(409);
+});
+
+test("revocación bloquea una respuesta nueva y conserva el histórico", async ({ page }) => {
+  const now = Date.now();
+  const blockedAssignment = await prisma.checkInAssignment.create({
+    data: {
+      batchId,
+      episodeId,
+      checkInProtocolVersionId: protocolId,
+      sequence: 5,
+      scheduledFor: new Date(now - 30_000),
+      windowStartsAt: new Date(now - 90_000),
+      windowEndsAt: new Date(now + 30 * 60_000),
+      createdById: nurseId,
+    },
+  });
+  await prisma.revocationEvent.create({
+    data: {
+      targetType: "DIGITAL_PARTICIPATION",
+      targetRecordId: participationId,
+      subjectUserId: patientUserId,
+      scope: "check-ins",
+      policyVersionId: participationPolicyId,
+      actorUserId: clinicianId,
+      origin: "PROFESSIONAL_ENTRY",
+      evidenceType: "RECORDED_INTERACTION",
+      evidenceRef: "SYNTHETIC-ONLY",
+    },
+  });
+  await page.goto("/");
+  await page.getByLabel("Usuario demo").selectOption("demo-patient");
+  await page.getByRole("button", { name: "INICIAR DEMO" }).click();
+  await expect(page).toHaveURL(/\/my-follow-up$/);
+  await page.goto("/my-check-ins");
+
+  await expect(page.locator("form.check-in-form")).toHaveCount(0);
+  await expect(page.getByText(/participación digital no está vigente/)).toBeVisible();
+  await expect(page.locator(`li[data-assignment-id="${blockedAssignment.id}"]`)).toBeVisible();
+  expect(await prisma.checkInAssignment.count({ where: { id: blockedAssignment.id } })).toBe(1);
+  expect(
+    await prisma.checkInResponse.count({ where: { assignmentId: blockedAssignment.id } }),
+  ).toBe(0);
 });

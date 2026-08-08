@@ -242,6 +242,49 @@ describe("check-in application services", () => {
     ).rejects.toBeInstanceOf(CheckInDeniedError);
   });
 
+  it("deniega explícitamente support y caregiver sin capacidad de respuesta", async () => {
+    const service = new SubmitCheckInResponseService(unitOfWork(makeTransaction()));
+    for (const role of ["support", "caregiver"] as const) {
+      await expect(
+        service.execute({
+          actor: principal(`${role}-1`, [role]),
+          assignmentId: "assignment-1",
+          answers: [],
+          idempotencyKey: `response:${role}-denied`,
+          correlationId: randomUUID(),
+        }),
+      ).rejects.toBeInstanceOf(CheckInDeniedError);
+    }
+  });
+
+  it("revalida que el episodio siga activo antes de una respuesta nueva", async () => {
+    const createResponse = vi.fn();
+    const inactiveAssignment = {
+      ...assignment(),
+      episode: { ...episode, status: "PAUSED" as const },
+    };
+    const service = new SubmitCheckInResponseService(
+      unitOfWork(
+        makeTransaction({
+          getAssignment: async () => inactiveAssignment,
+          createResponse,
+        }),
+      ),
+    );
+
+    await expect(
+      service.execute({
+        actor: principal("patient-1", ["patient"]),
+        assignmentId: inactiveAssignment.id,
+        answers: [{ questionDefinitionId: "question-v1", scaleValue: 3 }],
+        idempotencyKey: "response:inactive-episode",
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T08:00:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(CheckInDeniedError);
+    expect(createResponse).not.toHaveBeenCalled();
+  });
+
   it("fuerza toda versión creada por el servicio demo a fixture sintético", async () => {
     const createProtocolVersion = vi.fn(makeTransaction().createProtocolVersion);
     await new CreateCheckInProtocolVersionService(
@@ -391,7 +434,11 @@ describe("check-in application services", () => {
       unitOfWork(
         makeTransaction({
           findOutcomeByIdempotency: async () => null,
-          getAssignment: async () => ({ ...assignment(), outcome: persistedOutcome }),
+          getAssignment: async () => ({
+            ...assignment(),
+            episode: { ...episode, status: "CLOSED" },
+            outcome: persistedOutcome,
+          }),
           claimOutcome,
           createResponse,
           appendAuditEvent,

@@ -6,15 +6,20 @@ import { describe, expect, it } from "vitest";
 import {
   CheckInConflictError,
   CheckInDeniedError,
+  CheckInParticipationRevokedError,
   GenerateCheckInAssignmentsService,
   OmitCheckInAssignmentService,
   RecordExpiredCheckInNonResponseService,
   SubmitCheckInResponseService,
 } from "@/application/check-in/manage-check-ins";
+import type { Role } from "@/domain/auth/role";
 import { prisma } from "@/infrastructure/persistence/prisma";
-import { PrismaCheckInUnitOfWork } from "@/infrastructure/persistence/prisma-check-in-unit-of-work";
+import {
+  listVisibleCheckInAssignments,
+  PrismaCheckInUnitOfWork,
+} from "@/infrastructure/persistence/prisma-check-in-unit-of-work";
 
-async function createUser(prefix: string, role: "admin" | "nurse" | "clinician" | "patient") {
+async function createUser(prefix: string, role: Role) {
   return prisma.user.create({
     data: {
       syntheticAlias: `${prefix}-${randomUUID()}`,
@@ -255,6 +260,17 @@ async function terminalPersistence(assignmentId: string) {
   };
 }
 
+async function downstreamPersistence(episodeId: string, subjectUserId: string) {
+  const [ruleEvaluations, alerts, tasks, communications, commitments] = await Promise.all([
+    prisma.ruleEvaluation.count({ where: { episodeId } }),
+    prisma.alert.count({ where: { episodeId } }),
+    prisma.task.count({ where: { episodeId } }),
+    prisma.communicationPermission.count({ where: { subjectUserId } }),
+    prisma.episodeCommitment.count({ where: { episodeId } }),
+  ]);
+  return { ruleEvaluations, alerts, tasks, communications, commitments };
+}
+
 describe.sequential("PostgreSQL check-in guarantees", () => {
   it("rechaza directamente una asignación con protocolo distinto al episodio", async () => {
     const fixture = await setupFixture();
@@ -343,6 +359,114 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
         });
       }),
     ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+  });
+
+  it("deniega otro paciente, support, caregiver y profesional ajeno", async () => {
+    const fixture = await setupFixture({ withAssignment: true });
+    const [otherPatient, support, caregiver, outsider] = await Promise.all([
+      createUser("checkin-other-patient", "patient"),
+      createUser("checkin-support", "support"),
+      createUser("checkin-caregiver", "caregiver"),
+      createUser("checkin-outsider", "clinician"),
+    ]);
+    const responseService = new SubmitCheckInResponseService(new PrismaCheckInUnitOfWork());
+    const response = responseInput(
+      fixture,
+      fixture.assignment!.id,
+      `response-authorization:${randomUUID()}`,
+    );
+
+    await expect(
+      responseService.execute({ ...response, actor: patientActor(otherPatient.id) }),
+    ).rejects.toBeInstanceOf(CheckInDeniedError);
+    for (const actor of [
+      { userId: support.id, roles: ["support"] as const, sessionId: randomUUID() },
+      { userId: caregiver.id, roles: ["caregiver"] as const, sessionId: randomUUID() },
+    ]) {
+      await expect(responseService.execute({ ...response, actor })).rejects.toBeInstanceOf(
+        CheckInDeniedError,
+      );
+    }
+    await expect(
+      new RecordExpiredCheckInNonResponseService(new PrismaCheckInUnitOfWork()).execute({
+        actor: clinicianActor(outsider.id),
+        assignmentId: fixture.assignment!.id,
+        idempotencyKey: `expire-outsider:${randomUUID()}`,
+        correlationId: randomUUID(),
+        now: new Date("2026-07-02T11:00:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(CheckInDeniedError);
+    await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+      outcomes: 0,
+      responses: 0,
+      nonResponses: 0,
+      terminalAuditEvents: 0,
+    });
+  });
+
+  it("revoca antes de responder, bloquea la disponibilidad y conserva la asignación", async () => {
+    const fixture = await setupFixture({ withAssignment: true });
+    await prisma.revocationEvent.create({
+      data: {
+        targetType: "DIGITAL_PARTICIPATION",
+        targetRecordId: fixture.participation.id,
+        subjectUserId: fixture.patientUser.id,
+        scope: "check-ins",
+        policyVersionId: fixture.policy.id,
+        actorUserId: fixture.patientUser.id,
+        recordedAt: new Date("2026-07-02T07:45:00.000Z"),
+        origin: "DEMO_UI",
+        evidenceType: "RECORDED_INTERACTION",
+        evidenceRef: "SYNTHETIC-ONLY",
+      },
+    });
+    const now = new Date("2026-07-02T08:00:00.000Z");
+
+    await expect(
+      new SubmitCheckInResponseService(new PrismaCheckInUnitOfWork()).execute({
+        ...responseInput(
+          fixture,
+          fixture.assignment!.id,
+          `response-after-revocation:${randomUUID()}`,
+        ),
+        now,
+      }),
+    ).rejects.toBeInstanceOf(CheckInParticipationRevokedError);
+    const visible = await listVisibleCheckInAssignments(patientActor(fixture.patientUser.id), now);
+    expect(visible).toHaveLength(1);
+    expect(visible![0]).toMatchObject({
+      id: fixture.assignment!.id,
+      availability: "BLOCKED",
+      availabilityReason: "DIGITAL_PARTICIPATION_NOT_ACTIVE",
+      isActionable: false,
+    });
+    await expect(
+      prisma.checkInAssignment.count({ where: { episodeId: fixture.episode.id } }),
+    ).resolves.toBe(1);
+    await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+      outcomes: 0,
+      responses: 0,
+      nonResponses: 0,
+      terminalAuditEvents: 0,
+    });
+  });
+
+  it("una respuesta no crea acciones automáticas aguas abajo", async () => {
+    const fixture = await setupFixture({ withAssignment: true });
+    const before = await downstreamPersistence(fixture.episode.id, fixture.patientUser.id);
+    await new SubmitCheckInResponseService(new PrismaCheckInUnitOfWork()).execute(
+      responseInput(fixture, fixture.assignment!.id, `response-no-downstream:${randomUUID()}`),
+    );
+
+    await expect(
+      downstreamPersistence(fixture.episode.id, fixture.patientUser.id),
+    ).resolves.toEqual(before);
+    await expect(terminalPersistence(fixture.assignment!.id)).resolves.toEqual({
+      outcomes: 1,
+      responses: 1,
+      nonResponses: 0,
+      terminalAuditEvents: 1,
+    });
   });
 
   it("hace idempotente una generación concurrente con la misma clave y fingerprint", async () => {
