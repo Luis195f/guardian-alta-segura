@@ -18,19 +18,10 @@ import { SbarPreviewPanel } from "@/presentation/components/sbar-preview-panel";
 import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
 import { ErrorState, LoadingState } from "@/presentation/components/ui-states";
 import { GovernanceEvidencePanel } from "@/presentation/components/governance-evidence-panel";
-
-const tabs = [
-  ["summary", "Resumen"],
-  ["safety-plan", "Plan de Seguridad"],
-  ["check-ins", "Check-ins"],
-  ["alerts", "Avisos"],
-  ["follow-up", "Seguimiento"],
-  ["home-safety", "Domicilio Seguro"],
-  ["sbar", "SBAR"],
-  ["evidence", "Evidencia / Trazabilidad"],
-  ["history", "Historial"],
-] as const;
-type WorkspaceTab = (typeof tabs)[number][0];
+import {
+  EPISODE_WORKSPACE_TABS,
+  type EpisodeWorkspaceTab,
+} from "@/presentation/navigation/episode-tabs";
 
 interface SummaryData {
   readonly queueEntry: ProfessionalQueueEntry | null;
@@ -38,11 +29,17 @@ interface SummaryData {
   readonly homeSafetyVersions: number;
 }
 
-export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) {
+export function EpisodeWorkspace({
+  episodeId,
+  initialTab = "summary",
+}: {
+  readonly episodeId: string;
+  readonly initialTab?: EpisodeWorkspaceTab;
+}) {
   const [episode, setEpisode] = useState<EpisodeDetail | null>(null);
   const [governance, setGovernance] = useState<EpisodeGovernanceView | null>(null);
   const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [tab, setTab] = useState<WorkspaceTab>("summary");
+  const [tab, setTab] = useState<EpisodeWorkspaceTab>(initialTab);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [transitionPending, setTransitionPending] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
@@ -207,7 +204,7 @@ export function EpisodeWorkspace({ episodeId }: { readonly episodeId: string }) 
         </p>
       )}
       <div className="workspace-tabs" role="tablist" aria-label="Secciones del episodio">
-        {tabs.map(([value, label]) => (
+        {EPISODE_WORKSPACE_TABS.map(([value, label]) => (
           <button
             key={value}
             type="button"

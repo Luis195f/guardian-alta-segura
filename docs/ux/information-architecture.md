@@ -35,7 +35,19 @@ Dashboard
         └── Historial
 ```
 
-Solo se monta la pestaña activa. El resumen presenta estados organizativos derivados de datos existentes y enlaza a la siguiente acción. No interpreta datos ni introduce métricas clínicas.
+Solo se monta la pestaña activa. El inicio profesional presenta una proyección
+operativa read-only de fuentes separadas, filtrada en servidor y paginada con
+cursor opaco ligado al contexto de autorización. Ordena por estado
+administrativo, marca temporal configurada y desempate técnico estable. Declara
+actualización desconocida porque no existe un umbral de staleness aprobado;
+expone como responsabilidad actual solo profesionales activos con rol y
+responsabilidad vigente; y distingue configuración, última evidencia,
+actualización técnica de la fuente y generación de consulta. Los enlaces usan
+una pestaña allowlisted y fallan a `summary`; no conceden autorización. La fila
+de gobernanza es solo una referencia a una vista canónica que no ha sido
+ejecutada ni precalculada por P10. El panel no incorpora mutaciones,
+interpretación, prioridad ni métricas clínicas. El núcleo sintético 5B
+permanece sin API/UI por su gate vigente.
 
 ## Shell de aplicación
 

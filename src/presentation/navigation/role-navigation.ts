@@ -8,13 +8,13 @@ export interface NavigationItem {
 
 const navigationByRole: Readonly<Record<Role, readonly NavigationItem[]>> = {
   nurse: [
-    { href: "/dashboard", label: "Inicio", description: "Prioridades del seguimiento" },
+    { href: "/dashboard", label: "Inicio", description: "Estado administrativo del circuito" },
     { href: "/episodes", label: "Episodios", description: "Pacientes en seguimiento" },
     { href: "/alerts", label: "Avisos", description: "Revisión humana pendiente" },
     { href: "/workqueue", label: "Seguimiento", description: "Tareas y actividad" },
   ],
   clinician: [
-    { href: "/dashboard", label: "Inicio", description: "Prioridades del seguimiento" },
+    { href: "/dashboard", label: "Inicio", description: "Estado administrativo del circuito" },
     { href: "/episodes", label: "Episodios", description: "Pacientes en seguimiento" },
     { href: "/alerts", label: "Avisos", description: "Revisión humana pendiente" },
     { href: "/workqueue", label: "Seguimiento", description: "Tareas y actividad" },
