@@ -510,6 +510,24 @@ técnica, no validación clínica.
 | HAZ-GAS-019 | C019-A–E | CTRL-019-A–C | ADR-0012/0015; system boundary; CE-19 | Baseline no-auto-action; future tests planned | REQ-08/09; DEC-008/017 | Arquitectura + Médica | `OPEN / DESIGN` |
 | HAZ-GAS-020 | C020-A–F | CTRL-020-A–C | Commitment spec CE-01/02/03/14/20 | `PLANNED`; FK/idempotency/legacy | REQ-01/09/12/13; ADR-0015/0016 | Médica/Enfermería + Arquitectura | `OPEN / DESIGN` |
 
+## Evidencia técnica P10 añadida sin cierre de peligros
+
+El panel operativo P10 añade evidencia técnica sobre controles ya asociados a
+los peligros abiertos; no cambia su estado, no estima riesgo residual y no
+constituye revisión o aceptación por un CSO:
+
+| Peligro abierto | Evidencia técnica P10 | Límite que permanece |
+| --- | --- | --- |
+| HAZ-GAS-003 | La vista declara `UPDATE_UNKNOWN`, separa estado de fuente y estado administrativo, y no inventa staleness. | No existe umbral institucional de actualidad ni garantía clínica. |
+| HAZ-GAS-004 | Filtrado server-side por rol activo y responsabilidad; cursor HMAC ligado a sesión, roles y tamaño de página; pruebas negativas para patient, caregiver, support, admin y otro contexto. | Identidad y role mapping institucionales siguen pendientes en DEC-013. |
+| HAZ-GAS-008 | El texto visible rechaza scoring, riesgo, prioridad clínica y garantía de actualidad; estados no dependen solo del color. | No existe validación clínica o de factores humanos. |
+| HAZ-GAS-012 | El panel es read-only y enlaza a los flujos humanos existentes; las pruebas verifican que GET no muta Task ni Alert. | Política institucional de accountability y autoridad sigue pendiente en DEC-017. |
+| HAZ-GAS-019 | Evaluación, alerta, revisión y tarea se proyectan como entidades distintas; no hay POST ni import del núcleo 5B en API/presentación. | La separación Core/Clinical Rules continúa lógica/documental y el peligro permanece `OPEN / DESIGN`. |
+
+Evidencia ejecutable focal: `operational-continuity-cursor.test.ts`,
+`operational-continuity.integration.test.ts` y
+`tests/e2e/operational-continuity.spec.ts`. Todos los fixtures son sintéticos.
+
 ## Acciones globales pendientes
 
 1. Designar y acreditar un CSO competente; revisar y aprobar formalmente el

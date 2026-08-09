@@ -37,7 +37,9 @@ for (const alias of ["demo-nurse", "demo-clinician"]) {
     const denials = collectUnexpectedDenials(page);
     await login(page, alias, /\/dashboard$/);
     await expect(page.getByRole("heading", { name: "Buenos días" })).toBeVisible();
-    await expect(page.getByText("Episodios activos", { exact: true })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Estado administrativo de fuentes autorizadas" }),
+    ).toBeVisible({
       timeout: 30_000,
     });
     await expect(page.locator('aside a[href="/episodes"]')).toBeVisible();

@@ -1086,6 +1086,21 @@ footer {
   white-space: nowrap;
 }
 
+.pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.pagination-controls span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .human-review-note,
 .patient-safety-message {
   border-left: 3px solid var(--accent);

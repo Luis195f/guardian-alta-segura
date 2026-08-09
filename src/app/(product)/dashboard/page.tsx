@@ -12,7 +12,7 @@ export default async function DashboardPage() {
       <PageHeader
         eyebrow="Seguimiento postalta"
         title="Buenos días"
-        description="Revisa primero los avisos pendientes y las tareas abiertas de tus episodios asignados."
+        description="Consulta estados administrativos y fuentes canónicas de tus episodios asignados."
       />
       <ProfessionalDashboard />
     </>

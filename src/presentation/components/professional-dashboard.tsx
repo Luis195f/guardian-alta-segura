@@ -3,180 +3,225 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import type { ProfessionalQueueResponse } from "@/presentation/components/professional-types";
+import type { OperationalContinuityResponse } from "@/presentation/components/professional-types";
 import { EmptyState, ErrorState, LoadingState } from "@/presentation/components/ui-states";
 
-interface CheckInView {
-  readonly status: "PENDING" | "RESPONDED" | "EXPIRED" | "OMITTED";
-  readonly scheduledFor: string;
+const sourceLabels: Readonly<
+  Record<OperationalContinuityResponse["items"][number]["sourceType"], string>
+> = {
+  EPISODE: "Episodio",
+  CHECK_IN: "Check-in",
+  RULE_EVALUATION: "Evaluación de regla",
+  ALERT: "Aviso",
+  ALERT_REVIEW: "Revisión humana",
+  TASK: "Tarea",
+  GOVERNANCE_EVIDENCE: "Evidencia de gobernanza",
+};
+
+const administrativeLabels: Readonly<
+  Record<OperationalContinuityResponse["items"][number]["administrativeState"], string>
+> = {
+  DATA_ERROR: "Error de datos",
+  BLOCKED: "Bloqueado",
+  TECHNICALLY_OVERDUE: "Vencido técnico",
+  PENDING: "Pendiente",
+  NO_EVIDENCE: "Sin evidencia",
+  ABSTAINED: "Abstención",
+  RECORDED: "Registrado",
+  RESOLVED: "Resuelto",
+  UPDATE_UNKNOWN: "Actualización desconocida",
+};
+
+function dateLabel(value: string | null): string {
+  if (!value) return "No disponible";
+  return new Date(value).toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  });
 }
 
-type PlanStatus = Readonly<Record<string, number | null>>;
+interface LoadedPage {
+  readonly cursor: string | null;
+  readonly response: OperationalContinuityResponse;
+}
 
 export function ProfessionalDashboard() {
-  const [queue, setQueue] = useState<ProfessionalQueueResponse | null>(null);
-  const [checkIns, setCheckIns] = useState<readonly CheckInView[]>([]);
-  const [plans, setPlans] = useState<PlanStatus>({});
+  const [pages, setPages] = useState<readonly LoadedPage[]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [pending, setPending] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+
+  async function fetchPage(cursor: string | null): Promise<OperationalContinuityResponse> {
+    const parameters = new URLSearchParams({ pageSize: "12" });
+    if (cursor) parameters.set("cursor", cursor);
+    const response = await fetch(`/api/demo/operational-continuity?${parameters}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error();
+    return (await response.json()) as OperationalContinuityResponse;
+  }
 
   useEffect(() => {
     let active = true;
-    async function load() {
-      try {
-        const queueResponse = await fetch("/api/demo/nursing-workqueue", { cache: "no-store" });
-        if (!queueResponse.ok) throw new Error();
-        const queuePayload = (await queueResponse.json()) as ProfessionalQueueResponse;
+    fetchPage(null)
+      .then((response) => {
         if (!active) return;
-        setQueue(queuePayload);
+        setPages([{ cursor: null, response }]);
         setState("ready");
-
-        const checkInResponse = await fetch("/api/demo/check-ins", { cache: "no-store" });
-        if (checkInResponse.ok) {
-          const checkInPayload = (await checkInResponse.json()) as {
-            readonly assignments: readonly CheckInView[];
-          };
-          if (active) setCheckIns(checkInPayload.assignments);
-        }
-
-        const planEntries = await Promise.all(
-          queuePayload.entries.slice(0, 8).map(async ({ episode }) => {
-            const response = await fetch(`/api/demo/discharge-episodes/${episode.id}/safety-plan`, {
-              cache: "no-store",
-            });
-            if (!response.ok) return [episode.id, null] as const;
-            const payload = (await response.json()) as {
-              readonly plan: { readonly activeVersionNumber: number | null } | null;
-            };
-            return [episode.id, payload.plan?.activeVersionNumber ?? null] as const;
-          }),
-        );
-        if (!active) return;
-        setPlans(Object.fromEntries(planEntries));
-      } catch {
-        if (active) setState("error");
-      }
-    }
-    void load();
+      })
+      .catch(() => active && setState("error"));
     return () => {
       active = false;
     };
   }, []);
 
-  if (state === "loading") return <LoadingState label="Preparando prioridades del seguimiento…" />;
-  if (state === "error" || !queue) {
-    return <ErrorState>Vuelve a intentarlo o inicia una nueva sesión demo.</ErrorState>;
+  const current = pages[pageIndex]?.response ?? null;
+
+  async function nextPage() {
+    const cursor = current?.page.nextCursor;
+    if (!cursor) return;
+    setPending(true);
+    setAnnouncement("");
+    try {
+      const existing = pages[pageIndex + 1];
+      if (existing?.cursor === cursor) {
+        setPageIndex(pageIndex + 1);
+      } else {
+        const response = await fetchPage(cursor);
+        setPages((previous) => [...previous.slice(0, pageIndex + 1), { cursor, response }]);
+        setPageIndex(pageIndex + 1);
+      }
+      setAnnouncement(`Página ${pageIndex + 2} cargada.`);
+    } catch {
+      setAnnouncement("No se pudo cargar la página siguiente. No se amplió la visibilidad.");
+    } finally {
+      setPending(false);
+    }
   }
 
-  const activeEpisodes = queue.entries.filter(({ episode }) => episode.status === "ACTIVE").length;
-  const pendingAlerts = queue.entries.reduce(
-    (total, entry) => total + entry.openAlerts.filter(({ state }) => state === "open").length,
-    0,
-  );
-  const pendingCheckIns = checkIns.filter(({ status }) => status === "PENDING").length;
-  const latestCheckIn = [...checkIns].sort((a, b) =>
-    b.scheduledFor.localeCompare(a.scheduledFor),
-  )[0];
-  const priorityEntries = queue.entries.slice(0, 8);
+  if (state === "loading") {
+    return <LoadingState label="Componiendo la vista administrativa del circuito…" />;
+  }
+  if (state === "error" || !current) {
+    return (
+      <ErrorState>
+        No se pudo consultar la vista administrativa. No se ha realizado ninguna acción.
+      </ErrorState>
+    );
+  }
 
   return (
-    <>
-      <section className="metric-grid" aria-label="Resumen organizativo">
-        <article>
-          <span>Episodios activos</span>
-          <strong>{activeEpisodes}</strong>
-          <Link href="/episodes">Ver episodios</Link>
-        </article>
-        <article>
-          <span>Avisos pendientes de revisión</span>
-          <strong>{pendingAlerts}</strong>
-          <Link href="/alerts">Revisar avisos</Link>
-        </article>
-        <article>
-          <span>Tareas abiertas</span>
-          <strong>{queue.metrics.openTaskCount}</strong>
-          <Link href="/workqueue">Abrir seguimiento</Link>
-        </article>
-        <article>
-          <span>Check-ins pendientes</span>
-          <strong>{pendingCheckIns}</strong>
-          <small>
-            Último resultado: {latestCheckIn ? latestCheckIn.status.toLowerCase() : "sin datos"}
-          </small>
-        </article>
-      </section>
-
-      <section className="content-section" aria-labelledby="followed-episodes-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Pacientes / episodios en seguimiento</p>
-            <h2 id="followed-episodes-title">Qué requiere atención organizativa</h2>
-          </div>
-          <Link href="/episodes">Ver todos</Link>
+    <section className="content-section" aria-labelledby="operational-continuity-title">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Panel operativo de continuidad · solo lectura</p>
+          <h2 id="operational-continuity-title">Estado administrativo de fuentes autorizadas</h2>
         </div>
-        {queue.entries.length === 0 ? (
-          <EmptyState>No hay episodios asignados a esta identidad.</EmptyState>
-        ) : (
-          <div className="table-wrap">
-            <table className="product-table">
-              <thead>
-                <tr>
-                  <th>Paciente</th>
-                  <th>Alta / estado</th>
-                  <th>Plan de Seguridad</th>
-                  <th>Último check-in</th>
-                  <th>Avisos / tareas</th>
-                  <th>
-                    <span className="sr-only">Acción</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {priorityEntries.map((entry) => {
-                  const activePlan = plans[entry.episode.id];
-                  return (
-                    <tr key={entry.episode.id}>
-                      <td>
-                        <strong>{entry.episode.patientPseudonymousId}</strong>
-                      </td>
-                      <td>
-                        {entry.episode.dischargeDate.slice(0, 10)}
-                        <small>{entry.episode.status.toLowerCase()}</small>
-                      </td>
-                      <td>{activePlan ? `Activo · versión ${activePlan}` : "Pendiente"}</td>
-                      <td>
-                        {entry.lastRelevantCheckIn?.outcome?.type ?? "Sin resultado"}
-                        {entry.lastRelevantCheckIn && (
-                          <small>
-                            {new Date(entry.lastRelevantCheckIn.scheduledFor).toLocaleDateString(
-                              "es-ES",
-                            )}
-                          </small>
-                        )}
-                      </td>
-                      <td>
-                        {entry.openAlerts.length} aviso(s)
-                        <small>
-                          {entry.tasks.filter(({ state }) => state === "open").length} tarea(s)
-                          abierta(s)
-                        </small>
-                      </td>
-                      <td>
-                        <Link className="table-action" href={`/episodes/${entry.episode.id}`}>
-                          Abrir episodio
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-      <p className="human-review-note">
-        Los avisos organizan información determinista para revisión humana. Ninguna actuación
-        clínica se crea automáticamente.
+      </div>
+      <p>
+        Cada fila conserva la semántica de su fuente. No es una puntuación, no ordena pacientes por
+        riesgo y no recomienda decisiones clínicas.
       </p>
-    </>
+      <p className="human-review-note" role="status">
+        Actualización desconocida. Consulta generada el {dateLabel(current.freshness.generatedAt)}.{" "}
+        {current.freshness.explanation}
+      </p>
+      <p>
+        “Actualización de la fuente” es una marca técnica distinta de la configuración, la última
+        evidencia conocida y la generación de esta consulta; no garantiza actualidad clínica.
+      </p>
+
+      {current.items.length === 0 ? (
+        <EmptyState>No hay fuentes autorizadas para esta identidad profesional.</EmptyState>
+      ) : (
+        <div className="table-wrap" tabIndex={0} aria-label="Fuentes operativas autorizadas">
+          <table className="product-table">
+            <caption className="sr-only">
+              Fuentes separadas, ordenadas por estado administrativo, marca configurada, tipo e ID
+            </caption>
+            <thead>
+              <tr>
+                <th>Fuente</th>
+                <th>Episodio sintético</th>
+                <th>Estado administrativo</th>
+                <th>Responsabilidad actual</th>
+                <th>Marca configurada</th>
+                <th>Última evidencia conocida</th>
+                <th>Actualización de la fuente</th>
+                <th>Por qué aparece</th>
+                <th>
+                  <span className="sr-only">Fuente canónica</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {current.items.map((item) => (
+                <tr key={`${item.sourceType}:${item.resourceId}`}>
+                  <td>
+                    <strong>{sourceLabels[item.sourceType]}</strong>
+                    <small>Estado fuente: {item.sourceState}</small>
+                  </td>
+                  <td>{item.episodeAlias}</td>
+                  <td>
+                    <span className="status-chip">
+                      {administrativeLabels[item.administrativeState]}
+                    </span>
+                  </td>
+                  <td>{item.currentResponsibility ?? "No definida por esta fuente"}</td>
+                  <td>{dateLabel(item.configuredAt)}</td>
+                  <td>{dateLabel(item.lastEvidenceAt)}</td>
+                  <td>{dateLabel(item.sourceUpdatedAt)}</td>
+                  <td>{item.inclusionReason}</td>
+                  <td>
+                    <Link className="table-action" href={item.canonicalHref}>
+                      Consultar fuente
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <nav className="pagination-controls" aria-label="Paginación del panel operativo">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={pending || pageIndex === 0}
+          onClick={() => {
+            setPageIndex((index) => Math.max(0, index - 1));
+            setAnnouncement(`Página ${pageIndex} cargada.`);
+          }}
+        >
+          Página anterior
+        </button>
+        <span>
+          Página {pageIndex + 1} · {current.page.returned} de {current.page.size} filas máximas
+          {current.page.truncated ? " · hay más resultados" : " · fin de resultados"}
+        </span>
+        <button
+          type="button"
+          disabled={pending || !current.page.hasNextPage}
+          onClick={() => void nextPage()}
+        >
+          Página siguiente
+        </button>
+      </nav>
+      <p className="status" role="status" aria-live="polite">
+        {pending ? "Cargando página…" : announcement}
+      </p>
+      <aside className="human-review-note" aria-label="Límites del panel">
+        Los compromisos 5B permanecen en el núcleo sintético interno sin API/UI por su gate vigente.
+        No se muestran 5C, evaluación de vencimientos, scoring, semáforo ni prioridad clínica
+        automática. Las acciones humanas continúan exclusivamente en sus superficies canónicas.
+      </aside>
+    </section>
   );
 }

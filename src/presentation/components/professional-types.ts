@@ -62,6 +62,53 @@ export interface ProfessionalQueueResponse {
   };
 }
 
+export interface OperationalContinuityResponse {
+  readonly notice: string;
+  readonly limitation: string;
+  readonly items: readonly {
+    readonly sourceType:
+      | "EPISODE"
+      | "CHECK_IN"
+      | "RULE_EVALUATION"
+      | "ALERT"
+      | "ALERT_REVIEW"
+      | "TASK"
+      | "GOVERNANCE_EVIDENCE";
+    readonly resourceId: string;
+    readonly episodeId: string;
+    readonly episodeAlias: string;
+    readonly sourceState: string;
+    readonly administrativeState:
+      | "DATA_ERROR"
+      | "BLOCKED"
+      | "TECHNICALLY_OVERDUE"
+      | "PENDING"
+      | "NO_EVIDENCE"
+      | "ABSTAINED"
+      | "RECORDED"
+      | "RESOLVED"
+      | "UPDATE_UNKNOWN";
+    readonly currentResponsibility: string | null;
+    readonly configuredAt: string | null;
+    readonly lastEvidenceAt: string | null;
+    readonly sourceUpdatedAt: string | null;
+    readonly inclusionReason: string;
+    readonly canonicalHref: string;
+  }[];
+  readonly page: {
+    readonly size: number;
+    readonly returned: number;
+    readonly hasNextPage: boolean;
+    readonly truncated: boolean;
+    readonly nextCursor: string | null;
+  };
+  readonly freshness: {
+    readonly state: "UPDATE_UNKNOWN";
+    readonly generatedAt: string;
+    readonly explanation: string;
+  };
+}
+
 export interface EpisodeDetail {
   readonly id: string;
   readonly dischargeDate: string;
