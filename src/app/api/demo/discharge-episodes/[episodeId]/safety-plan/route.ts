@@ -14,6 +14,7 @@ import {
   isSafetyPlanStep,
   type SafetyPlanSectionDraft,
 } from "@/domain/safety-plan/safety-plan";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 import { errors } from "@/infrastructure/http/app-error";
 import { getCorrelationId } from "@/infrastructure/http/correlation-id";
 import { assertSameOrigin } from "@/infrastructure/http/csrf";
@@ -76,6 +77,7 @@ export async function GET(
     return NextResponse.json(
       {
         notice: "SINTÉTICO / NO USO CLÍNICO — no sustituye atención profesional",
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
         ...result,
       },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },

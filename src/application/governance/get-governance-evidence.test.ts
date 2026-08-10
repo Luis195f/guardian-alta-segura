@@ -39,6 +39,12 @@ function governance(episodeId = "episode-1", version = 1): EpisodeGovernanceView
     },
     activationAuthorization: { status: "AUTHORIZED", identityPolicyVersionId: "policy-1" },
     openObligations: [],
+    openObligationsCoverage: {
+      returned: 0,
+      limit: 50,
+      truncated: false,
+      basis: "TECHNICAL_DEMO_LIMIT",
+    },
     blockers: [],
     pendingInstitutionalDecisions: [{ decisionId: "DEC-002", status: "PENDING" }],
     organizationallyGoverned: false,

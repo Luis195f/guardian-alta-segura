@@ -25,6 +25,10 @@ import type {
 import { getAssignmentStatus } from "@/domain/check-in/check-in";
 import { LegalAuthorizationService } from "@/domain/legal/legal-authorization";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 
 const protocolInclude = {
   questions: { orderBy: { position: "asc" as const } },
@@ -310,18 +314,20 @@ class PrismaCheckInTransaction implements CheckInTransaction {
   }
 
   async getDigitalParticipationContext(subjectUserId: string) {
-    const [records, policies, revocations] = await Promise.all([
-      this.transaction.digitalParticipationRecord.findMany({ where: { subjectUserId } }),
-      this.transaction.policyVersion.findMany(),
-      this.transaction.revocationEvent.findMany({ where: { subjectUserId } }),
-    ]);
+    const record = await this.transaction.digitalParticipationRecord.findFirst({
+      where: { subjectUserId, scope: "check-ins" },
+      orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+      include: { policyVersion: true },
+    });
+    const revocation = record
+      ? await this.transaction.revocationEvent.findFirst({
+          where: { targetType: "DIGITAL_PARTICIPATION", targetRecordId: record.id },
+        })
+      : null;
     return {
-      records: records.map((record) => ({
-        ...record,
-        recordType: "DIGITAL_PARTICIPATION" as const,
-      })),
-      policies,
-      revocations,
+      records: record ? [{ ...record, recordType: "DIGITAL_PARTICIPATION" as const }] : [],
+      policies: record ? [record.policyVersion] : [],
+      revocations: revocation ? [revocation] : [],
     };
   }
 
@@ -537,9 +543,11 @@ export async function listCheckInProtocols() {
   const protocols = await prisma.checkInProtocolVersion.findMany({
     where: { schedule: { isNot: null } },
     include: protocolInclude,
-    orderBy: [{ protocolKey: "asc" }, { versionNumber: "desc" }],
+    orderBy: [{ protocolKey: "asc" }, { versionNumber: "desc" }, { id: "asc" }],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
   });
-  return protocols.map(toProtocolRecord);
+  const bounded = boundCollection(protocols);
+  return { values: bounded.values.map(toProtocolRecord), coverage: bounded.coverage };
 }
 
 type Availability = "OPEN" | "UPCOMING" | "BLOCKED" | "CLOSED";
@@ -559,20 +567,22 @@ export function availabilityFor(input: {
 }
 
 async function patientParticipationAllowed(subjectUserId: string, now: Date): Promise<boolean> {
-  const [records, policies, revocations] = await Promise.all([
-    prisma.digitalParticipationRecord.findMany({ where: { subjectUserId } }),
-    prisma.policyVersion.findMany(),
-    prisma.revocationEvent.findMany({ where: { subjectUserId } }),
-  ]);
+  const record = await prisma.digitalParticipationRecord.findFirst({
+    where: { subjectUserId, scope: "check-ins" },
+    orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+    include: { policyVersion: true },
+  });
+  const revocation = record
+    ? await prisma.revocationEvent.findFirst({
+        where: { targetType: "DIGITAL_PARTICIPATION", targetRecordId: record.id },
+      })
+    : null;
   return new LegalAuthorizationService().authorizeFutureCheckIn({
     subjectUserId,
     featureEnabled: true,
-    records: records.map((record) => ({
-      ...record,
-      recordType: "DIGITAL_PARTICIPATION" as const,
-    })),
-    policies,
-    revocations,
+    records: record ? [{ ...record, recordType: "DIGITAL_PARTICIPATION" as const }] : [],
+    policies: record ? [record.policyVersion] : [],
+    revocations: revocation ? [revocation] : [],
     now,
   }).allowed;
 }
@@ -588,8 +598,8 @@ export async function listVisibleCheckInAssignments(
     ? await patientParticipationAllowed(principal.userId, now)
     : true;
 
-  const assignments = await prisma.checkInAssignment.findMany({
-    where: isPatient
+  const visibleAssignment = (
+    isPatient
       ? { episode: { patient: { portalUserId: principal.userId } } }
       : {
           episode: {
@@ -598,33 +608,85 @@ export async function listVisibleCheckInAssignments(
               { responsibleClinicianId: principal.userId },
             ],
           },
-        },
-    include: {
-      episode: {
-        select: {
-          id: true,
-          status: true,
-          patient: { select: { externalPseudonymousId: true } },
-          checkInProtocolVersion: { include: protocolInclude },
-        },
+        }
+  ) satisfies Prisma.CheckInAssignmentWhereInput;
+  const assignmentInclude = {
+    episode: {
+      select: {
+        id: true,
+        status: true,
+        patient: { select: { externalPseudonymousId: true } },
+        checkInProtocolVersion: { include: protocolInclude },
       },
-      response: {
-        include: {
-          answers: {
-            select: {
-              questionDefinitionId: true,
-              scaleValue: true,
-              yesNoValue: true,
-              selectedOption: true,
-              shortTextValue: true,
-            },
+    },
+    response: {
+      include: {
+        answers: {
+          select: {
+            questionDefinitionId: true,
+            scaleValue: true,
+            yesNoValue: true,
+            selectedOption: true,
+            shortTextValue: true,
           },
         },
       },
-      outcome: { select: { type: true } },
-      nonResponseEvent: { select: { reason: true, recordedAt: true } },
     },
-  });
+    outcome: { select: { type: true } },
+    nonResponseEvent: { select: { reason: true, recordedAt: true } },
+  } satisfies Prisma.CheckInAssignmentInclude;
+  const currentWindow = {
+    outcome: null,
+    windowStartsAt: { lte: now },
+    windowEndsAt: { gt: now },
+  } satisfies Prisma.CheckInAssignmentWhereInput;
+  const ascending = [{ scheduledFor: "asc" as const }, { id: "asc" as const }];
+  const descending = [{ scheduledFor: "desc" as const }, { id: "asc" as const }];
+  const [open, upcoming, blocked, closed] = await Promise.all([
+    participationAllowed
+      ? prisma.checkInAssignment.findMany({
+          where: { AND: [visibleAssignment, currentWindow, { episode: { status: "ACTIVE" } }] },
+          include: assignmentInclude,
+          orderBy: ascending,
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
+        })
+      : Promise.resolve([]),
+    prisma.checkInAssignment.findMany({
+      where: {
+        AND: [
+          visibleAssignment,
+          { outcome: null, windowStartsAt: { gt: now }, windowEndsAt: { gt: now } },
+        ],
+      },
+      include: assignmentInclude,
+      orderBy: ascending,
+      take: EXPOSED_COLLECTION_QUERY_TAKE,
+    }),
+    prisma.checkInAssignment.findMany({
+      where: {
+        AND: [
+          visibleAssignment,
+          currentWindow,
+          ...(participationAllowed ? [{ episode: { status: { not: "ACTIVE" as const } } }] : []),
+        ],
+      },
+      include: assignmentInclude,
+      orderBy: descending,
+      take: EXPOSED_COLLECTION_QUERY_TAKE,
+    }),
+    prisma.checkInAssignment.findMany({
+      where: {
+        AND: [
+          visibleAssignment,
+          { OR: [{ outcome: { isNot: null } }, { windowEndsAt: { lte: now } }] },
+        ],
+      },
+      include: assignmentInclude,
+      orderBy: descending,
+      take: EXPOSED_COLLECTION_QUERY_TAKE,
+    }),
+  ]);
+  const assignments = [...open, ...upcoming, ...blocked, ...closed];
 
   const views = assignments.map((assignment) => {
     const availability = availabilityFor({
@@ -667,18 +729,5 @@ export async function listVisibleCheckInAssignments(
     };
   });
 
-  const rank: Record<Availability, number> = {
-    OPEN: 0,
-    UPCOMING: 1,
-    BLOCKED: 2,
-    CLOSED: 3,
-  };
-  return views.sort((left, right) => {
-    const rankDifference = rank[left.availability] - rank[right.availability];
-    if (rankDifference !== 0) return rankDifference;
-    if (left.availability === "OPEN" || left.availability === "UPCOMING") {
-      return left.scheduledFor.getTime() - right.scheduledFor.getTime();
-    }
-    return right.scheduledFor.getTime() - left.scheduledFor.getTime();
-  });
+  return boundCollection(views);
 }

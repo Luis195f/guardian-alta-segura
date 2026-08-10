@@ -6,6 +6,11 @@ import type {
   SafetyPlanUnitOfWork,
   SafetyPlanVersionRecord,
 } from "@/application/ports/safety-plan-unit-of-work";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_LIMIT,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
@@ -197,34 +202,149 @@ export class PrismaSafetyPlanUnitOfWork implements SafetyPlanUnitOfWork {
   }
 }
 
-export async function getSafetyPlanView(episodeId: string, principal: AuthenticatedPrincipal) {
-  const episode = await prisma.dischargeEpisode.findUnique({
-    where: { id: episodeId },
+const safetyPlanEpisodeSelect = {
+  id: true,
+  responsibleNurseId: true,
+  responsibleClinicianId: true,
+  patient: { select: { portalUserId: true } },
+  safetyPlan: {
     select: {
-      responsibleNurseId: true,
-      responsibleClinicianId: true,
-      patient: { select: { portalUserId: true } },
-      safetyPlan: {
-        include: {
-          versions: {
-            orderBy: { versionNumber: "desc" },
-            include: {
-              createdBy: { select: { syntheticAlias: true } },
-              sections: {
-                orderBy: { step: "asc" },
-                include: { permissions: true },
-              },
-              stateChanges: {
-                orderBy: { sequence: "asc" },
-                include: { actor: { select: { syntheticAlias: true } } },
-              },
-            },
-          },
-        },
-      },
+      id: true,
+      revision: true,
+      currentVersion: true,
+      activeVersionNumber: true,
     },
+  },
+} satisfies Prisma.DischargeEpisodeSelect;
+
+type SafetyPlanViewEpisode = Prisma.DischargeEpisodeGetPayload<{
+  select: typeof safetyPlanEpisodeSelect;
+}>;
+
+const safetyPlanVersionInclude = {
+  createdBy: { select: { syntheticAlias: true } },
+  sections: {
+    orderBy: { step: "asc" as const },
+    include: { permissions: true },
+  },
+  stateChanges: {
+    orderBy: [{ sequence: "desc" as const }, { id: "asc" as const }],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
+    include: { actor: { select: { syntheticAlias: true } } },
+  },
+} satisfies Prisma.SafetyPlanVersionInclude;
+
+type SafetyPlanViewVersion = Prisma.SafetyPlanVersionGetPayload<{
+  include: typeof safetyPlanVersionInclude;
+}>;
+
+type VisibleSafetyPlanVersionId = {
+  readonly id: string;
+  readonly safetyPlanId: string;
+  readonly versionNumber: number;
+};
+
+type SafetyPlanReaderDatabase = Pick<typeof prisma, "$transaction">;
+
+const SAFETY_PLAN_VERSION_BATCH_TAKE = EXPOSED_COLLECTION_LIMIT * EXPOSED_COLLECTION_QUERY_TAKE;
+
+function viewerRole(
+  episode: SafetyPlanViewEpisode,
+  principal: AuthenticatedPrincipal,
+): Role | null {
+  const assignedProfessional =
+    principal.userId === episode.responsibleNurseId ||
+    principal.userId === episode.responsibleClinicianId;
+  const patientOwner = principal.userId === episode.patient.portalUserId;
+  return (
+    principal.roles.find(
+      (candidate) =>
+        ((candidate === "nurse" || candidate === "clinician") && assignedProfessional) ||
+        (candidate === "patient" && patientOwner),
+    ) ?? null
+  );
+}
+
+async function readVisibleSafetyPlanVersions(input: {
+  readonly transaction: Prisma.TransactionClient;
+  readonly safetyPlanIds: readonly string[];
+  readonly patientOnly: boolean;
+}): Promise<ReadonlyMap<string, readonly SafetyPlanViewVersion[]>> {
+  if (input.safetyPlanIds.length === 0) return new Map();
+  const visibility = input.patientOnly
+    ? Prisma.sql`current."currentState" IN (
+        CAST(${"ACTIVE"} AS "SafetyPlanVersionState"),
+        CAST(${"SUPERSEDED"} AS "SafetyPlanVersionState")
+      )`
+    : Prisma.sql`TRUE`;
+  const selectedRows = await input.transaction.$queryRaw<VisibleSafetyPlanVersionId[]>(Prisma.sql`
+    WITH "rankedStateChanges" AS (
+      SELECT
+        change."safety_plan_version_id" AS "safetyPlanVersionId",
+        change."resulting_state" AS "resultingState",
+        ROW_NUMBER() OVER (
+          PARTITION BY change."safety_plan_version_id"
+          ORDER BY change."sequence" DESC, change."id" ASC
+        ) AS "stateRank"
+      FROM "safety_plan_version_state_changes" AS change
+      INNER JOIN "safety_plan_versions" AS version
+        ON version."id" = change."safety_plan_version_id"
+      WHERE version."safety_plan_id" IN (${Prisma.join(input.safetyPlanIds)})
+    ),
+    "currentVersions" AS (
+      SELECT
+        version."id",
+        version."safety_plan_id" AS "safetyPlanId",
+        version."version_number" AS "versionNumber",
+        COALESCE(
+          state."resultingState",
+          CAST(${"DRAFT"} AS "SafetyPlanVersionState")
+        ) AS "currentState"
+      FROM "safety_plan_versions" AS version
+      LEFT JOIN "rankedStateChanges" AS state
+        ON state."safetyPlanVersionId" = version."id" AND state."stateRank" = 1
+      WHERE version."safety_plan_id" IN (${Prisma.join(input.safetyPlanIds)})
+    ),
+    "visibleVersions" AS (
+      SELECT
+        current.*,
+        ROW_NUMBER() OVER (
+          PARTITION BY current."safetyPlanId"
+          ORDER BY current."versionNumber" DESC, current."id" ASC
+        ) AS "collectionRank"
+      FROM "currentVersions" AS current
+      WHERE ${visibility}
+    )
+    SELECT visible."id", visible."safetyPlanId", visible."versionNumber"
+    FROM "visibleVersions" AS visible
+    WHERE visible."collectionRank" <= ${EXPOSED_COLLECTION_QUERY_TAKE}
+    ORDER BY visible."safetyPlanId" ASC, visible."versionNumber" DESC, visible."id" ASC
+  `);
+  if (selectedRows.length === 0) return new Map();
+  const versions = await input.transaction.safetyPlanVersion.findMany({
+    where: { id: { in: selectedRows.map(({ id }) => id) } },
+    include: safetyPlanVersionInclude,
+    orderBy: [{ safetyPlanId: "asc" }, { versionNumber: "desc" }, { id: "asc" }],
+    take: SAFETY_PLAN_VERSION_BATCH_TAKE,
   });
-  if (!episode) return null;
+  const versionById = new Map(versions.map((version) => [version.id, version]));
+  const bySafetyPlan = new Map<string, SafetyPlanViewVersion[]>();
+  for (const selected of selectedRows) {
+    const version = versionById.get(selected.id);
+    if (!version) throw new Error("Selected safety plan version could not be projected");
+    bySafetyPlan.set(selected.safetyPlanId, [
+      ...(bySafetyPlan.get(selected.safetyPlanId) ?? []),
+      version,
+    ]);
+  }
+  return bySafetyPlan;
+}
+
+function projectSafetyPlanView(
+  episode: SafetyPlanViewEpisode,
+  principal: AuthenticatedPrincipal,
+  selectedVersions: readonly SafetyPlanViewVersion[],
+) {
   const assignedProfessional =
     principal.userId === episode.responsibleNurseId ||
     principal.userId === episode.responsibleClinicianId;
@@ -243,9 +363,13 @@ export async function getSafetyPlanView(episodeId: string, principal: Authentica
     patientOwner,
     caregiverAuthorizationActive: false,
   };
-  const versions = episode.safetyPlan.versions.flatMap((version) => {
-    const state = version.stateChanges.at(-1)?.resultingState ?? "DRAFT";
-    if (!canViewSafetyPlanVersion(role, state, context)) return [];
+  const boundedVersions = boundCollection(selectedVersions);
+  const versions = boundedVersions.values.map((version) => {
+    const boundedStateChanges = boundCollection(version.stateChanges);
+    const state = version.stateChanges[0]?.resultingState ?? "DRAFT";
+    if (!canViewSafetyPlanVersion(role, state, context)) {
+      throw new Error("Selected safety plan version is not visible to this principal");
+    }
     const sections = version.sections.flatMap((section) => {
       const permissions = {
         patientCanView:
@@ -263,22 +387,21 @@ export async function getSafetyPlanView(episodeId: string, principal: Authentica
         },
       ];
     });
-    return [
-      {
-        versionNumber: version.versionNumber,
-        basedOnVersion: version.basedOnVersion,
-        state,
-        createdAt: version.createdAt.toISOString(),
-        createdBy: version.createdBy.syntheticAlias,
-        sections,
-        stateChanges: version.stateChanges.map((change) => ({
-          state: change.resultingState,
-          reason: change.reason,
-          occurredAt: change.occurredAt.toISOString(),
-          actor: change.actor.syntheticAlias,
-        })),
-      },
-    ];
+    return {
+      versionNumber: version.versionNumber,
+      basedOnVersion: version.basedOnVersion,
+      state,
+      createdAt: version.createdAt.toISOString(),
+      createdBy: version.createdBy.syntheticAlias,
+      sections,
+      stateChanges: [...boundedStateChanges.values].reverse().map((change) => ({
+        state: change.resultingState,
+        reason: change.reason,
+        occurredAt: change.occurredAt.toISOString(),
+        actor: change.actor.syntheticAlias,
+      })),
+      collectionCoverage: { stateChanges: boundedStateChanges.coverage },
+    };
   });
   return {
     access: { canEdit: role === "nurse" || role === "clinician" },
@@ -288,21 +411,76 @@ export async function getSafetyPlanView(episodeId: string, principal: Authentica
       currentVersion: episode.safetyPlan.currentVersion,
       activeVersionNumber: episode.safetyPlan.activeVersionNumber,
       versions,
+      collectionCoverage: { versions: boundedVersions.coverage },
     },
   };
 }
 
-export async function listPatientSafetyPlanViews(principal: AuthenticatedPrincipal) {
+export async function getSafetyPlanView(
+  episodeId: string,
+  principal: AuthenticatedPrincipal,
+  database: SafetyPlanReaderDatabase = prisma,
+) {
+  return database.$transaction(
+    async (transaction) => {
+      const episode = await transaction.dischargeEpisode.findUnique({
+        where: { id: episodeId },
+        select: safetyPlanEpisodeSelect,
+      });
+      if (!episode) return null;
+      const role = viewerRole(episode, principal);
+      if (!role) return null;
+      const versions = episode.safetyPlan
+        ? await readVisibleSafetyPlanVersions({
+            transaction,
+            safetyPlanIds: [episode.safetyPlan.id],
+            patientOnly: role === "patient",
+          })
+        : new Map();
+      return projectSafetyPlanView(
+        episode,
+        principal,
+        episode.safetyPlan ? (versions.get(episode.safetyPlan.id) ?? []) : [],
+      );
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
+}
+
+export async function listPatientSafetyPlanViews(
+  principal: AuthenticatedPrincipal,
+  database: SafetyPlanReaderDatabase = prisma,
+) {
   if (!principal.roles.includes("patient")) return null;
-  const episodes = await prisma.dischargeEpisode.findMany({
-    where: { patient: { portalUserId: principal.userId } },
-    select: { id: true },
-    orderBy: { createdAt: "desc" },
-  });
-  return Promise.all(
-    episodes.map(async ({ id }) => ({
-      episodeId: id,
-      view: await getSafetyPlanView(id, principal),
-    })),
+  return database.$transaction(
+    async (transaction) => {
+      const episodes = await transaction.dischargeEpisode.findMany({
+        where: { patient: { portalUserId: principal.userId } },
+        select: safetyPlanEpisodeSelect,
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        take: EXPOSED_COLLECTION_QUERY_TAKE,
+      });
+      const boundedEpisodes = boundCollection(episodes);
+      const safetyPlanIds = boundedEpisodes.values.flatMap((episode) =>
+        episode.safetyPlan ? [episode.safetyPlan.id] : [],
+      );
+      const versions = await readVisibleSafetyPlanVersions({
+        transaction,
+        safetyPlanIds,
+        patientOnly: true,
+      });
+      return {
+        values: boundedEpisodes.values.map((episode) => ({
+          episodeId: episode.id,
+          view: projectSafetyPlanView(
+            episode,
+            principal,
+            episode.safetyPlan ? (versions.get(episode.safetyPlan.id) ?? []) : [],
+          ),
+        })),
+        coverage: boundedEpisodes.coverage,
+      };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
 }

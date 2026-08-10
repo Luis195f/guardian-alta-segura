@@ -12,6 +12,7 @@ import {
   listRuleCatalog,
   PrismaExplainableAlertsUnitOfWork,
 } from "@/infrastructure/persistence/prisma-explainable-alerts-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const correlationId = getCorrelationId(request);
   try {
     await requireDemoExplainableAlertPrincipal(request, "rule-catalog-read");
+    const catalog = await listRuleCatalog();
     return NextResponse.json(
-      { notice: SYNTHETIC_RULE_NOTICE, rules: await listRuleCatalog() },
+      {
+        notice: SYNTHETIC_RULE_NOTICE,
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: { rules: catalog.coverage },
+        rules: catalog.values,
+      },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },
     );
   } catch (error) {

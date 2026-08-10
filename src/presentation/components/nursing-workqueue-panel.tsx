@@ -25,8 +25,9 @@ type QueueTask = {
     readonly assignmentStatus: "UNASSIGNED" | "ASSIGNED" | "RESOLVED";
     readonly currentAssigneeEligibility:
       "NOT_APPLICABLE" | "CURRENTLY_AUTHORIZED" | "NOT_CURRENTLY_AUTHORIZED";
-    readonly consistencyStatus: "VALID" | "INCONSISTENT";
+    readonly consistencyStatus: "VALID" | "INCONSISTENT" | "INCOMPLETE";
     readonly blockers: readonly string[];
+    readonly limitations: readonly string[];
   };
   readonly events: readonly {
     readonly id: string;
@@ -72,12 +73,21 @@ type QueueEntry = {
 };
 type QueueResponse = {
   readonly entries: readonly QueueEntry[];
+  readonly collectionCoverage: {
+    readonly entries: {
+      readonly returned: number;
+      readonly limit: number;
+      readonly truncated: boolean;
+      readonly basis: "TECHNICAL_DEMO_LIMIT";
+    };
+  };
   readonly metrics: {
     readonly episodeCount: number;
     readonly pendingElementCount: number;
     readonly openTaskCount: number;
     readonly resolvedTaskCount: number;
     readonly oldestOpenTaskAgeHours: number | null;
+    readonly scope: "RETURNED_EPISODES";
   };
 };
 
@@ -457,6 +467,13 @@ export function NursingWorkQueuePanel({
         </form>
       </details>
 
+      {queue?.collectionCoverage.entries.truncated && (
+        <p role="status">
+          Vista truncada por un límite técnico de demostración; las métricas corresponden solo a los
+          episodios mostrados y no representan un umbral clínico.
+        </p>
+      )}
+
       {queue && (
         <dl className="queue-metrics" aria-label="Métricas técnicas agregadas de la cola">
           <div>
@@ -624,6 +641,12 @@ export function NursingWorkQueuePanel({
                       {task.accountability.consistencyStatus === "INCONSISTENT" && (
                         <p role="alert">
                           Accountability inconsistente: {task.accountability.blockers.join(", ")}
+                        </p>
+                      )}
+                      {task.accountability.consistencyStatus === "INCOMPLETE" && (
+                        <p role="status">
+                          Accountability incompleta por truncamiento técnico del historial; no se ha
+                          concluido consistencia ni inconsistencia.
                         </p>
                       )}
                       <TaskActions

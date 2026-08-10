@@ -83,6 +83,12 @@ export interface EpisodeGovernanceInput {
     readonly isSyntheticFixture: boolean;
   } | null;
   readonly openObligations: readonly EpisodeGovernanceObligation[];
+  readonly openObligationsCoverage: {
+    readonly returned: number;
+    readonly limit: number;
+    readonly truncated: boolean;
+    readonly basis: "TECHNICAL_DEMO_LIMIT";
+  };
   readonly evaluatedAt: Date;
   readonly correlationId: string;
 }
@@ -112,6 +118,7 @@ export interface EpisodeGovernanceView {
     readonly identityPolicyVersionId: string | null;
   };
   readonly openObligations: readonly EpisodeGovernanceObligation[];
+  readonly openObligationsCoverage: EpisodeGovernanceInput["openObligationsCoverage"];
   readonly blockers: readonly EpisodeGovernanceBlocker[];
   readonly pendingInstitutionalDecisions: readonly {
     readonly decisionId: "DEC-002";
@@ -169,6 +176,7 @@ function baseView(
       identityPolicyVersionId: input.episode.identity.policyVersionId,
     },
     openObligations: input.openObligations,
+    openObligationsCoverage: input.openObligationsCoverage,
     blockers,
     pendingInstitutionalDecisions: [EPISODE_CLOSURE_INSTITUTIONAL_DECISION],
     organizationallyGoverned: blockers.length === 0,

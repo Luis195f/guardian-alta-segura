@@ -17,6 +17,7 @@ import {
   listVisibleCheckInAssignments,
   PrismaCheckInUnitOfWork,
 } from "@/infrastructure/persistence/prisma-check-in-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         notice: "SINTÉTICO / NO USO CLÍNICO — sin interpretación automática",
-        assignments: assignments.map((assignment) => ({
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: { assignments: assignments.coverage },
+        assignments: assignments.values.map((assignment) => ({
           ...assignment,
           scheduledFor: assignment.scheduledFor.toISOString(),
           windowStartsAt: assignment.windowStartsAt.toISOString(),

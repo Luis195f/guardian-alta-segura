@@ -34,6 +34,7 @@ export interface EpisodeGovernanceFacts {
   readonly responsibleProfessionals: EpisodeGovernanceInput["responsibleProfessionals"];
   readonly checkInProtocol: EpisodeGovernanceInput["checkInProtocol"];
   readonly openObligations: EpisodeGovernanceInput["openObligations"];
+  readonly openObligationsCoverage: EpisodeGovernanceInput["openObligationsCoverage"];
 }
 
 export interface EpisodeTransaction {

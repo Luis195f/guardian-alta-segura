@@ -20,6 +20,7 @@ import {
   listCheckInProtocols,
   PrismaCheckInUnitOfWork,
 } from "@/infrastructure/persistence/prisma-check-in-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         notice: "PLANTILLA SINTÉTICA / NO APROBADA / NO USO CLÍNICO",
-        protocols,
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: { protocols: protocols.coverage },
+        protocols: protocols.values,
       },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },
     );

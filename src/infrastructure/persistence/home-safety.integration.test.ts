@@ -128,7 +128,7 @@ describe("persistencia de Domicilio Seguro", () => {
       principal(data.nurse.id, "nurse"),
       data.episode.id,
     );
-    expect(versions?.map(({ versionNumber }) => versionNumber)).toEqual([2, 1]);
+    expect(versions?.values.map(({ versionNumber }) => versionNumber)).toEqual([2, 1]);
     await expect(
       service.execute({
         actor: principal(data.otherNurse.id, "nurse"),

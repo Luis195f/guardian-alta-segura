@@ -119,6 +119,12 @@ class MemoryEpisodeStore implements EpisodeTransaction, EpisodeUnitOfWork {
         isSyntheticFixture: true,
       },
       openObligations: this.openObligations,
+      openObligationsCoverage: {
+        returned: this.openObligations.length,
+        limit: 50,
+        truncated: false,
+        basis: "TECHNICAL_DEMO_LIMIT" as const,
+      },
     };
   }
 

@@ -13,6 +13,13 @@ export type EpisodeGovernanceEvidenceResponse = Serialized<EpisodeGovernanceEvid
 
 export type Professional = { readonly id: string; readonly syntheticAlias: string };
 
+export interface TechnicalCollectionCoverage {
+  readonly returned: number;
+  readonly limit: number;
+  readonly truncated: boolean;
+  readonly basis: "TECHNICAL_DEMO_LIMIT";
+}
+
 export interface ProfessionalQueueTask {
   readonly id: string;
   readonly alertId: string | null;
@@ -49,16 +56,22 @@ export interface ProfessionalQueueEntry {
     readonly reviewedByHuman: boolean;
   }[];
   readonly tasks: readonly ProfessionalQueueTask[];
+  readonly collectionCoverage: {
+    readonly openAlerts: TechnicalCollectionCoverage;
+    readonly tasks: TechnicalCollectionCoverage;
+  };
 }
 
 export interface ProfessionalQueueResponse {
   readonly entries: readonly ProfessionalQueueEntry[];
+  readonly collectionCoverage: { readonly entries: TechnicalCollectionCoverage };
   readonly metrics: {
     readonly episodeCount: number;
     readonly pendingElementCount: number;
     readonly openTaskCount: number;
     readonly resolvedTaskCount: number;
     readonly oldestOpenTaskAgeHours: number | null;
+    readonly scope: "RETURNED_EPISODES";
   };
 }
 
@@ -128,6 +141,7 @@ export interface EpisodeDetail {
     readonly occurredAt: string;
     readonly actor: { readonly syntheticAlias: string };
   }[];
+  readonly collectionCoverage: { readonly transitions: TechnicalCollectionCoverage };
 }
 
 export interface EpisodeGovernanceView {
@@ -147,6 +161,7 @@ export interface EpisodeGovernanceView {
         readonly revision: number;
       }
   )[];
+  readonly openObligationsCoverage: TechnicalCollectionCoverage;
   readonly blockers: readonly {
     readonly category: "TECHNICAL_OR_OPERATIONAL_BLOCKER" | "LOCAL_POLICY_PENDING";
     readonly code: string;

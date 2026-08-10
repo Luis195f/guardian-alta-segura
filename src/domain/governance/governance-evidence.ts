@@ -376,13 +376,14 @@ export function projectEpisodeGovernanceEvidence(input: {
   const alertById = new Map(alerts.map((alert) => [alert.alertId, alert]));
   const tasks: GovernanceEvidenceTaskProjection[] = input.source.tasks.map(
     ({ task, events, currentAssigneeCurrentlyAuthorized }) => {
+      const accountabilityIncompleteByTruncation =
+        input.source.coverage.taskEvents.truncated && events.length < task.revision;
       const accountability = projectTaskAccountability({
         task,
         events,
         currentAssigneeCurrentlyAuthorized,
+        historyComplete: !accountabilityIncompleteByTruncation,
       });
-      const accountabilityIncompleteByTruncation =
-        input.source.coverage.taskEvents.truncated && events.length < task.revision;
       const accountabilityKnownInconsistency =
         accountability.consistencyStatus === "INCONSISTENT" &&
         (!accountabilityIncompleteByTruncation ||

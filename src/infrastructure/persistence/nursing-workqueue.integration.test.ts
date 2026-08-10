@@ -334,6 +334,61 @@ async function prepareTargetAssignment(
 }
 
 describe.sequential("PostgreSQL nursing workqueue guarantees", () => {
+  it("marca incompleto un historial válido truncado sin inventar inconsistencia", async () => {
+    const users = await setup();
+    const unitOfWork = new PrismaNursingWorkQueueUnitOfWork();
+    const created = await new CreateNursingTaskService(unitOfWork).execute({
+      actor: principal(users.nurse.id, "nurse"),
+      episodeId: users.activeEpisode.id,
+      alertId: null,
+      summary: "Tarea sintética con historia superior al límite técnico",
+      assignedToId: null,
+      idempotencyKey: `queue-truncated-history:${randomUUID()}`,
+      correlationId: randomUUID(),
+    });
+    let revision = created.revision;
+    const update = new UpdateNursingTaskService(unitOfWork);
+    for (let index = 0; index < 50; index += 1) {
+      const result = await update.execute({
+        actor: principal(users.nurse.id, "nurse"),
+        taskId: created.taskId,
+        expectedRevision: revision,
+        action: { kind: "note", note: `Nota sintética de frontera ${index + 1}` },
+        idempotencyKey: `queue-truncated-history-note-${index}:${randomUUID()}`,
+        correlationId: randomUUID(),
+      });
+      revision = result.revision;
+    }
+
+    const queue = await listNursingWorkQueue(principal(users.nurse.id, "nurse"), {});
+    const task = queue!.entries
+      .flatMap(({ tasks }) => tasks)
+      .find(({ id }) => id === created.taskId)!;
+
+    expect(task.events).toHaveLength(50);
+    expect(task.collectionCoverage.events).toMatchObject({
+      returned: 50,
+      limit: 50,
+      truncated: true,
+    });
+    expect(task.accountability.consistencyStatus).toBe("INCOMPLETE");
+    expect(task.accountability.limitations).toEqual(["TASK_EVENT_HISTORY_TRUNCATED"]);
+    expect(task.accountability.blockers).not.toContain("TASK_REVISION_EVENT_MISMATCH");
+    expect(task.accountability.blockers).not.toContain("CURRENT_STATE_EVENT_MISMATCH");
+    expect(task.accountability.blockers).not.toContain("CURRENT_ASSIGNEE_EVENT_MISMATCH");
+
+    await expect(
+      update.execute({
+        actor: principal(users.otherNurse.id, "nurse"),
+        taskId: created.taskId,
+        expectedRevision: revision,
+        action: { kind: "note", note: "Intento sintético no autorizado" },
+        idempotencyKey: `queue-truncated-history-outsider:${randomUUID()}`,
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NursingTaskDeniedError);
+  });
+
   it("aísla profesionales, filtra la cola y minimiza el último check-in", async () => {
     const users = await setup();
     const uow = new PrismaNursingWorkQueueUnitOfWork();

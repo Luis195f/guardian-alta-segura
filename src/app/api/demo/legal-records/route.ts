@@ -23,6 +23,11 @@ import { SESSION_COOKIE_NAME } from "@/infrastructure/http/session-cookie";
 import { PrismaLegalRecordsUnitOfWork } from "@/infrastructure/persistence/prisma-legal-records-unit-of-work";
 import { prisma } from "@/infrastructure/persistence/prisma";
 import { assertLoopbackRequestHost } from "@/infrastructure/security/loopback";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+  TECHNICAL_COLLECTION_LIMIT_NOTICE,
+} from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -56,20 +61,95 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       throw errors.forbidden();
     }
 
-    const [policies, participation, digital, communications, caregivers, processing, revocations] =
+    const [policyRows, participation, digital, communications, caregivers, processing] =
       await Promise.all([
-        prisma.policyVersion.findMany({ orderBy: { recordedAt: "desc" } }),
-        prisma.participationRecord.findMany({ where: { subjectUserId: subject.id } }),
-        prisma.digitalParticipationRecord.findMany({ where: { subjectUserId: subject.id } }),
-        prisma.communicationPermission.findMany({ where: { subjectUserId: subject.id } }),
+        prisma.policyVersion.findMany({
+          orderBy: [{ state: "asc" }, { recordedAt: "desc" }, { id: "desc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
+        }),
+        prisma.participationRecord.findMany({
+          where: { subjectUserId: subject.id },
+          orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
+        }),
+        prisma.digitalParticipationRecord.findMany({
+          where: { subjectUserId: subject.id },
+          orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
+        }),
+        prisma.communicationPermission.findMany({
+          where: { subjectUserId: subject.id },
+          orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
+        }),
         prisma.caregiverAuthorization.findMany({
           where: { subjectUserId: subject.id },
           include: { caregiver: { select: { syntheticAlias: true } } },
+          orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
         }),
-        prisma.processingBasisRecord.findMany({ where: { subjectUserId: subject.id } }),
-        prisma.revocationEvent.findMany({ where: { subjectUserId: subject.id } }),
+        prisma.processingBasisRecord.findMany({
+          where: { subjectUserId: subject.id },
+          orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
+        }),
       ]);
-
+    const policyCatalog = boundCollection(policyRows);
+    const recordCandidates: {
+      readonly record: LegalRecord;
+      readonly options?: {
+        readonly detail?: string;
+        readonly basisConfigured?: true;
+        readonly label?: string;
+      };
+    }[] = [
+      ...participation.map((record) => ({
+        record: { ...record, recordType: "PARTICIPATION" as const },
+      })),
+      ...digital.map((record) => ({
+        record: { ...record, recordType: "DIGITAL_PARTICIPATION" as const },
+      })),
+      ...communications.map((record) => ({
+        record: { ...record, recordType: "COMMUNICATION_PERMISSION" as const },
+        options: { detail: `${record.channel} / ${record.purpose}` },
+      })),
+      ...caregivers.map((record) => ({
+        record: { ...record, recordType: "CAREGIVER_AUTHORIZATION" as const },
+        options: { detail: record.caregiver.syntheticAlias },
+      })),
+      ...processing.map((record) => ({
+        record: { ...record, recordType: "PROCESSING_BASIS" as const },
+        options: { basisConfigured: true as const, label: "Base institucional registrada" },
+      })),
+    ].sort(
+      (left, right) =>
+        right.record.recordedAt.getTime() - left.record.recordedAt.getTime() ||
+        right.record.id.localeCompare(left.record.id),
+    );
+    const boundedRecords = boundCollection(recordCandidates);
+    const revocationTargets = boundedRecords.values.map(({ record }) => ({
+      targetType: record.recordType,
+      targetRecordId: record.id,
+    }));
+    const recordPolicyIds = [
+      ...new Set(boundedRecords.values.map(({ record }) => record.policyVersionId)),
+    ];
+    const [recordPolicies, revocations] = await Promise.all([
+      recordPolicyIds.length === 0
+        ? Promise.resolve([])
+        : prisma.policyVersion.findMany({
+            where: { id: { in: recordPolicyIds } },
+            take: EXPOSED_COLLECTION_QUERY_TAKE,
+          }),
+      revocationTargets.length === 0
+        ? Promise.resolve([])
+        : prisma.revocationEvent.findMany({
+            where: { OR: revocationTargets },
+            orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+            take: EXPOSED_COLLECTION_QUERY_TAKE,
+          }),
+    ]);
+    const policies = [...new Map(recordPolicies.map((policy) => [policy.id, policy])).values()];
     const policyById = new Map(policies.map((policy) => [policy.id, policy]));
     const serialize = (
       record: LegalRecord,
@@ -106,41 +186,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       };
     };
 
-    const records = [
-      ...participation.map((record) => serialize({ ...record, recordType: "PARTICIPATION" })),
-      ...digital.map((record) => serialize({ ...record, recordType: "DIGITAL_PARTICIPATION" })),
-      ...communications.map((record) =>
-        serialize(
-          { ...record, recordType: "COMMUNICATION_PERMISSION" },
-          { detail: `${record.channel} / ${record.purpose}` },
-        ),
-      ),
-      ...caregivers.map((record) =>
-        serialize(
-          { ...record, recordType: "CAREGIVER_AUTHORIZATION" },
-          { detail: record.caregiver.syntheticAlias },
-        ),
-      ),
-      ...processing.map((record) =>
-        serialize(
-          { ...record, recordType: "PROCESSING_BASIS" },
-          { basisConfigured: true, label: "Base institucional registrada" },
-        ),
-      ),
-    ].sort((left, right) => right.recordedAt.getTime() - left.recordedAt.getTime());
+    const records = boundedRecords.values.map(({ record, options }) => serialize(record, options));
 
     return NextResponse.json(
       {
         notice: "SINTÉTICO / NO USO CLÍNICO",
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: {
+          policies: policyCatalog.coverage,
+          records: boundedRecords.coverage,
+        },
         subjectAlias: subject.syntheticAlias,
-        policies: policies.map(({ id, policyKey, version, recordType, state, scope }) => ({
-          id,
-          policyKey,
-          version,
-          recordType,
-          state,
-          scope,
-        })),
+        policies: policyCatalog.values.map(
+          ({ id, policyKey, version, recordType, state, scope }) => ({
+            id,
+            policyKey,
+            version,
+            recordType,
+            state,
+            scope,
+          }),
+        ),
         records,
       },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },

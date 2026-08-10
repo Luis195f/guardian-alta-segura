@@ -13,6 +13,7 @@ import {
   TransitionDischargeEpisodeService,
 } from "@/application/episode/manage-discharge-episode";
 import { PendingInstitutionalEpisodeGovernancePolicy } from "@/domain/episode/activation-policy";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 import { IllegalEpisodeTransitionError, isEpisodeStatus } from "@/domain/episode/discharge-episode";
 import { errors } from "@/infrastructure/http/app-error";
 import { getCorrelationId } from "@/infrastructure/http/correlation-id";
@@ -68,7 +69,12 @@ export async function GET(
     if (!episode) throw errors.notFound();
     if (episode.version !== governance.episodeVersion) throw errors.conflict();
     return NextResponse.json(
-      { notice: "SINTÉTICO / NO USO CLÍNICO", episode, governance },
+      {
+        notice: "SINTÉTICO / NO USO CLÍNICO",
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        episode,
+        governance,
+      },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },
     );
   } catch (error) {

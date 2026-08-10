@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { PrismaClient } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,7 +9,11 @@ import {
 } from "@/application/safety-plan/manage-safety-plan";
 import { SAFETY_PLAN_STEPS } from "@/domain/safety-plan/safety-plan";
 import { prisma } from "@/infrastructure/persistence/prisma";
-import { PrismaSafetyPlanUnitOfWork } from "@/infrastructure/persistence/prisma-safety-plan-unit-of-work";
+import {
+  getSafetyPlanView,
+  listPatientSafetyPlanViews,
+  PrismaSafetyPlanUnitOfWork,
+} from "@/infrastructure/persistence/prisma-safety-plan-unit-of-work";
 
 async function arrangeEpisode() {
   const nurse = await prisma.user.create({
@@ -75,6 +80,8 @@ async function arrangeEpisode() {
   });
   return {
     nurse,
+    clinician,
+    patient,
     episode,
     actor: { userId: nurse.id, roles: ["nurse"] as const, sessionId: randomUUID() },
   };
@@ -90,7 +97,238 @@ function sections(version: number) {
   }));
 }
 
+type PersistedSafetyPlanState = "DRAFT" | "ACTIVE" | "SUPERSEDED" | "INVALIDATED";
+
+async function createPlanHistory(input: {
+  readonly episodeId: string;
+  readonly nurseId: string;
+  readonly statesByVersion: readonly (readonly PersistedSafetyPlanState[])[];
+  readonly activeVersionNumber?: number | null;
+}) {
+  const plan = await prisma.safetyPlan.create({
+    data: {
+      dischargeEpisodeId: input.episodeId,
+      revision: input.statesByVersion.length,
+      currentVersion: input.statesByVersion.length,
+      activeVersionNumber: input.activeVersionNumber ?? null,
+      createdById: input.nurseId,
+    },
+  });
+  const versions = input.statesByVersion.map((_, index) => ({
+    id: randomUUID(),
+    safetyPlanId: plan.id,
+    versionNumber: index + 1,
+    basedOnVersion: index === 0 ? null : index,
+    createdById: input.nurseId,
+    createdAt: new Date(1_784_000_000_000 + index * 60_000),
+  }));
+  const sectionRows = versions.flatMap((version) =>
+    SAFETY_PLAN_STEPS.map((step) => ({
+      id: randomUUID(),
+      safetyPlanVersionId: version.id,
+      step,
+      content: `Contenido sintético ${version.versionNumber} ${step}`,
+      provenance: "NURSE" as const,
+    })),
+  );
+  await prisma.$transaction([
+    prisma.safetyPlanVersion.createMany({ data: versions }),
+    prisma.safetyPlanVersionStateChange.createMany({
+      data: versions.flatMap((version, versionIndex) =>
+        input.statesByVersion[versionIndex]!.map((resultingState, stateIndex) => ({
+          id: randomUUID(),
+          safetyPlanVersionId: version.id,
+          sequence: stateIndex + 1,
+          resultingState,
+          actorUserId: input.nurseId,
+          occurredAt: new Date(1_784_000_000_000 + versionIndex * 60_000 + stateIndex),
+        })),
+      ),
+    }),
+    prisma.safetyPlanSection.createMany({ data: sectionRows }),
+    prisma.safetyPlanSectionPermission.createMany({
+      data: sectionRows.map((section) => ({
+        safetyPlanSectionId: section.id,
+        audience: "PATIENT" as const,
+        canView: true,
+      })),
+    }),
+  ]);
+  return { plan, versions };
+}
+
 describe.sequential("PostgreSQL safety plan guarantees", () => {
+  it("selecciona versiones autorizadas por su estado vigente antes del límite", async () => {
+    const data = await arrangeEpisode();
+    const patientUser = await prisma.user.create({
+      data: {
+        syntheticAlias: `safety-boundary-patient-${randomUUID()}`,
+        displayLabel: "SINTÉTICO / NO USO CLÍNICO — patient",
+        isSynthetic: true,
+        roleAssignments: { create: { role: "patient" } },
+      },
+    });
+    await prisma.patient.update({
+      where: { id: data.patient.id },
+      data: { portalUserId: patientUser.id },
+    });
+    await createPlanHistory({
+      episodeId: data.episode.id,
+      nurseId: data.nurse.id,
+      statesByVersion: [
+        ["ACTIVE"],
+        ...Array.from({ length: 51 }, () => ["DRAFT"] as const),
+        ["ACTIVE", "INVALIDATED"],
+      ],
+      activeVersionNumber: 1,
+    });
+    const patientPrincipal = {
+      userId: patientUser.id,
+      roles: ["patient" as const],
+      sessionId: randomUUID(),
+    };
+
+    const patientView = await getSafetyPlanView(data.episode.id, patientPrincipal);
+    const professionalView = await getSafetyPlanView(data.episode.id, data.actor);
+
+    expect(patientView?.plan?.versions.map(({ versionNumber }) => versionNumber)).toEqual([1]);
+    expect(patientView?.plan?.versions.every(({ state }) => state !== "DRAFT")).toBe(true);
+    expect(patientView?.plan?.versions.every(({ state }) => state !== "INVALIDATED")).toBe(true);
+    expect(patientView?.plan?.collectionCoverage.versions).toMatchObject({
+      returned: 1,
+      limit: 50,
+      truncated: false,
+    });
+    expect(patientView?.plan?.collectionCoverage.versions.returned).toBe(
+      patientView?.plan?.versions.length,
+    );
+    expect(professionalView?.plan?.versions).toHaveLength(50);
+    expect(professionalView?.plan?.collectionCoverage.versions).toMatchObject({
+      returned: 50,
+      truncated: true,
+    });
+
+    const outsiderRoles = ["nurse", "caregiver", "support", "admin"] as const;
+    for (const role of outsiderRoles) {
+      const outsider = await prisma.user.create({
+        data: {
+          syntheticAlias: `safety-outsider-${role}-${randomUUID()}`,
+          displayLabel: `SINTÉTICO / NO USO CLÍNICO — ${role}`,
+          isSynthetic: true,
+          roleAssignments: { create: { role } },
+        },
+      });
+      await expect(
+        getSafetyPlanView(data.episode.id, {
+          userId: outsider.id,
+          roles: [role],
+          sessionId: randomUUID(),
+        }),
+      ).resolves.toBeNull();
+    }
+  });
+
+  it("limita después de seleccionar más de cincuenta versiones actualmente visibles", async () => {
+    const data = await arrangeEpisode();
+    const patientUser = await prisma.user.create({
+      data: {
+        syntheticAlias: `safety-visible-patient-${randomUUID()}`,
+        displayLabel: "SINTÉTICO / NO USO CLÍNICO — patient",
+        isSynthetic: true,
+        roleAssignments: { create: { role: "patient" } },
+      },
+    });
+    await prisma.patient.update({
+      where: { id: data.patient.id },
+      data: { portalUserId: patientUser.id },
+    });
+    await createPlanHistory({
+      episodeId: data.episode.id,
+      nurseId: data.nurse.id,
+      statesByVersion: Array.from({ length: 52 }, () => ["SUPERSEDED"] as const),
+    });
+    const principal = {
+      userId: patientUser.id,
+      roles: ["patient" as const],
+      sessionId: randomUUID(),
+    };
+
+    const first = await getSafetyPlanView(data.episode.id, principal);
+    const second = await getSafetyPlanView(data.episode.id, principal);
+
+    expect(first?.plan?.versions).toHaveLength(50);
+    expect(first?.plan?.collectionCoverage.versions).toMatchObject({
+      returned: 50,
+      limit: 50,
+      truncated: true,
+    });
+    expect(first?.plan?.collectionCoverage.versions.returned).toBe(first?.plan?.versions.length);
+    expect(second?.plan?.versions.map(({ versionNumber }) => versionNumber)).toEqual(
+      first?.plan?.versions.map(({ versionNumber }) => versionNumber),
+    );
+  });
+
+  it("carga el directorio del patient sin una consulta de detalle por episodio", async () => {
+    const data = await arrangeEpisode();
+    const patientUser = await prisma.user.create({
+      data: {
+        syntheticAlias: `safety-patient-${randomUUID()}`,
+        displayLabel: "SINTÉTICO / NO USO CLÍNICO — patient",
+        isSynthetic: true,
+        roleAssignments: { create: { role: "patient" } },
+      },
+    });
+    await prisma.patient.update({
+      where: { id: data.episode.patientId },
+      data: { portalUserId: patientUser.id },
+    });
+    await createPlanHistory({
+      episodeId: data.episode.id,
+      nurseId: data.nurse.id,
+      statesByVersion: [["ACTIVE"]],
+      activeVersionNumber: 1,
+    });
+    const instrumentedPrisma = new PrismaClient({ log: [{ emit: "event", level: "query" }] });
+    let queryCount = 0;
+    instrumentedPrisma.$on("query", () => {
+      queryCount += 1;
+    });
+    const principal = {
+      userId: patientUser.id,
+      roles: ["patient" as const],
+      sessionId: randomUUID(),
+    };
+    try {
+      const first = await listPatientSafetyPlanViews(principal, instrumentedPrisma);
+      const oneEpisodeQueryCount = queryCount;
+      expect(first?.values).toHaveLength(1);
+
+      const secondEpisode = await prisma.dischargeEpisode.create({
+        data: {
+          patientId: data.episode.patientId,
+          dischargeDate: new Date("2026-07-18T00:00:00Z"),
+          programLengthDays: 30,
+          responsibleNurseId: data.nurse.id,
+          responsibleClinicianId: data.episode.responsibleClinicianId,
+          createdById: data.nurse.id,
+          checkInProtocolVersionId: data.episode.checkInProtocolVersionId,
+        },
+      });
+      await createPlanHistory({
+        episodeId: secondEpisode.id,
+        nurseId: data.nurse.id,
+        statesByVersion: [["ACTIVE"]],
+        activeVersionNumber: 1,
+      });
+      queryCount = 0;
+      const result = await listPatientSafetyPlanViews(principal, instrumentedPrisma);
+      expect(result?.values).toHaveLength(2);
+      expect(queryCount).toBe(oneEpisodeQueryCount);
+    } finally {
+      await instrumentedPrisma.$disconnect();
+    }
+  });
+
   it("conserva versiones, minimiza auditoría y bloquea hard-delete", async () => {
     const { nurse, episode, actor } = await arrangeEpisode();
     const unitOfWork = new PrismaSafetyPlanUnitOfWork();

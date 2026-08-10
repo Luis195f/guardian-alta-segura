@@ -33,6 +33,12 @@ function governance(): EpisodeGovernanceView {
       identityPolicyVersionId: "identity-policy-v1",
     },
     openObligations: [],
+    openObligationsCoverage: {
+      returned: 0,
+      limit: 50,
+      truncated: false,
+      basis: "TECHNICAL_DEMO_LIMIT",
+    },
     blockers: [
       {
         category: "LOCAL_POLICY_PENDING",
@@ -326,7 +332,8 @@ describe("EpisodeGovernanceEvidenceView", () => {
       generatedAt: now,
     });
 
-    expect(view.tasks[0]?.accountability.consistencyStatus).toBe("INCONSISTENT");
+    expect(view.tasks[0]?.accountability.consistencyStatus).toBe("INCOMPLETE");
+    expect(view.tasks[0]?.accountability.limitations).toEqual(["TASK_EVENT_HISTORY_TRUNCATED"]);
     expect(view.tasks[0]?.accountabilityEvidenceStatus).toBe("PARTIAL");
     expect(view.tasks[0]?.integrity.status).toBe("PARTIAL");
     expect(view.tasks[0]?.integrity.issues).not.toContain("TASK_ACCOUNTABILITY_INCONSISTENT");
