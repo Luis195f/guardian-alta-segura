@@ -35,6 +35,10 @@ import {
   type SourceEvidenceReference,
 } from "@/domain/provenance/signal-provenance";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 
 const versionInclude = {
   approval: { select: { id: true, approvedById: true, approvedAt: true } },
@@ -714,25 +718,35 @@ export async function listRuleCatalog() {
     include: {
       versions: {
         include: versionInclude,
-        orderBy: { versionNumber: "desc" },
+        orderBy: [{ versionNumber: "desc" }, { id: "asc" }],
+        take: EXPOSED_COLLECTION_QUERY_TAKE,
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
   });
-  return definitions.map((definition) => ({
-    id: definition.id,
-    ruleKey: definition.ruleKey,
-    name: definition.name,
-    isSyntheticFixture: definition.isSyntheticFixture,
-    versions: definition.versions.map((version) => ({
-      id: version.id,
-      versionNumber: version.versionNumber,
-      state: stateFromPrisma(version.state),
-      basedOnVersionId: version.basedOnVersionId,
-      dsl: toRuleVersion(version).dsl,
-      approvedAt: version.approval?.approvedAt ?? null,
-    })),
-  }));
+  const boundedDefinitions = boundCollection(definitions);
+  return {
+    values: boundedDefinitions.values.map((definition) => {
+      const versions = boundCollection(definition.versions);
+      return {
+        id: definition.id,
+        ruleKey: definition.ruleKey,
+        name: definition.name,
+        isSyntheticFixture: definition.isSyntheticFixture,
+        versions: versions.values.map((version) => ({
+          id: version.id,
+          versionNumber: version.versionNumber,
+          state: stateFromPrisma(version.state),
+          basedOnVersionId: version.basedOnVersionId,
+          dsl: toRuleVersion(version).dsl,
+          approvedAt: version.approval?.approvedAt ?? null,
+        })),
+        collectionCoverage: { versions: versions.coverage },
+      };
+    }),
+    coverage: boundedDefinitions.coverage,
+  };
 }
 
 export async function listVisibleAlerts(principal: AuthenticatedPrincipal) {
@@ -748,18 +762,23 @@ export async function listVisibleAlerts(principal: AuthenticatedPrincipal) {
     },
     include: {
       definition: { select: { ruleKey: true, name: true } },
-      reviews: { orderBy: { reviewedAt: "asc" } },
+      reviews: {
+        orderBy: [{ reviewedAt: "asc" }, { id: "asc" }],
+        take: EXPOSED_COLLECTION_QUERY_TAKE,
+      },
     },
+    orderBy: [
+      { currentState: "asc" },
+      { definition: { name: "asc" } },
+      { triggeredAt: "desc" },
+      { id: "asc" },
+    ],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
   });
-  const stateOrder: Readonly<Record<DomainAlertState, number>> = {
-    open: 0,
-    reviewed: 1,
-    actioned: 2,
-    resolved: 3,
-    "dismissed-with-reason": 4,
-  };
-  return alerts
-    .map((alert) => ({
+  const boundedAlerts = boundCollection(alerts);
+  const values = boundedAlerts.values.map((alert) => {
+    const reviews = boundCollection(alert.reviews);
+    return {
       id: alert.id,
       evaluationId: alert.evaluationId,
       episodeId: alert.episodeId,
@@ -773,18 +792,15 @@ export async function listVisibleAlerts(principal: AuthenticatedPrincipal) {
       reviewOwner: alert.reviewOwner.toLowerCase(),
       triggeredAt: alert.triggeredAt,
       state: alertStateFromPrisma(alert.currentState),
-      reviews: alert.reviews.map((review) => ({
+      reviews: reviews.values.map((review) => ({
         id: review.id,
         fromState: alertStateFromPrisma(review.fromState),
         toState: alertStateFromPrisma(review.toState),
         reason: review.reason,
         reviewedAt: review.reviewedAt,
       })),
-    }))
-    .sort(
-      (left, right) =>
-        stateOrder[left.state] - stateOrder[right.state] ||
-        left.ruleName.localeCompare(right.ruleName) ||
-        right.triggeredAt.getTime() - left.triggeredAt.getTime(),
-    );
+      collectionCoverage: { reviews: reviews.coverage },
+    };
+  });
+  return { values, coverage: boundedAlerts.coverage };
 }

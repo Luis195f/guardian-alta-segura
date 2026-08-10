@@ -8,6 +8,7 @@ import {
   listNursingWorkQueue,
   type NursingWorkQueueFilters,
 } from "@/infrastructure/persistence/prisma-nursing-workqueue-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         notice: "SINTÉTICO / NO USO CLÍNICO — revisión y tareas exclusivamente humanas",
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
         ...queue,
       },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },

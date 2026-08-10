@@ -287,6 +287,34 @@ describe("task accountability projection", () => {
     expect(view.assignmentHistory).toHaveLength(1);
   });
 
+  it("declara incompleto un prefijo válido de eventos sin inventar mismatches del sufijo", () => {
+    const events = [
+      event(),
+      ...Array.from({ length: 49 }, (_, index) =>
+        event({
+          id: `event-${index + 2}`,
+          type: "note-recorded",
+          fromState: "open",
+          toState: "open",
+          resultingRevision: index + 2,
+          occurredAt: new Date(createdAt.getTime() + index + 1),
+        }),
+      ),
+    ];
+    const view = projectTaskAccountability({
+      task: task({ revision: 51 }),
+      events,
+      currentAssigneeCurrentlyAuthorized: true,
+      historyComplete: false,
+    });
+
+    expect(view.consistencyStatus).toBe("INCOMPLETE");
+    expect(view.limitations).toEqual(["TASK_EVENT_HISTORY_TRUNCATED"]);
+    expect(view.blockers).not.toContain("TASK_REVISION_EVENT_MISMATCH");
+    expect(view.blockers).not.toContain("CURRENT_STATE_EVENT_MISMATCH");
+    expect(view.blockers).not.toContain("CURRENT_ASSIGNEE_EVENT_MISMATCH");
+  });
+
   it("es side-effect-free y no copia payload clínico, acceptance, SLA o prioridad", () => {
     const sensitiveTask = {
       ...task(),

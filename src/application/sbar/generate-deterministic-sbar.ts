@@ -25,6 +25,10 @@ export interface SbarStructuredSource {
   } | null;
   readonly openAlerts: readonly { readonly id: string }[];
   readonly openTasks: readonly { readonly id: string; readonly summary: string }[];
+  readonly collectionCoverage: {
+    readonly openAlerts: BoundedCollectionCoverage;
+    readonly openTasks: BoundedCollectionCoverage;
+  };
   readonly generatedBy: { readonly id: string; readonly syntheticAlias: string };
   readonly generatedAt: Date;
 }
@@ -46,21 +50,25 @@ export function buildDeterministicSbar(source: SbarStructuredSource) {
     ...source.openTasks.map(({ id }) => ({ resourceType: "Task", resourceId: id })),
   ];
   const taskSummary = source.openTasks.length
-    ? `Seguimiento ya registrado: ${source.openTasks.map(({ summary }) => summary).join("; ")}.`
+    ? `Seguimiento incluido en esta vista: ${source.openTasks.map(({ summary }) => summary).join("; ")}.${source.collectionCoverage.openTasks.truncated ? " Existen más tareas fuera del límite técnico de esta vista." : ""}`
     : "Sin tareas ni seguimiento adicional registrados.";
   return {
     notice: SBAR_PROFILE.label,
     profileKey: SBAR_PROFILE.key,
     profileVersion: SBAR_PROFILE.version,
+    collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+    collectionCoverage: source.collectionCoverage,
     generatedBy: source.generatedBy,
     generatedAt: source.generatedAt,
     signed: false as const,
     sections: {
       situation: `Episodio ${source.episode.patientPseudonymousId}, estado ${source.episode.status.toLowerCase()}, alta ${source.episode.dischargeDate.toISOString().slice(0, 10)}.`,
       background: `Protocolo estructurado ${source.checkInProtocol.title} v${source.checkInProtocol.versionNumber}. ${source.activeSafetyPlan ? `Plan de Seguridad activo v${source.activeSafetyPlan.versionNumber}.` : "Sin Plan de Seguridad activo registrado."} ${source.lastCheckIn ? `Último check-in: ${source.lastCheckIn.outcome.toLowerCase()} el ${source.lastCheckIn.recordedAt.toISOString()}.` : "Sin resultado de check-in registrado."}`,
-      assessment: `Sin valoración clínica adicional registrada. Avisos deterministas abiertos pendientes de revisión humana: ${source.openAlerts.length}.`,
+      assessment: `Sin valoración clínica adicional registrada. Avisos deterministas abiertos incluidos en esta vista: ${source.openAlerts.length}.${source.collectionCoverage.openAlerts.truncated ? " Existen más avisos fuera del límite técnico de esta vista." : ""}`,
       recommendation: taskSummary,
     },
     references,
   };
 }
+import type { BoundedCollectionCoverage } from "@/application/collections/bounded-collection";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";

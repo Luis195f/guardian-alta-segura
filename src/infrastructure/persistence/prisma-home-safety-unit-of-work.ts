@@ -7,6 +7,10 @@ import type {
 import { HomeSafetyConflictError } from "@/application/home-safety/manage-home-safety";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 
 type TransactionClient = Omit<
   PrismaClient,
@@ -115,12 +119,14 @@ export async function listHomeSafetyVersions(principal: AuthenticatedPrincipal, 
     },
   });
   if (!episode || activeRole !== 1) return null;
-  return prisma.homeSafetyReviewVersion.findMany({
+  const versions = await prisma.homeSafetyReviewVersion.findMany({
     where: { dischargeEpisodeId: episodeId },
-    orderBy: { versionNumber: "desc" },
+    orderBy: [{ versionNumber: "desc" }, { id: "asc" }],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
     include: {
       actor: { select: { syntheticAlias: true } },
       items: { orderBy: { itemKey: "asc" } },
     },
   });
+  return boundCollection(versions);
 }

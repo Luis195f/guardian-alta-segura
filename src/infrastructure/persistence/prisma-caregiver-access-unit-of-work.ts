@@ -20,6 +20,10 @@ import { evaluateLegalRecordAuthorization } from "@/domain/legal/legal-authoriza
 import { sha256 } from "@/infrastructure/crypto/session-token";
 import { prisma } from "@/infrastructure/persistence/prisma";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 
 async function authorizationContext(
   transaction: Prisma.TransactionClient,
@@ -213,73 +217,179 @@ export class PrismaCaregiverAccessUnitOfWork implements CaregiverAccessUnitOfWor
   }
 }
 
-export async function listPatientCaregiverAccess(principal: AuthenticatedPrincipal) {
+type CaregiverAccessReaderDatabase = Pick<typeof prisma, "$transaction">;
+
+type CurrentCaregiverScopeRow = CaregiverScopeRecord & {
+  readonly caregiverAuthorizationId: string;
+};
+
+async function readCurrentCaregiverScopes(
+  transaction: Prisma.TransactionClient,
+  authorizationIds: readonly string[],
+): Promise<readonly CurrentCaregiverScopeRow[]> {
+  if (authorizationIds.length === 0) return [];
+  return transaction.$queryRaw<CurrentCaregiverScopeRow[]>(Prisma.sql`
+    WITH "rankedRevisions" AS (
+      SELECT
+        scope."id",
+        scope."caregiver_authorization_id" AS "caregiverAuthorizationId",
+        scope."discharge_episode_id" AS "dischargeEpisodeId",
+        scope."version",
+        scope."capabilities",
+        scope."allowed_plan_sections" AS "allowedPlanSections",
+        scope."authorized_resource_keys" AS "authorizedResourceKeys",
+        ROW_NUMBER() OVER (
+          PARTITION BY scope."caregiver_authorization_id", scope."discharge_episode_id"
+          ORDER BY scope."version" DESC, scope."id" ASC
+        ) AS "revisionRank"
+      FROM "caregiver_authorization_scopes" AS scope
+      WHERE scope."caregiver_authorization_id" IN (${Prisma.join(authorizationIds)})
+    ),
+    "currentScopes" AS (
+      SELECT
+        ranked.*,
+        ROW_NUMBER() OVER (
+          PARTITION BY ranked."caregiverAuthorizationId"
+          ORDER BY ranked."dischargeEpisodeId" ASC, ranked."version" DESC, ranked."id" ASC
+        ) AS "collectionRank"
+      FROM "rankedRevisions" AS ranked
+      WHERE ranked."revisionRank" = 1
+    )
+    SELECT
+      current."id",
+      current."caregiverAuthorizationId",
+      current."dischargeEpisodeId",
+      current."version",
+      current."capabilities",
+      current."allowedPlanSections",
+      current."authorizedResourceKeys"
+    FROM "currentScopes" AS current
+    WHERE current."collectionRank" <= ${EXPOSED_COLLECTION_QUERY_TAKE}
+    ORDER BY
+      current."caregiverAuthorizationId" ASC,
+      current."dischargeEpisodeId" ASC,
+      current."version" DESC,
+      current."id" ASC
+  `);
+}
+
+export async function listPatientCaregiverAccess(
+  principal: AuthenticatedPrincipal,
+  database: CaregiverAccessReaderDatabase = prisma,
+) {
   if (!principal.roles.includes("patient")) return null;
-  return prisma.$transaction(async (transaction) => {
+  return database.$transaction(async (transaction) => {
     const patient = await transaction.patient.findUnique({
       where: { portalUserId: principal.userId },
       select: {
         isSynthetic: true,
         dischargeEpisodes: {
           select: { id: true, status: true, dischargeDate: true },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
         },
       },
     });
     if (!patient?.isSynthetic) return null;
-    const authorizations = await transaction.caregiverAuthorization.findMany({
+    const authorizationRows = await transaction.caregiverAuthorization.findMany({
       where: { subjectUserId: principal.userId },
       include: {
         caregiver: { select: { caregiverProfile: true } },
-        scopes: { orderBy: [{ dischargeEpisodeId: "asc" }, { version: "desc" }] },
+        policyVersion: true,
         invitations: {
           select: { id: true, dischargeEpisodeId: true, expiresAt: true, consumedAt: true },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
         },
       },
-      orderBy: { recordedAt: "desc" },
+      orderBy: [{ recordedAt: "desc" }, { id: "asc" }],
+      take: EXPOSED_COLLECTION_QUERY_TAKE,
     });
-    const views = await Promise.all(
-      authorizations.map(async (authorization) => {
-        const context = await authorizationContext(transaction, authorization.id);
-        if (!context) return null;
-        return {
-          id: authorization.id,
-          pseudonym:
-            authorization.caregiver.caregiverProfile?.externalPseudonymousId ?? "perfil pendiente",
-          state: authorization.state,
-          legalScope: authorization.scope,
-          expiresAt: authorization.expiresAt?.toISOString() ?? null,
-          effective: authorizationIsEffective(context, new Date()),
-          revoked: context.revokedAt !== null,
-          scopes: authorization.scopes
-            .filter(
-              (scope, index, scopes) =>
-                scopes.findIndex(
-                  (candidate) => candidate.dischargeEpisodeId === scope.dischargeEpisodeId,
-                ) === index,
-            )
-            .map((scope) => ({
-              dischargeEpisodeId: scope.dischargeEpisodeId,
-              version: scope.version,
-              capabilities: scope.capabilities,
-              allowedPlanSections: scope.allowedPlanSections,
-              authorizedResourceKeys: scope.authorizedResourceKeys,
-            })),
-          invitations: authorization.invitations.map((invitation) => ({
-            ...invitation,
-            expiresAt: invitation.expiresAt.toISOString(),
-            consumedAt: invitation.consumedAt?.toISOString() ?? null,
-          })),
-        };
-      }),
+    const authorizations = boundCollection(authorizationRows);
+    const authorizationIds = authorizations.values.map(({ id }) => id);
+    const [revocations, currentScopeRows] = await Promise.all([
+      authorizationIds.length === 0
+        ? Promise.resolve([])
+        : transaction.revocationEvent.findMany({
+            where: {
+              targetType: "CAREGIVER_AUTHORIZATION",
+              targetRecordId: { in: authorizationIds },
+            },
+            select: { targetRecordId: true, recordedAt: true },
+            orderBy: [{ targetRecordId: "asc" }, { recordedAt: "desc" }, { id: "asc" }],
+            take: EXPOSED_COLLECTION_QUERY_TAKE,
+          }),
+      readCurrentCaregiverScopes(transaction, authorizationIds),
+    ]);
+    const revokedAtByAuthorization = new Map(
+      revocations.map(({ targetRecordId, recordedAt }) => [targetRecordId, recordedAt]),
     );
+    const scopesByAuthorization = new Map<string, CurrentCaregiverScopeRow[]>();
+    for (const scope of currentScopeRows) {
+      scopesByAuthorization.set(scope.caregiverAuthorizationId, [
+        ...(scopesByAuthorization.get(scope.caregiverAuthorizationId) ?? []),
+        scope,
+      ]);
+    }
+    const views = authorizations.values.map((authorization) => {
+      const scopes = boundCollection(scopesByAuthorization.get(authorization.id) ?? []);
+      const invitations = boundCollection(authorization.invitations);
+      const context: CaregiverAuthorizationContext = {
+        id: authorization.id,
+        subjectUserId: authorization.subjectUserId,
+        caregiverUserId: authorization.caregiverUserId,
+        state: authorization.state,
+        scope: authorization.scope,
+        policyVersionId: authorization.policyVersionId,
+        recordedAt: authorization.recordedAt,
+        expiresAt: authorization.expiresAt,
+        policy:
+          authorization.policyVersion.recordType === "CAREGIVER_AUTHORIZATION"
+            ? {
+                ...authorization.policyVersion,
+                recordType: "CAREGIVER_AUTHORIZATION" as const,
+              }
+            : null,
+        revokedAt: revokedAtByAuthorization.get(authorization.id) ?? null,
+      };
+      return {
+        id: authorization.id,
+        pseudonym:
+          authorization.caregiver.caregiverProfile?.externalPseudonymousId ?? "perfil pendiente",
+        state: authorization.state,
+        legalScope: authorization.scope,
+        expiresAt: authorization.expiresAt?.toISOString() ?? null,
+        effective: authorizationIsEffective(context, new Date()),
+        revoked: context.revokedAt !== null,
+        scopes: scopes.values.map((scope) => ({
+          dischargeEpisodeId: scope.dischargeEpisodeId,
+          version: scope.version,
+          capabilities: scope.capabilities,
+          allowedPlanSections: scope.allowedPlanSections,
+          authorizedResourceKeys: scope.authorizedResourceKeys,
+        })),
+        invitations: invitations.values.map((invitation) => ({
+          ...invitation,
+          expiresAt: invitation.expiresAt.toISOString(),
+          consumedAt: invitation.consumedAt?.toISOString() ?? null,
+        })),
+        collectionCoverage: {
+          scopes: scopes.coverage,
+          invitations: invitations.coverage,
+        },
+      };
+    });
+    const episodes = boundCollection(patient.dischargeEpisodes);
     return {
-      episodes: patient.dischargeEpisodes.map((episode) => ({
+      episodes: episodes.values.map((episode) => ({
         ...episode,
         dischargeDate: episode.dischargeDate.toISOString().slice(0, 10),
       })),
-      authorizations: views.filter((view) => view !== null),
+      authorizations: views,
+      collectionCoverage: {
+        episodes: episodes.coverage,
+        authorizations: authorizations.coverage,
+      },
     };
   });
 }
@@ -434,14 +544,8 @@ export async function getCaregiverPortalView(input: {
         select: {
           safetyPlan: {
             select: {
+              id: true,
               activeVersionNumber: true,
-              versions: {
-                orderBy: { versionNumber: "desc" },
-                include: {
-                  sections: { orderBy: { step: "asc" }, include: { permissions: true } },
-                  stateChanges: { orderBy: { sequence: "asc" } },
-                },
-              },
             },
           },
         },
@@ -453,18 +557,31 @@ export async function getCaregiverPortalView(input: {
               assignedToId: context.session.caregiverProfile.caregiverUserId,
             },
             select: { id: true, summary: true, currentState: true, createdAt: true },
-            orderBy: { createdAt: "desc" },
+            orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+            take: EXPOSED_COLLECTION_QUERY_TAKE,
           })
         : Promise.resolve([]),
     ]);
     if (!episode) return null;
-    const activeVersion = episode.safetyPlan?.versions.find(
-      (version) =>
-        version.versionNumber === episode.safetyPlan?.activeVersionNumber &&
-        version.stateChanges.at(-1)?.resultingState === "ACTIVE",
-    );
-    const planSections = activeVersion
-      ? activeVersion.sections.flatMap((section) => {
+    const activeVersion =
+      episode.safetyPlan?.activeVersionNumber === null || !episode.safetyPlan
+        ? null
+        : await transaction.safetyPlanVersion.findUnique({
+            where: {
+              safetyPlanId_versionNumber: {
+                safetyPlanId: episode.safetyPlan.id,
+                versionNumber: episode.safetyPlan.activeVersionNumber,
+              },
+            },
+            include: {
+              sections: { orderBy: { step: "asc" }, include: { permissions: true } },
+              stateChanges: { orderBy: { sequence: "desc" }, take: 1 },
+            },
+          });
+    const authorizedActiveVersion =
+      activeVersion?.stateChanges[0]?.resultingState === "ACTIVE" ? activeVersion : null;
+    const planSections = authorizedActiveVersion
+      ? authorizedActiveVersion.sections.flatMap((section) => {
           const allowedByDocument =
             section.permissions.find(({ audience }) => audience === "CAREGIVER")?.canView ?? false;
           return canViewCaregiverPlanSection(context.scope, section.step, allowedByDocument)
@@ -472,6 +589,7 @@ export async function getCaregiverPortalView(input: {
             : [];
         })
       : [];
+    const boundedTasks = boundCollection(tasks);
     const resources = hasCaregiverCapability(context.scope, "VIEW_AUTHORIZED_RESOURCES")
       ? context.scope.authorizedResourceKeys.flatMap((key) =>
           key in CAREGIVER_RESOURCE_CATALOG
@@ -502,7 +620,11 @@ export async function getCaregiverPortalView(input: {
       scopeVersion: context.scope.version,
       capabilities: context.scope.capabilities,
       planSections,
-      tasks: tasks.map((task) => ({ ...task, createdAt: task.createdAt.toISOString() })),
+      tasks: boundedTasks.values.map((task) => ({
+        ...task,
+        createdAt: task.createdAt.toISOString(),
+      })),
+      collectionCoverage: { tasks: boundedTasks.coverage },
       resources,
       canSubmitObservation: hasCaregiverCapability(context.scope, "SEND_OBSERVATIONS"),
     };

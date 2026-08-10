@@ -1,6 +1,10 @@
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { buildDeterministicSbar } from "@/application/sbar/generate-deterministic-sbar";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 
 export async function generateSbarPreview(
   principal: AuthenticatedPrincipal,
@@ -37,8 +41,8 @@ export async function generateSbarPreview(
           checkInProtocolVersion: { select: { id: true, title: true, versionNumber: true } },
           safetyPlan: {
             select: {
+              id: true,
               activeVersionNumber: true,
-              versions: { select: { id: true, versionNumber: true } },
             },
           },
           checkInAssignments: {
@@ -49,12 +53,14 @@ export async function generateSbarPreview(
           },
           alerts: {
             where: { currentState: "OPEN" },
-            orderBy: { triggeredAt: "asc" },
+            orderBy: [{ triggeredAt: "asc" }, { id: "asc" }],
+            take: EXPOSED_COLLECTION_QUERY_TAKE,
             select: { id: true },
           },
           tasks: {
             where: { currentState: "OPEN" },
-            orderBy: { createdAt: "asc" },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: EXPOSED_COLLECTION_QUERY_TAKE,
             select: { id: true, summary: true },
           },
         },
@@ -63,11 +69,18 @@ export async function generateSbarPreview(
     const actorRole = roles[0];
     if (!actor || !episode || !actorRole) return null;
     const generatedAt = new Date();
-    const activeSafetyPlan = episode.safetyPlan?.activeVersionNumber
-      ? (episode.safetyPlan.versions.find(
-          ({ versionNumber }) => versionNumber === episode.safetyPlan?.activeVersionNumber,
-        ) ?? null)
-      : null;
+    const activeSafetyPlan =
+      episode.safetyPlan && episode.safetyPlan.activeVersionNumber !== null
+        ? await transaction.safetyPlanVersion.findUnique({
+            where: {
+              safetyPlanId_versionNumber: {
+                safetyPlanId: episode.safetyPlan.id,
+                versionNumber: episode.safetyPlan.activeVersionNumber,
+              },
+            },
+            select: { id: true, versionNumber: true },
+          })
+        : null;
     const lastCheckIn = episode.checkInAssignments[0]?.outcome
       ? {
           id: episode.checkInAssignments[0].id,
@@ -75,6 +88,8 @@ export async function generateSbarPreview(
           recordedAt: episode.checkInAssignments[0].outcome.recordedAt,
         }
       : null;
+    const openAlerts = boundCollection(episode.alerts);
+    const openTasks = boundCollection(episode.tasks);
     const preview = buildDeterministicSbar({
       episode: {
         id: episode.id,
@@ -86,8 +101,12 @@ export async function generateSbarPreview(
       checkInProtocol: episode.checkInProtocolVersion,
       activeSafetyPlan,
       lastCheckIn,
-      openAlerts: episode.alerts,
-      openTasks: episode.tasks,
+      openAlerts: openAlerts.values,
+      openTasks: openTasks.values,
+      collectionCoverage: {
+        openAlerts: openAlerts.coverage,
+        openTasks: openTasks.coverage,
+      },
       generatedBy: actor,
       generatedAt,
     });

@@ -5,6 +5,7 @@ import { errors } from "@/infrastructure/http/app-error";
 import { requireDemoExplainableAlertPrincipal } from "@/infrastructure/http/demo-episode-request";
 import { errorResponse } from "@/infrastructure/http/error-handler";
 import { listVisibleAlerts } from "@/infrastructure/persistence/prisma-explainable-alerts-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       {
         notice: "SINTÉTICO / NO USO CLÍNICO — priorización textual, revisión humana obligatoria",
         explainableTrafficLight,
-        alerts: alerts.map((alert) => ({
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: { alerts: alerts.coverage },
+        alerts: alerts.values.map((alert) => ({
           ...alert,
           triggeredAt: alert.triggeredAt.toISOString(),
           reviews: alert.reviews.map((review) => ({

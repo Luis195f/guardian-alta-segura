@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -13,6 +13,7 @@ import { RecordLegalDecisionService } from "@/application/legal/record-legal-dec
 import { secureSessionTokenIssuer, sha256 } from "@/infrastructure/crypto/session-token";
 import {
   getCaregiverPortalView,
+  listPatientCaregiverAccess,
   logoutCaregiverSession,
   PrismaCaregiverAccessUnitOfWork,
   recordCaregiverObservation,
@@ -466,6 +467,182 @@ async function revokeWhileOperationIsBlocked<T>(
 }
 
 describe("caregiver access persistence", () => {
+  it("selecciona el alcance vigente por episodio antes del límite y declara cobertura real", async () => {
+    const data = await setup();
+    const laterEpisode = await prisma.dischargeEpisode.create({
+      data: {
+        id: `zz-synthetic-scope-${randomUUID()}`,
+        patientId: data.patient.id,
+        dischargeDate: new Date("2026-07-23T00:00:00.000Z"),
+        programLengthDays: 30,
+        responsibleNurseId: data.nurse.id,
+        responsibleClinicianId: data.clinician.id,
+        status: "ACTIVE",
+        createdById: data.nurse.id,
+        checkInProtocolVersionId: data.protocol.id,
+      },
+    });
+    const principal = {
+      userId: data.patientUser.id,
+      roles: ["patient" as const],
+      sessionId: randomUUID(),
+    };
+    const instrumentedPrisma = new PrismaClient({ log: [{ emit: "event", level: "query" }] });
+    let queryCount = 0;
+    instrumentedPrisma.$on("query", () => {
+      queryCount += 1;
+    });
+    try {
+      await listPatientCaregiverAccess(principal, instrumentedPrisma);
+      const baselineQueryCount = queryCount;
+      await prisma.caregiverAuthorizationScope.createMany({
+        data: [
+          ...Array.from({ length: 50 }, (_, index) => ({
+            caregiverAuthorizationId: data.authorization.id,
+            dischargeEpisodeId: data.episode.id,
+            version: index + 2,
+            capabilities: ["VIEW_PLAN_SECTIONS" as const],
+            allowedPlanSections: ["WARNING_SIGNS" as const],
+            authorizedResourceKeys: [],
+            actorUserId: data.patientUser.id,
+            recordedAt: new Date(`2026-07-22T${String(index % 24).padStart(2, "0")}:00:00.000Z`),
+          })),
+          {
+            caregiverAuthorizationId: data.authorization.id,
+            dischargeEpisodeId: laterEpisode.id,
+            version: 1,
+            capabilities: ["VIEW_ASSIGNED_TASKS" as const],
+            allowedPlanSections: [],
+            authorizedResourceKeys: [],
+            actorUserId: data.patientUser.id,
+            recordedAt: new Date("2026-07-23T09:00:00.000Z"),
+          },
+        ],
+      });
+
+      queryCount = 0;
+      const result = await listPatientCaregiverAccess(principal, instrumentedPrisma);
+      const authorization = result?.authorizations.find(({ id }) => id === data.authorization.id);
+
+      expect(queryCount).toBe(baselineQueryCount);
+      expect(authorization?.scopes).toEqual([
+        expect.objectContaining({ dischargeEpisodeId: data.episode.id, version: 51 }),
+        expect.objectContaining({ dischargeEpisodeId: laterEpisode.id, version: 1 }),
+      ]);
+      expect(
+        new Set(authorization?.scopes.map(({ dischargeEpisodeId }) => dischargeEpisodeId)),
+      ).toHaveLength(2);
+      expect(authorization?.collectionCoverage.scopes).toMatchObject({
+        returned: 2,
+        limit: 50,
+        truncated: false,
+      });
+      expect(authorization?.collectionCoverage.scopes.returned).toBe(authorization?.scopes.length);
+    } finally {
+      await instrumentedPrisma.$disconnect();
+    }
+  });
+
+  it("limita después de seleccionar más de cincuenta alcances vigentes distintos", async () => {
+    const data = await setup();
+    const episodeRows = Array.from({ length: 51 }, (_, index) => ({
+      id: `scope-episode-${String(index).padStart(2, "0")}-${randomUUID()}`,
+      patientId: data.patient.id,
+      dischargeDate: new Date("2026-07-24T00:00:00.000Z"),
+      programLengthDays: 30,
+      responsibleNurseId: data.nurse.id,
+      responsibleClinicianId: data.clinician.id,
+      status: "ACTIVE" as const,
+      createdById: data.nurse.id,
+      checkInProtocolVersionId: data.protocol.id,
+    }));
+    await prisma.dischargeEpisode.createMany({ data: episodeRows });
+    await prisma.caregiverAuthorizationScope.createMany({
+      data: episodeRows.map((episode) => ({
+        caregiverAuthorizationId: data.authorization.id,
+        dischargeEpisodeId: episode.id,
+        version: 1,
+        capabilities: ["VIEW_PLAN_SECTIONS" as const],
+        allowedPlanSections: ["WARNING_SIGNS" as const],
+        authorizedResourceKeys: [],
+        actorUserId: data.patientUser.id,
+      })),
+    });
+    const principal = {
+      userId: data.patientUser.id,
+      roles: ["patient" as const],
+      sessionId: randomUUID(),
+    };
+
+    const first = await listPatientCaregiverAccess(principal);
+    const second = await listPatientCaregiverAccess(principal);
+    const firstAuthorization = first?.authorizations.find(({ id }) => id === data.authorization.id);
+    const secondAuthorization = second?.authorizations.find(
+      ({ id }) => id === data.authorization.id,
+    );
+
+    expect(firstAuthorization?.scopes).toHaveLength(50);
+    expect(firstAuthorization?.collectionCoverage.scopes).toMatchObject({
+      returned: 50,
+      limit: 50,
+      truncated: true,
+    });
+    expect(firstAuthorization?.collectionCoverage.scopes.returned).toBe(
+      firstAuthorization?.scopes.length,
+    );
+    expect(
+      new Set(firstAuthorization?.scopes.map(({ dischargeEpisodeId }) => dischargeEpisodeId)).size,
+    ).toBe(50);
+    expect(secondAuthorization?.scopes.map(({ dischargeEpisodeId }) => dischargeEpisodeId)).toEqual(
+      firstAuthorization?.scopes.map(({ dischargeEpisodeId }) => dischargeEpisodeId),
+    );
+  });
+
+  it("resuelve autorizaciones en batch sin consultas por fila", async () => {
+    const data = await setup();
+    const instrumentedPrisma = new PrismaClient({
+      log: [{ emit: "event", level: "query" }],
+    });
+    let queryCount = 0;
+    instrumentedPrisma.$on("query", () => {
+      queryCount += 1;
+    });
+    const principal = {
+      userId: data.patientUser.id,
+      roles: ["patient" as const],
+      sessionId: randomUUID(),
+    };
+    try {
+      const first = await listPatientCaregiverAccess(principal, instrumentedPrisma);
+      const oneAuthorizationQueryCount = queryCount;
+      expect(first?.authorizations).toHaveLength(1);
+
+      const secondCaregiver = await syntheticUser("caregiver");
+      await prisma.caregiverAuthorization.create({
+        data: {
+          subjectUserId: data.patientUser.id,
+          caregiverUserId: secondCaregiver.id,
+          state: "ACTIVE",
+          scope: "caregiver:portal",
+          policyVersionId: data.policy.id,
+          actorUserId: data.patientUser.id,
+          expiresAt: new Date("2026-08-21T00:00:00.000Z"),
+          origin: "DEMO_UI",
+          evidenceType: "RECORDED_INTERACTION",
+          evidenceRef: "SYNTHETIC-BATCH-AUTHORIZATION",
+          recordedAt: new Date("2026-07-21T09:05:00.000Z"),
+        },
+      });
+
+      queryCount = 0;
+      const result = await listPatientCaregiverAccess(principal, instrumentedPrisma);
+      expect(result?.authorizations).toHaveLength(2);
+      expect(queryCount).toBe(oneAuthorizationQueryCount);
+    } finally {
+      await instrumentedPrisma.$disconnect();
+    }
+  });
+
   it("rechaza por SQL directo cada combinación relacional imposible", async () => {
     const context = await setup();
     const otherCaregiver = await syntheticUser("caregiver");

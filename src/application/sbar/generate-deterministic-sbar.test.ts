@@ -18,6 +18,20 @@ const source = {
   lastCheckIn: null,
   openAlerts: [{ id: "alert-1" }],
   openTasks: [{ id: "task-1", summary: "Revisión ya documentada" }],
+  collectionCoverage: {
+    openAlerts: {
+      returned: 1,
+      limit: 50,
+      truncated: false,
+      basis: "TECHNICAL_DEMO_LIMIT" as const,
+    },
+    openTasks: {
+      returned: 1,
+      limit: 50,
+      truncated: false,
+      basis: "TECHNICAL_DEMO_LIMIT" as const,
+    },
+  },
   generatedBy: { id: "nurse-1", syntheticAlias: "demo-nurse" },
   generatedAt: new Date("2026-07-21T12:00:00Z"),
 };
@@ -26,10 +40,10 @@ describe("SBAR determinista", () => {
   it("usa solo campos estructurados y no inventa assessment, recomendación o firma", () => {
     const preview = buildDeterministicSbar(source);
     expect(preview.sections.assessment).toBe(
-      "Sin valoración clínica adicional registrada. Avisos deterministas abiertos pendientes de revisión humana: 1.",
+      "Sin valoración clínica adicional registrada. Avisos deterministas abiertos incluidos en esta vista: 1.",
     );
     expect(preview.sections.recommendation).toBe(
-      "Seguimiento ya registrado: Revisión ya documentada.",
+      "Seguimiento incluido en esta vista: Revisión ya documentada.",
     );
     expect(preview.signed).toBe(false);
     expect(preview.references).toEqual(

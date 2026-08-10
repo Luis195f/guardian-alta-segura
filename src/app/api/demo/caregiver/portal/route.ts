@@ -16,6 +16,7 @@ import {
   recordCaregiverObservation,
 } from "@/infrastructure/persistence/prisma-caregiver-access-unit-of-work";
 import { assertLoopbackRequestHost } from "@/infrastructure/security/loopback";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 function requireDemoPortalRequest(request: NextRequest) {
   const environment = readServerEnvironment();
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       {
         notice:
           "Acceso limitado: no incluye diagnósticos, notas clínicas ni check-ins completos. Ante una urgencia usa solo los recursos oficiales indicados por tu centro.",
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
         ...result,
       },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },

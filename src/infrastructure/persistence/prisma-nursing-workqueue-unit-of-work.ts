@@ -17,6 +17,10 @@ import { readAlertProvenance } from "@/domain/provenance/signal-provenance";
 import type { ContactAttemptOutcome, TaskEventType } from "@/domain/workqueue/nursing-task";
 import { projectTaskAccountability } from "@/domain/workqueue/task-accountability";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
 
 const taskSelect = {
   id: true,
@@ -448,7 +452,8 @@ export async function listNursingWorkQueue(
     },
     alerts: {
       where: { currentState: { in: ["OPEN", "REVIEWED", "ACTIONED"] as const } },
-      orderBy: { triggeredAt: "desc" as const },
+      orderBy: [{ triggeredAt: "desc" as const }, { id: "asc" as const }],
+      take: EXPOSED_COLLECTION_QUERY_TAKE,
       select: {
         id: true,
         currentState: true,
@@ -462,7 +467,8 @@ export async function listNursingWorkQueue(
       },
     },
     tasks: {
-      orderBy: { createdAt: "desc" as const },
+      orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
+      take: EXPOSED_COLLECTION_QUERY_TAKE,
       include: {
         assignedTo: {
           select: {
@@ -478,7 +484,8 @@ export async function listNursingWorkQueue(
         createdBy: { select: { id: true, syntheticAlias: true } },
         resolvedBy: { select: { id: true, syntheticAlias: true } },
         events: {
-          orderBy: { resultingRevision: "asc" as const },
+          orderBy: [{ resultingRevision: "asc" as const }, { id: "asc" as const }],
+          take: EXPOSED_COLLECTION_QUERY_TAKE,
           select: {
             id: true,
             taskId: true,
@@ -503,6 +510,8 @@ export async function listNursingWorkQueue(
     },
     _count: {
       select: {
+        alerts: { where: { currentState: "OPEN" } },
+        tasks: { where: { currentState: "OPEN" } },
         checkInAssignments: {
           where: { outcome: null, windowStartsAt: { lte: now }, windowEndsAt: { gt: now } },
         },
@@ -529,18 +538,33 @@ export async function listNursingWorkQueue(
     },
     include: queueInclude,
     orderBy: [{ dischargeDate: "desc" }, { id: "asc" }],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
   });
+  const boundedEpisodes = boundCollection(episodes);
+  const episodeIds = boundedEpisodes.values.map(({ id }) => id);
+  const [taskStateCounts, oldestOpenTask] =
+    episodeIds.length === 0
+      ? [[], { _min: { createdAt: null } }]
+      : await Promise.all([
+          prisma.task.groupBy({
+            by: ["currentState"],
+            where: { episodeId: { in: episodeIds } },
+            _count: { _all: true },
+          }),
+          prisma.task.aggregate({
+            where: { episodeId: { in: episodeIds }, currentState: "OPEN" },
+            _min: { createdAt: true },
+          }),
+        ]);
 
-  const entries = episodes.map((episode) => {
-    const openTaskCount = episode.tasks.filter(
-      ({ currentState }) => currentState === "OPEN",
-    ).length;
-    const unreviewedAlertCount = episode.alerts.filter(
-      ({ currentState }) => currentState === "OPEN",
-    ).length;
+  const entries = boundedEpisodes.values.map((episode) => {
+    const openTaskCount = episode._count.tasks;
+    const unreviewedAlertCount = episode._count.alerts;
     const pendingElementCount =
       openTaskCount + unreviewedAlertCount + episode._count.checkInAssignments;
     const last = episode.checkInAssignments[0] ?? null;
+    const openAlerts = boundCollection(episode.alerts);
+    const tasks = boundCollection(episode.tasks);
     return {
       episode: {
         id: episode.id,
@@ -562,7 +586,7 @@ export async function listNursingWorkQueue(
               : null,
           }
         : null,
-      openAlerts: episode.alerts.map((alert) => ({
+      openAlerts: openAlerts.values.map((alert) => ({
         id: alert.id,
         state: alert.currentState.toLowerCase(),
         ruleName: alert.definition.name,
@@ -573,7 +597,8 @@ export async function listNursingWorkQueue(
         triggeredAt: alert.triggeredAt,
         reviewedByHuman: alert._count.reviews > 0,
       })),
-      tasks: episode.tasks.map((task) => {
+      tasks: tasks.values.map((task) => {
+        const taskEvents = boundCollection(task.events);
         const currentAssigneeCurrentlyAuthorized =
           task.assignedTo !== null &&
           task.assignedTo.isActive &&
@@ -581,7 +606,7 @@ export async function listNursingWorkQueue(
             task.assignedTo.roleAssignments.some(({ role }) => role === "nurse")) ||
             (task.assignedTo.id === episode.responsibleClinicianId &&
               task.assignedTo.roleAssignments.some(({ role }) => role === "clinician")));
-        const accountabilityEvents = task.events.map((event) => ({
+        const accountabilityEvents = taskEvents.values.map((event) => ({
           id: event.id,
           taskId: event.taskId,
           type: fromEventType(event.type),
@@ -612,6 +637,7 @@ export async function listNursingWorkQueue(
           },
           events: accountabilityEvents,
           currentAssigneeCurrentlyAuthorized,
+          historyComplete: !taskEvents.coverage.truncated,
         });
         return {
           id: task.id,
@@ -628,7 +654,7 @@ export async function listNursingWorkQueue(
           resolutionReason: task.resolutionReason,
           createdAt: task.createdAt,
           accountability,
-          events: task.events.map((event) => ({
+          events: taskEvents.values.map((event) => ({
             id: event.id,
             type: fromEventType(event.type),
             fromAssignedToId: event.fromAssignedToId,
@@ -643,31 +669,33 @@ export async function listNursingWorkQueue(
             fromAssignedTo: event.fromAssignedTo,
             toAssignedTo: event.toAssignedTo,
           })),
+          collectionCoverage: { events: taskEvents.coverage },
         };
       }),
+      collectionCoverage: {
+        openAlerts: openAlerts.coverage,
+        tasks: tasks.coverage,
+      },
     };
   });
-
-  const tasks = entries.flatMap((entry) => entry.tasks);
-  const openTasks = tasks.filter(({ state }) => state === "open");
+  const countByState = new Map(
+    taskStateCounts.map(({ currentState, _count }) => [currentState, _count._all]),
+  );
+  const oldestOpenTaskAt = oldestOpenTask._min.createdAt;
   const oldestOpenTaskAgeHours =
-    openTasks.length === 0
+    oldestOpenTaskAt === null
       ? null
-      : Math.max(
-          0,
-          Math.floor(
-            (now.getTime() - Math.min(...openTasks.map(({ createdAt }) => createdAt.getTime()))) /
-              3_600_000,
-          ),
-        );
+      : Math.max(0, Math.floor((now.getTime() - oldestOpenTaskAt.getTime()) / 3_600_000));
   return {
     entries,
+    collectionCoverage: { entries: boundedEpisodes.coverage },
     metrics: {
       episodeCount: entries.length,
       pendingElementCount: entries.reduce((total, entry) => total + entry.pendingElementCount, 0),
-      openTaskCount: openTasks.length,
-      resolvedTaskCount: tasks.length - openTasks.length,
+      openTaskCount: countByState.get("OPEN") ?? 0,
+      resolvedTaskCount: countByState.get("RESOLVED") ?? 0,
       oldestOpenTaskAgeHours,
+      scope: "RETURNED_EPISODES" as const,
     },
   };
 }

@@ -18,6 +18,7 @@ import {
   PrismaEpisodeUnitOfWork,
 } from "@/infrastructure/persistence/prisma-episode-unit-of-work";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         notice: "SINTÉTICO / NO USO CLÍNICO",
-        episodes: episodes.map((episode) => ({
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: { episodes: episodes.coverage },
+        episodes: episodes.values.map((episode) => ({
           ...episode,
           dischargeDate: episode.dischargeDate.toISOString().slice(0, 10),
           updatedAt: episode.updatedAt.toISOString(),

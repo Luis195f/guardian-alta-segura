@@ -14,7 +14,10 @@ import {
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { SYNTHETIC_RULE_FIXTURES } from "@/domain/alerts/synthetic-rule-fixtures";
 import { prisma } from "@/infrastructure/persistence/prisma";
-import { PrismaExplainableAlertsUnitOfWork } from "@/infrastructure/persistence/prisma-explainable-alerts-unit-of-work";
+import {
+  listVisibleAlerts,
+  PrismaExplainableAlertsUnitOfWork,
+} from "@/infrastructure/persistence/prisma-explainable-alerts-unit-of-work";
 
 function actor(userId: string, role: "admin" | "nurse" | "clinician"): AuthenticatedPrincipal {
   return { userId, roles: [role], sessionId: randomUUID() };
@@ -119,6 +122,74 @@ async function createNonResponseSource(input: Awaited<ReturnType<typeof setupEpi
 }
 
 describe.sequential("PostgreSQL explainable alert guarantees", () => {
+  it("selecciona avisos con el orden semántico antes del límite y aísla responsables", async () => {
+    const fixture = SYNTHETIC_RULE_FIXTURES[2]!;
+    const users = await setupEpisode();
+    const isolated = await setupEpisode();
+    const unitOfWork = new PrismaExplainableAlertsUnitOfWork();
+    const created = await new CreateRuleVersionService(unitOfWork).execute({
+      actor: actor(users.admin.id, "admin"),
+      ruleKey: `boundary-${randomUUID()}`,
+      name: "Aviso sintético de frontera",
+      dsl: fixture.dsl,
+      correlationId: randomUUID(),
+    });
+    const version = await prisma.ruleVersion.findUniqueOrThrow({
+      where: { id: created.ruleVersionId },
+      select: {
+        ruleDefinitionId: true,
+        versionNumber: true,
+        administrativeSeverity: true,
+        reviewOwner: true,
+      },
+    });
+    const baseTime = new Date("2026-07-01T08:00:00.000Z").getTime();
+    const evaluationIds = Array.from({ length: 53 }, () => randomUUID());
+    await prisma.ruleEvaluation.createMany({
+      data: evaluationIds.map((id, index) => ({
+        id,
+        ruleDefinitionId: version.ruleDefinitionId,
+        ruleVersionId: created.ruleVersionId,
+        ruleVersionNumber: version.versionNumber,
+        episodeId: index === 52 ? isolated.episode.id : users.episode.id,
+        evaluatedById: index === 52 ? isolated.nurse.id : users.nurse.id,
+        idempotencyKey: `boundary-evaluation-${index}-${randomUUID()}`,
+        requestFingerprint: index.toString(16).padStart(64, "a").slice(-64),
+        evaluatedAt: new Date(baseTime + index * 60_000),
+        inputSnapshot: [],
+        inputHash: index.toString(16).padStart(64, "b").slice(-64),
+        outcome: "MATCHED",
+        missingInputs: [],
+      })),
+    });
+    const alertIds = evaluationIds.map(() => randomUUID());
+    await prisma.alert.createMany({
+      data: alertIds.map((id, index) => ({
+        id,
+        ruleDefinitionId: version.ruleDefinitionId,
+        ruleVersionId: created.ruleVersionId,
+        ruleVersionNumber: version.versionNumber,
+        evaluationId: evaluationIds[index]!,
+        episodeId: index === 52 ? isolated.episode.id : users.episode.id,
+        inputReferences: [],
+        explanation: "Aviso determinista sintético de frontera.",
+        administrativeSeverity: version.administrativeSeverity,
+        reviewOwner: version.reviewOwner,
+        triggeredAt: new Date(baseTime + index * 60_000),
+        currentState: index === 0 || index === 52 ? "OPEN" : "RESOLVED",
+      })),
+    });
+
+    const first = await listVisibleAlerts(actor(users.nurse.id, "nurse"));
+    const second = await listVisibleAlerts(actor(users.nurse.id, "nurse"));
+
+    expect(first?.values).toHaveLength(50);
+    expect(first?.coverage).toMatchObject({ returned: 50, limit: 50, truncated: true });
+    expect(first?.values[0]?.id).toBe(alertIds[0]);
+    expect(first?.values.map(({ id }) => id)).not.toContain(alertIds[52]);
+    expect(second?.values.map(({ id }) => id)).toEqual(first?.values.map(({ id }) => id));
+  });
+
   it("conserva versión, aprobación, evaluación y revisión como historia auditable", async () => {
     const fixture = SYNTHETIC_RULE_FIXTURES[2]!;
     const users = await setupEpisode();

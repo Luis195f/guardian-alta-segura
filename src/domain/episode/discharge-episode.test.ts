@@ -104,6 +104,12 @@ describe("episode governance policy", () => {
       { kind: "ALERT", resourceId: "alert-1", state: "open" },
       { kind: "TASK", resourceId: "task-1", state: "open", revision: 3 },
     ],
+    openObligationsCoverage: {
+      returned: 2,
+      limit: 50,
+      truncated: false,
+      basis: "TECHNICAL_DEMO_LIMIT",
+    },
     evaluatedAt: new Date("2026-07-25T12:00:00Z"),
     correlationId: "018f673a-4e35-7060-99b5-7bc6feba3a97",
   };
@@ -119,6 +125,7 @@ describe("episode governance policy", () => {
       { decisionId: "DEC-002", status: "PENDING" },
     ]);
     expect(view.openObligations).toEqual(input.openObligations);
+    expect(view.openObligationsCoverage).toEqual(input.openObligationsCoverage);
     expect(view.blockers.map(({ code }) => code)).toEqual([
       "UNRESOLVED_ALERTS",
       "OPEN_TASKS",

@@ -22,6 +22,8 @@ export type TaskAccountabilityBlocker =
   | "RESOLUTION_EVENT_MISMATCH"
   | "CURRENT_ASSIGNEE_NOT_CURRENTLY_AUTHORIZED";
 
+export type TaskAccountabilityLimitation = "TASK_EVENT_HISTORY_TRUNCATED";
+
 export interface TaskAccountabilityTask {
   readonly id: string;
   readonly episodeId: string;
@@ -77,8 +79,9 @@ export interface TaskAccountabilityProjection {
   readonly resolvedById: string | null;
   readonly resolvedAt: Date | null;
   readonly currentAssigneeEligibility: CurrentAssigneeEligibility;
-  readonly consistencyStatus: "VALID" | "INCONSISTENT";
+  readonly consistencyStatus: "VALID" | "INCONSISTENT" | "INCOMPLETE";
   readonly blockers: readonly TaskAccountabilityBlocker[];
+  readonly limitations: readonly TaskAccountabilityLimitation[];
 }
 
 const STRUCTURAL_BLOCKERS = new Set<TaskAccountabilityBlocker>([
@@ -103,8 +106,10 @@ export function projectTaskAccountability(input: {
   readonly task: TaskAccountabilityTask;
   readonly events: readonly TaskAccountabilityEvent[];
   readonly currentAssigneeCurrentlyAuthorized: boolean;
+  readonly historyComplete?: boolean;
 }): TaskAccountabilityProjection {
   const { task } = input;
+  const historyComplete = input.historyComplete ?? true;
   const blockers = new Set<TaskAccountabilityBlocker>();
   const assignmentHistory: TaskAssignmentChange[] = [];
   const orderedEvents = [...input.events].sort(
@@ -237,24 +242,26 @@ export function projectTaskAccountability(input: {
     reconstructedState = event.toState;
   }
 
-  const finalRevision = lifecycle.at(-1)?.resultingRevision ?? 0;
-  if (task.revision !== finalRevision) blockers.add("TASK_REVISION_EVENT_MISMATCH");
-  if (task.assignedToId !== reconstructedAssigneeId) {
-    blockers.add("CURRENT_ASSIGNEE_EVENT_MISMATCH");
-  }
-  if (task.currentState !== reconstructedState) blockers.add("CURRENT_STATE_EVENT_MISMATCH");
+  if (historyComplete) {
+    const finalRevision = lifecycle.at(-1)?.resultingRevision ?? 0;
+    if (task.revision !== finalRevision) blockers.add("TASK_REVISION_EVENT_MISMATCH");
+    if (task.assignedToId !== reconstructedAssigneeId) {
+      blockers.add("CURRENT_ASSIGNEE_EVENT_MISMATCH");
+    }
+    if (task.currentState !== reconstructedState) blockers.add("CURRENT_STATE_EVENT_MISMATCH");
 
-  if (task.currentState === "resolved") {
-    if (resolvedEvent === null) {
-      blockers.add("RESOLUTION_EVENT_MISSING");
-    } else if (
-      task.resolvedById !== resolvedEvent.actorUserId ||
-      !sameInstant(task.resolvedAt, resolvedEvent.occurredAt)
-    ) {
+    if (task.currentState === "resolved") {
+      if (resolvedEvent === null) {
+        blockers.add("RESOLUTION_EVENT_MISSING");
+      } else if (
+        task.resolvedById !== resolvedEvent.actorUserId ||
+        !sameInstant(task.resolvedAt, resolvedEvent.occurredAt)
+      ) {
+        blockers.add("RESOLUTION_EVENT_MISMATCH");
+      }
+    } else if (resolvedEvent !== null || task.resolvedById !== null || task.resolvedAt !== null) {
       blockers.add("RESOLUTION_EVENT_MISMATCH");
     }
-  } else if (resolvedEvent !== null || task.resolvedById !== null || task.resolvedAt !== null) {
-    blockers.add("RESOLUTION_EVENT_MISMATCH");
   }
 
   const currentAssigneeEligibility: CurrentAssigneeEligibility =
@@ -292,7 +299,10 @@ export function projectTaskAccountability(input: {
     currentAssigneeEligibility,
     consistencyStatus: [...blockers].some((value) => STRUCTURAL_BLOCKERS.has(value))
       ? "INCONSISTENT"
-      : "VALID",
+      : historyComplete
+        ? "VALID"
+        : "INCOMPLETE",
     blockers: [...blockers],
+    limitations: historyComplete ? [] : ["TASK_EVENT_HISTORY_TRUNCATED"],
   };
 }

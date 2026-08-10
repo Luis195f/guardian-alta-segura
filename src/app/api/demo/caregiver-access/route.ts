@@ -36,6 +36,7 @@ import {
   PrismaCaregiverAccessUnitOfWork,
 } from "@/infrastructure/persistence/prisma-caregiver-access-unit-of-work";
 import { PrismaLegalRecordsUnitOfWork } from "@/infrastructure/persistence/prisma-legal-records-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       {
         notice:
           "SINTÉTICO / NO USO CLÍNICO — autorizar no presume capacidad ni representación legal",
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
         ...result,
       },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },

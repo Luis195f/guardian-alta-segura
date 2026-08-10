@@ -14,6 +14,14 @@ import type {
   ProgramLengthDays,
 } from "@/domain/episode/discharge-episode";
 import { prisma } from "@/infrastructure/persistence/prisma";
+import {
+  boundCollection,
+  EXPOSED_COLLECTION_LIMIT,
+  EXPOSED_COLLECTION_QUERY_TAKE,
+} from "@/application/collections/bounded-collection";
+
+const OPEN_OBLIGATION_TYPE_LIMIT = EXPOSED_COLLECTION_LIMIT / 2;
+const OPEN_OBLIGATION_TYPE_QUERY_TAKE = OPEN_OBLIGATION_TYPE_LIMIT + 1;
 
 const episodeContextInclude = {
   patient: { include: { identityVerificationPolicyVersion: true } },
@@ -155,13 +163,18 @@ export class PrismaEpisodeTransaction implements EpisodeTransaction {
         },
         select: { id: true, currentState: true },
         orderBy: { id: "asc" },
+        take: OPEN_OBLIGATION_TYPE_QUERY_TAKE,
       }),
       this.transaction.task.findMany({
         where: { episodeId, currentState: "OPEN" },
         select: { id: true, revision: true },
         orderBy: { id: "asc" },
+        take: OPEN_OBLIGATION_TYPE_QUERY_TAKE,
       }),
     ]);
+
+    const alerts = boundCollection(openAlerts, OPEN_OBLIGATION_TYPE_LIMIT);
+    const tasks = boundCollection(openTasks, OPEN_OBLIGATION_TYPE_LIMIT);
 
     return {
       responsibleProfessionals: {
@@ -182,18 +195,24 @@ export class PrismaEpisodeTransaction implements EpisodeTransaction {
           }
         : null,
       openObligations: [
-        ...openAlerts.map((alert) => ({
+        ...alerts.values.map((alert) => ({
           kind: "ALERT" as const,
           resourceId: alert.id,
           state: alert.currentState.toLowerCase() as "open" | "reviewed" | "actioned",
         })),
-        ...openTasks.map((task) => ({
+        ...tasks.values.map((task) => ({
           kind: "TASK" as const,
           resourceId: task.id,
           state: "open" as const,
           revision: task.revision,
         })),
       ],
+      openObligationsCoverage: {
+        returned: alerts.values.length + tasks.values.length,
+        limit: EXPOSED_COLLECTION_LIMIT,
+        truncated: alerts.coverage.truncated || tasks.coverage.truncated,
+        basis: "TECHNICAL_DEMO_LIMIT" as const,
+      },
     };
   }
 
@@ -275,7 +294,7 @@ export class PrismaEpisodeUnitOfWork implements EpisodeUnitOfWork {
 }
 
 export async function listAssignedEpisodes(actorUserId: string) {
-  return prisma.dischargeEpisode.findMany({
+  const episodes = await prisma.dischargeEpisode.findMany({
     where: {
       OR: [{ responsibleNurseId: actorUserId }, { responsibleClinicianId: actorUserId }],
     },
@@ -290,12 +309,14 @@ export async function listAssignedEpisodes(actorUserId: string) {
       responsibleNurse: { select: { syntheticAlias: true } },
       responsibleClinician: { select: { syntheticAlias: true } },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    take: EXPOSED_COLLECTION_QUERY_TAKE,
   });
+  return boundCollection(episodes);
 }
 
 export async function getAssignedEpisodeDetail(episodeId: string, actorUserId: string) {
-  return prisma.dischargeEpisode.findFirst({
+  const episode = await prisma.dischargeEpisode.findFirst({
     where: {
       id: episodeId,
       OR: [{ responsibleNurseId: actorUserId }, { responsibleClinicianId: actorUserId }],
@@ -308,8 +329,16 @@ export async function getAssignedEpisodeDetail(episodeId: string, actorUserId: s
       closedBy: { select: { syntheticAlias: true } },
       transitions: {
         include: { actor: { select: { syntheticAlias: true } } },
-        orderBy: { occurredAt: "asc" },
+        orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+        take: EXPOSED_COLLECTION_QUERY_TAKE,
       },
     },
   });
+  if (!episode) return null;
+  const transitions = boundCollection(episode.transitions);
+  return {
+    ...episode,
+    transitions: transitions.values,
+    collectionCoverage: { transitions: transitions.coverage },
+  };
 }

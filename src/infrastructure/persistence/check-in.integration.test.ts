@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { Prisma } from "@prisma/client";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CheckInConflictError,
@@ -272,6 +272,82 @@ async function downstreamPersistence(episodeId: string, subjectUserId: string) {
 }
 
 describe.sequential("PostgreSQL check-in guarantees", () => {
+  it("selecciona disponibilidad antes del límite con consultas constantes y aislamiento", async () => {
+    const fixture = await setupFixture();
+    const [outsider, support] = await Promise.all([
+      createUser("checkin-boundary-outsider", "clinician"),
+      createUser("checkin-boundary-support", "support"),
+    ]);
+    const batch = await prisma.checkInAssignmentBatch.create({
+      data: {
+        episodeId: fixture.episode.id,
+        checkInProtocolVersionId: fixture.protocol.id,
+        createdById: fixture.nurse.id,
+        idempotencyKey: `boundary-batch:${randomUUID()}`,
+        requestFingerprint: "e".repeat(64),
+      },
+    });
+    const now = new Date("2026-07-10T08:00:00.000Z");
+    const openAssignmentId = randomUUID();
+    await prisma.checkInAssignment.createMany({
+      data: [
+        {
+          id: openAssignmentId,
+          batchId: batch.id,
+          episodeId: fixture.episode.id,
+          checkInProtocolVersionId: fixture.protocol.id,
+          sequence: 1,
+          scheduledFor: now,
+          windowStartsAt: new Date(now.getTime() - 30 * 60_000),
+          windowEndsAt: new Date(now.getTime() + 30 * 60_000),
+          createdById: fixture.nurse.id,
+        },
+        ...Array.from({ length: 51 }, (_, index) => {
+          const scheduledFor = new Date(now.getTime() + (index + 1) * 60 * 60_000);
+          return {
+            id: randomUUID(),
+            batchId: batch.id,
+            episodeId: fixture.episode.id,
+            checkInProtocolVersionId: fixture.protocol.id,
+            sequence: index + 2,
+            scheduledFor,
+            windowStartsAt: scheduledFor,
+            windowEndsAt: new Date(scheduledFor.getTime() + 30 * 60_000),
+            createdById: fixture.nurse.id,
+          };
+        }),
+      ],
+    });
+    const querySpy = vi.spyOn(prisma.checkInAssignment, "findMany");
+    try {
+      const first = await listVisibleCheckInAssignments(patientActor(fixture.patientUser.id), now);
+      expect(querySpy).toHaveBeenCalledTimes(4);
+      expect(first?.values).toHaveLength(50);
+      expect(first?.coverage).toMatchObject({ returned: 50, limit: 50, truncated: true });
+      expect(first?.values[0]).toMatchObject({ id: openAssignmentId, availability: "OPEN" });
+      expect(first?.values.slice(1).every(({ availability }) => availability === "UPCOMING")).toBe(
+        true,
+      );
+
+      querySpy.mockClear();
+      const second = await listVisibleCheckInAssignments(patientActor(fixture.patientUser.id), now);
+      expect(querySpy).toHaveBeenCalledTimes(4);
+      expect(second?.values.map(({ id }) => id)).toEqual(first?.values.map(({ id }) => id));
+    } finally {
+      querySpy.mockRestore();
+    }
+
+    await expect(
+      listVisibleCheckInAssignments(clinicianActor(outsider.id), now),
+    ).resolves.toMatchObject({ values: [] });
+    await expect(
+      listVisibleCheckInAssignments(
+        { userId: support.id, roles: ["support"], sessionId: randomUUID() },
+        now,
+      ),
+    ).resolves.toBeNull();
+  });
+
   it("rechaza directamente una asignación con protocolo distinto al episodio", async () => {
     const fixture = await setupFixture();
     const batch = await prisma.checkInAssignmentBatch.create({
@@ -433,8 +509,8 @@ describe.sequential("PostgreSQL check-in guarantees", () => {
       }),
     ).rejects.toBeInstanceOf(CheckInParticipationRevokedError);
     const visible = await listVisibleCheckInAssignments(patientActor(fixture.patientUser.id), now);
-    expect(visible).toHaveLength(1);
-    expect(visible![0]).toMatchObject({
+    expect(visible?.values).toHaveLength(1);
+    expect(visible!.values[0]).toMatchObject({
       id: fixture.assignment!.id,
       availability: "BLOCKED",
       availabilityReason: "DIGITAL_PARTICIPATION_NOT_ACTIVE",

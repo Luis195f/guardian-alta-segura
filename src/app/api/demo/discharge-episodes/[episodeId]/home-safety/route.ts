@@ -19,6 +19,7 @@ import {
   listHomeSafetyVersions,
   PrismaHomeSafetyUnitOfWork,
 } from "@/infrastructure/persistence/prisma-home-safety-unit-of-work";
+import { TECHNICAL_COLLECTION_LIMIT_NOTICE } from "@/application/collections/bounded-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,13 @@ export async function GET(
     const versions = await listHomeSafetyVersions(principal, episodeId);
     if (!versions) throw errors.forbidden();
     return NextResponse.json(
-      { notice: "SINTÉTICO / NO USO CLÍNICO", disclaimer: HOME_SAFETY_DISCLAIMER, versions },
+      {
+        notice: "SINTÉTICO / NO USO CLÍNICO",
+        disclaimer: HOME_SAFETY_DISCLAIMER,
+        collectionLimitNotice: TECHNICAL_COLLECTION_LIMIT_NOTICE,
+        collectionCoverage: { versions: versions.coverage },
+        versions: versions.values,
+      },
       { headers: { "Cache-Control": "no-store", "X-Correlation-ID": correlationId } },
     );
   } catch (error) {
