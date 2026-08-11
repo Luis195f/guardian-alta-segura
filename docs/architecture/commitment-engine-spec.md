@@ -25,6 +25,22 @@ Esta especificación no afirma que el motor exista. El baseline no registra un
 compromiso explícito con plazo y política de evidencia, no ejecuta un scheduler
 y no detecta automáticamente ausencias de evidencia.
 
+### Nota de implementación 5B-HARDENING-01 posterior al baseline documental
+
+Esta nota no sobrescribe el registro histórico anterior. Sobre el SHA base
+`82811c67cbef6b8411284e279020e6c635522322`, 5B-HARDENING-01 verifica y completa exclusivamente
+el slice interno 5B con el estado
+`IMPLEMENTED FOR SYNTHETIC SANDBOX / DISABLED BY DEFAULT / NOT AUTHORIZED FOR REAL USE`.
+La implementación permanece sin API/UI, reader externo, seed de compromisos,
+evaluador, ledger, scheduler, worker, notificación o backfill; no cambia ningún REQ o
+DEC y mantiene `DEC-016 = Pendiente` y `REAL PILOT = NO_GO`.
+`CANONICAL SECURITY P13 = NOT EXECUTED`.
+
+El schema base ya contenía la migración aditiva del núcleo. 5B-HARDENING-01 añade una única
+migración forward-only de hardening para impedir ramificaciones o saltos en el
+linaje N+1 de `CommitmentDefinitionVersion`. `EvidenceReferenceV1` se materializa
+solo como objeto de valor minimizado; no crea una tabla ni resuelve evidencia.
+
 ## Gates y contrato normativo del slice 5B
 
 ### Gate A — implementación técnica sintética

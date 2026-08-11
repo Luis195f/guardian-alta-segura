@@ -95,76 +95,82 @@ class PrismaSyntheticCommitmentTransaction implements CommitmentTransaction {
     readonly episodeId: string;
     readonly actorUserId: string;
     readonly assignedUserId: string | null;
+    readonly definitionAndVersionCreatorUserIds: readonly string[];
   }): Promise<CommitmentSyntheticContextRecord | null> {
     const rows = await this.transaction.$queryRaw<
       Array<{
         readonly episodeId: string;
         readonly episodeIsSynthetic: boolean;
-        readonly actorUserId: string;
-        readonly actorIsSynthetic: boolean;
-        readonly actorIsActive: boolean;
       }>
     >(Prisma.sql`
       SELECT
         episode."id" AS "episodeId",
-        patient."is_synthetic" AS "episodeIsSynthetic",
-        actor_user."id" AS "actorUserId",
-        actor_user."is_synthetic" AS "actorIsSynthetic",
-        actor_user."is_active" AS "actorIsActive"
+        patient."is_synthetic" AS "episodeIsSynthetic"
       FROM "discharge_episodes" AS episode
       INNER JOIN "patients" AS patient ON patient."id" = episode."patient_id"
-      INNER JOIN "users" AS actor_user ON actor_user."id" = ${input.actorUserId}
       WHERE episode."id" = ${input.episodeId}
-      FOR UPDATE OF episode, patient, actor_user
+      FOR UPDATE OF episode, patient
     `);
     const base = rows[0];
     if (!base) return null;
 
-    let assignedUserIsSynthetic: boolean | null = null;
-    let assignedUserIsActive: boolean | null = null;
-    if (input.assignedUserId !== null) {
-      const assignedRows = await this.transaction.$queryRaw<
-        Array<{ readonly isSynthetic: boolean; readonly isActive: boolean }>
-      >(Prisma.sql`
-        SELECT
-          assigned_user."is_synthetic" AS "isSynthetic",
-          assigned_user."is_active" AS "isActive"
-        FROM "users" AS assigned_user
-        WHERE assigned_user."id" = ${input.assignedUserId}
-        FOR UPDATE OF assigned_user
-      `);
-      const assigned = assignedRows[0];
-      if (!assigned) return null;
-      assignedUserIsSynthetic = assigned.isSynthetic;
-      assignedUserIsActive = assigned.isActive;
-    }
+    const orderedProtectedUserIds = [
+      ...new Set([
+        input.actorUserId,
+        ...(input.assignedUserId === null ? [] : [input.assignedUserId]),
+        ...input.definitionAndVersionCreatorUserIds,
+      ]),
+    ].sort();
+    const participants = await this.transaction.$queryRaw<
+      Array<{
+        readonly id: string;
+        readonly isSynthetic: boolean;
+        readonly isActive: boolean;
+      }>
+    >(Prisma.sql`
+      SELECT
+        participant."id",
+        participant."is_synthetic" AS "isSynthetic",
+        participant."is_active" AS "isActive"
+      FROM "users" AS participant
+      WHERE participant."id" IN (${Prisma.join(orderedProtectedUserIds)})
+      ORDER BY participant."id" ASC
+      FOR UPDATE OF participant
+    `);
+    if (participants.length !== orderedProtectedUserIds.length) return null;
+    const participantById = new Map(
+      participants.map((participant) => [participant.id, participant]),
+    );
+    const actor = participantById.get(input.actorUserId);
+    const assigned =
+      input.assignedUserId === null ? null : participantById.get(input.assignedUserId);
+    if (!actor || (input.assignedUserId !== null && !assigned)) return null;
 
     return {
       ...base,
+      actorUserId: actor.id,
+      actorIsSynthetic: actor.isSynthetic,
+      actorIsActive: actor.isActive,
       assignedUserId: input.assignedUserId,
-      assignedUserIsSynthetic,
-      assignedUserIsActive,
+      assignedUserIsSynthetic: assigned?.isSynthetic ?? null,
+      assignedUserIsActive: assigned?.isActive ?? null,
     };
   }
 
-  async getDefinitionVersionForUpdate(
+  async getDefinitionVersion(
     definitionVersionId: string,
   ): Promise<CommitmentDefinitionVersionRecord | null> {
-    const locked = await this.transaction.$queryRaw<Array<{ readonly id: string }>>(Prisma.sql`
-      SELECT version."id"
-      FROM "commitment_definition_versions" AS version
-      INNER JOIN "commitment_definitions" AS definition
-        ON definition."id" = version."definition_id"
-      INNER JOIN "users" AS creator ON creator."id" = version."created_by_id"
-      WHERE version."id" = ${definitionVersionId}
-      FOR UPDATE OF version, definition, creator
-    `);
-    if (!locked[0]) return null;
     const version = await this.transaction.commitmentDefinitionVersion.findUnique({
       where: { id: definitionVersionId },
       include: {
-        definition: { select: { definitionKey: true, isSynthetic: true } },
-        createdBy: { select: { isSynthetic: true } },
+        definition: {
+          select: {
+            definitionKey: true,
+            isSynthetic: true,
+            createdBy: { select: { id: true, isSynthetic: true } },
+          },
+        },
+        createdBy: { select: { id: true, isSynthetic: true } },
       },
     });
     return version
@@ -176,7 +182,10 @@ class PrismaSyntheticCommitmentTransaction implements CommitmentTransaction {
           state: version.state,
           definitionIsSynthetic: version.definition.isSynthetic,
           versionIsSynthetic: version.isSynthetic,
-          creatorIsSynthetic: version.createdBy.isSynthetic,
+          definitionCreatorUserId: version.definition.createdBy.id,
+          versionCreatorUserId: version.createdBy.id,
+          definitionCreatorIsSynthetic: version.definition.createdBy.isSynthetic,
+          versionCreatorIsSynthetic: version.createdBy.isSynthetic,
           sourceType: version.sourceType,
           sourceId: version.sourceId,
           sourceVersion: version.sourceVersion,

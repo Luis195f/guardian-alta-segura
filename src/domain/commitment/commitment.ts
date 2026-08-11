@@ -31,6 +31,18 @@ export interface DueSourceReference {
   readonly version: string;
 }
 
+export interface EvidenceReferenceV1 {
+  readonly schemaVersion: 1;
+  readonly sourceType: string;
+  readonly sourceResourceId: string;
+  readonly episodeId: string;
+  readonly sourceVersionRef: string;
+  readonly actionKind: string;
+  readonly recordedAt: string;
+  readonly resolverVersion: string;
+  readonly integritySha256: string;
+}
+
 export class CommitmentValidationError extends Error {
   constructor(
     message: string,
@@ -42,7 +54,8 @@ export class CommitmentValidationError extends Error {
       | "INVALID_DUE_AT"
       | "INVALID_TIME_ZONE"
       | "INVALID_DUE_SOURCE"
-      | "INVALID_CORRECTION_REASON",
+      | "INVALID_CORRECTION_REASON"
+      | "INVALID_EVIDENCE_REFERENCE",
   ) {
     super(message);
     this.name = "CommitmentValidationError";
@@ -62,6 +75,18 @@ export class CommitmentTransitionError extends Error {
 const ID = /^[A-Za-z0-9._:-]{1,128}$/u;
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,128}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const SHA256 = /^[a-f0-9]{64}$/u;
+const EVIDENCE_REFERENCE_V1_KEYS = [
+  "actionKind",
+  "episodeId",
+  "integritySha256",
+  "recordedAt",
+  "resolverVersion",
+  "schemaVersion",
+  "sourceResourceId",
+  "sourceType",
+  "sourceVersionRef",
+] as const;
 
 export function validateTechnicalId(name: string, value: unknown): asserts value is string {
   if (typeof value !== "string" || !ID.test(value)) {
@@ -164,6 +189,48 @@ export function normalizeCorrectionReason(value: unknown): string {
     );
   }
   return reason;
+}
+
+export function createEvidenceReferenceV1(value: unknown): EvidenceReferenceV1 {
+  try {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error();
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    if (
+      keys.length !== EVIDENCE_REFERENCE_V1_KEYS.length ||
+      keys.some((key, index) => key !== EVIDENCE_REFERENCE_V1_KEYS[index]) ||
+      record.schemaVersion !== 1
+    ) {
+      throw new Error();
+    }
+    validateTechnicalId("sourceType", record.sourceType);
+    validateTechnicalId("sourceResourceId", record.sourceResourceId);
+    validateTechnicalId("episodeId", record.episodeId);
+    validateTechnicalId("sourceVersionRef", record.sourceVersionRef);
+    validateTechnicalId("actionKind", record.actionKind);
+    validateTechnicalId("resolverVersion", record.resolverVersion);
+    if (typeof record.recordedAt !== "string") throw new Error();
+    parseExplicitUtcInstant(record.recordedAt);
+    if (typeof record.integritySha256 !== "string" || !SHA256.test(record.integritySha256)) {
+      throw new Error();
+    }
+    return Object.freeze({
+      schemaVersion: 1,
+      sourceType: record.sourceType,
+      sourceResourceId: record.sourceResourceId,
+      episodeId: record.episodeId,
+      sourceVersionRef: record.sourceVersionRef,
+      actionKind: record.actionKind,
+      recordedAt: record.recordedAt,
+      resolverVersion: record.resolverVersion,
+      integritySha256: record.integritySha256,
+    });
+  } catch {
+    throw new CommitmentValidationError(
+      "EvidenceReferenceV1 is invalid",
+      "INVALID_EVIDENCE_REFERENCE",
+    );
+  }
 }
 
 export function assertCommitmentTransition(

@@ -12,19 +12,12 @@ import type {
   CommitmentUnitOfWork,
 } from "@/application/ports/commitment-unit-of-work";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
-import type { CommitmentAuthorizationPolicy } from "@/domain/commitment/commitment-authorization";
 import { prisma } from "@/infrastructure/persistence/prisma";
 import { PrismaSyntheticCommitmentUnitOfWork } from "@/infrastructure/persistence/prisma-commitment-unit-of-work";
+import { SyntheticCommitmentAuthorizationPolicy } from "../../../tests/support/synthetic-commitment-authorization-policy";
 
 const gate = { configured: true, enabled: true } as const;
-const policy: CommitmentAuthorizationPolicy = {
-  evaluate: (request) => ({
-    status: "AUTHORIZED",
-    command: request.command,
-    actorId: request.actor.userId,
-    episodeId: request.episodeId,
-  }),
-};
+const policy = new SyntheticCommitmentAuthorizationPolicy();
 
 async function syntheticUser(role: "admin" | "nurse" | "clinician", isSynthetic = true) {
   return prisma.user.create({
@@ -37,7 +30,14 @@ async function syntheticUser(role: "admin" | "nurse" | "clinician", isSynthetic 
   });
 }
 
-async function setup(options: { actorSynthetic?: boolean; patientSynthetic?: boolean } = {}) {
+async function setup(
+  options: {
+    actorSynthetic?: boolean;
+    patientSynthetic?: boolean;
+    definitionCreatorSynthetic?: boolean;
+    versionCreatorSynthetic?: boolean;
+  } = {},
+) {
   const [actor, nurse, clinician] = await Promise.all([
     syntheticUser("admin", options.actorSynthetic ?? true),
     syntheticUser("nurse"),
@@ -72,11 +72,19 @@ async function setup(options: { actorSynthetic?: boolean; patientSynthetic?: boo
       checkInProtocolVersionId: protocol.id,
     },
   });
+  const definitionCreator =
+    options.definitionCreatorSynthetic === undefined
+      ? actor
+      : await syntheticUser("admin", options.definitionCreatorSynthetic);
+  const versionCreator =
+    options.versionCreatorSynthetic === undefined
+      ? actor
+      : await syntheticUser("admin", options.versionCreatorSynthetic);
   const definition = await prisma.commitmentDefinition.create({
     data: {
       definitionKey: `synthetic.commitment.${randomUUID()}`,
       isSynthetic: true,
-      createdById: actor.id,
+      createdById: definitionCreator.id,
     },
   });
   const definitionV1 = await prisma.commitmentDefinitionVersion.create({
@@ -94,7 +102,7 @@ async function setup(options: { actorSynthetic?: boolean; patientSynthetic?: boo
       dueSourceKind: "synthetic.due.source",
       evidencePolicyKey: "synthetic.evidence.policy",
       evidencePolicyVersion: "v1",
-      createdById: actor.id,
+      createdById: versionCreator.id,
     },
   });
   const definitionV2 = await prisma.commitmentDefinitionVersion.create({
@@ -113,7 +121,7 @@ async function setup(options: { actorSynthetic?: boolean; patientSynthetic?: boo
       dueSourceKind: "synthetic.due.source",
       evidencePolicyKey: "synthetic.evidence.policy",
       evidencePolicyVersion: "v2",
-      createdById: actor.id,
+      createdById: versionCreator.id,
     },
   });
   const principal: AuthenticatedPrincipal = {
@@ -121,7 +129,15 @@ async function setup(options: { actorSynthetic?: boolean; patientSynthetic?: boo
     roles: ["admin"],
     sessionId: randomUUID(),
   };
-  return { actor, episode, definitionV1, definitionV2, principal };
+  return {
+    actor,
+    definitionCreator,
+    versionCreator,
+    episode,
+    definitionV1,
+    definitionV2,
+    principal,
+  };
 }
 
 function service(unitOfWork: CommitmentUnitOfWork = new PrismaSyntheticCommitmentUnitOfWork()) {
@@ -195,6 +211,57 @@ function supersedeInput(
     idempotencyKey,
     correlationId: randomUUID(),
   } as const;
+}
+
+async function holdSyntheticCreatorMutation(userId: string) {
+  let releaseMutation!: () => void;
+  let mutationStarted!: () => void;
+  const release = new Promise<void>((resolve) => {
+    releaseMutation = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    mutationStarted = resolve;
+  });
+  const transaction = prisma.$transaction(async (client) => {
+    await client.user.update({ where: { id: userId }, data: { isSynthetic: false } });
+    mutationStarted();
+    await release;
+  });
+  await started;
+  return { releaseMutation, transaction };
+}
+
+async function expectCreatorMutationSerializedOrRejected(
+  fixture: Awaited<ReturnType<typeof setup>>,
+  creatorUserId: string,
+) {
+  const mutation = await holdSyntheticCreatorMutation(creatorUserId);
+  const execution = service()
+    .execute(createInput(fixture, `commitment-create:${randomUUID()}`))
+    .then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+  let stateBeforeRelease: "pending" | "settled";
+  try {
+    stateBeforeRelease = await Promise.race([
+      execution.then(() => "settled" as const),
+      new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), 200)),
+    ]);
+  } finally {
+    mutation.releaseMutation();
+    await mutation.transaction;
+  }
+
+  expect(stateBeforeRelease).toBe("pending");
+  const outcome = await execution;
+  expect(outcome.status).toBe("rejected");
+  if (outcome.status === "rejected") {
+    expect(outcome.error).toBeInstanceOf(CommitmentSyntheticInvariantError);
+  }
+  expect(await prisma.episodeCommitment.count({ where: { episodeId: fixture.episode.id } })).toBe(
+    0,
+  );
 }
 
 class FailingAuditUnitOfWork implements CommitmentUnitOfWork {
@@ -363,10 +430,23 @@ describe("commitment 5B PostgreSQL persistence", () => {
       prisma.episodeCommitmentVersion.delete({ where: { id: created.currentVersionId } }),
     ).rejects.toThrow();
     await expect(
+      prisma.episodeCommitmentVersion.update({
+        where: { id: created.currentVersionId },
+        data: { actionKey: "synthetic.overwrite.forbidden" },
+      }),
+    ).rejects.toThrow();
+    await expect(
       prisma.commitmentEvent.update({
         where: { id: event.id },
         data: { requestFingerprint: "f".repeat(64) },
       }),
+    ).rejects.toThrow();
+    await expect(prisma.commitmentEvent.delete({ where: { id: event.id } })).rejects.toThrow();
+    await expect(
+      prisma.commitmentDefinition.delete({ where: { id: fixture.definitionV1.definitionId } }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.episodeCommitment.delete({ where: { id: created.commitmentId } }),
     ).rejects.toThrow();
   });
 
@@ -378,6 +458,117 @@ describe("commitment 5B PostgreSQL persistence", () => {
     await expect(
       service().execute(createInput(fixture, `commitment-create:${randomUUID()}`)),
     ).rejects.toBeInstanceOf(CommitmentSyntheticInvariantError);
+  });
+
+  it("rechaza una definición marcada sintética cuyo creador no lo es", async () => {
+    const fixture = await setup({ definitionCreatorSynthetic: false });
+    await expect(
+      service().execute(createInput(fixture, `commitment-create:${randomUUID()}`)),
+    ).rejects.toBeInstanceOf(CommitmentSyntheticInvariantError);
+  });
+
+  it("serializa y rechaza el cambio concurrente del creador de la definición", async () => {
+    const fixture = await setup({ definitionCreatorSynthetic: true });
+    await expectCreatorMutationSerializedOrRejected(fixture, fixture.definitionCreator.id);
+  });
+
+  it("serializa y rechaza el cambio concurrente del creador de la versión", async () => {
+    const fixture = await setup({ versionCreatorSynthetic: true });
+    await expectCreatorMutationSerializedOrRejected(fixture, fixture.versionCreator.id);
+  });
+
+  it("impide ramificar o saltar el linaje N+1 de versiones de definición", async () => {
+    const fixture = await setup();
+    await expect(
+      prisma.commitmentDefinitionVersion.create({
+        data: {
+          definitionId: fixture.definitionV1.definitionId,
+          versionNumber: 3,
+          state: "DRAFT",
+          basedOnVersionId: fixture.definitionV1.id,
+          isSynthetic: true,
+          sourceType: "synthetic.protocol",
+          sourceId: `synthetic-source-${randomUUID()}`,
+          sourceVersion: "v3",
+          actionKey: "synthetic.action.v3",
+          actionStatement: "SYNTHETIC invalid branched action recorded by fixture",
+          responsibleRoleRef: "synthetic.role.ref",
+          dueSourceKind: "synthetic.due.source",
+          evidencePolicyKey: "synthetic.evidence.policy",
+          evidencePolicyVersion: "v3",
+          createdById: fixture.actor.id,
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("impide cruces de episodio en snapshots y eventos", async () => {
+    const [first, second] = await Promise.all([setup(), setup()]);
+    const created = await service().execute(
+      createInput(first, `commitment-create:${randomUUID()}`),
+    );
+    const currentVersion = await prisma.episodeCommitmentVersion.findUniqueOrThrow({
+      where: { id: created.currentVersionId },
+    });
+
+    await expect(
+      prisma.episodeCommitmentVersion.create({
+        data: {
+          id: randomUUID(),
+          commitmentId: created.commitmentId,
+          episodeId: second.episode.id,
+          versionNumber: 2,
+          basedOnVersionId: currentVersion.id,
+          definitionVersionId: first.definitionV2.id,
+          actionKey: first.definitionV2.actionKey,
+          actionStatement: first.definitionV2.actionStatement,
+          responsibleRoleRef: first.definitionV2.responsibleRoleRef,
+          assignedUserId: null,
+          dueAt: new Date("2026-08-05T12:00:00.000Z"),
+          timeZone: "Europe/Madrid",
+          dueSourceKind: "synthetic.due.source",
+          dueSourceId: "synthetic-cross-episode-source",
+          dueSourceVersion: "v2",
+          evidencePolicyKey: first.definitionV2.evidencePolicyKey,
+          evidencePolicyVersion: first.definitionV2.evidencePolicyVersion,
+          createdById: first.actor.id,
+          actorRole: "admin",
+          createdAt: new Date("2026-08-02T12:00:00.000Z"),
+          correctionReason: "synthetic invalid cross episode correction",
+        },
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      prisma.commitmentEvent.create({
+        data: {
+          commitmentId: created.commitmentId,
+          episodeId: second.episode.id,
+          type: "COMMITMENT_ACTIVATED",
+          fromState: "DRAFT",
+          toState: "AWAITING_EVIDENCE",
+          sourceVersionId: currentVersion.id,
+          resultingVersionId: currentVersion.id,
+          actorUserId: first.actor.id,
+          actorRole: "admin",
+          idempotencyKey: `cross-episode:${randomUUID()}`,
+          requestFingerprint: "a".repeat(64),
+          resultingRevision: 2,
+          correctionReason: null,
+          occurredAt: new Date("2026-08-02T12:00:00.000Z"),
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("mantiene episodios existentes compatibles y sin backfill", async () => {
+    const fixture = await setup();
+    expect(await prisma.episodeCommitment.count({ where: { episodeId: fixture.episode.id } })).toBe(
+      0,
+    );
+    expect(
+      await prisma.dischargeEpisode.findUnique({ where: { id: fixture.episode.id } }),
+    ).not.toBeNull();
   });
 
   it("no muta episodio, tareas ni avisos durante el lifecycle 5B", async () => {

@@ -92,4 +92,54 @@ describe("commitment 5B static boundary", () => {
       "COMMITMENT_SUPERSEDED",
     ]);
   });
+
+  it("mantiene el policy permisivo fuera del árbol runtime y sin duplicados inline", async () => {
+    const supportPath = join(
+      process.cwd(),
+      "tests/support/synthetic-commitment-authorization-policy.ts",
+    );
+    const support = await readFile(supportPath, "utf8");
+    expect(support).toContain("SyntheticCommitmentAuthorizationPolicy");
+
+    const commitmentTests = [
+      join(process.cwd(), "src/application/commitment/manage-commitments.test.ts"),
+      join(process.cwd(), "src/infrastructure/persistence/commitment-sandbox.integration.test.ts"),
+    ];
+    for (const file of commitmentTests) {
+      const source = await readFile(file, "utf8");
+      expect(source, relative(process.cwd(), file)).toContain(
+        "SyntheticCommitmentAuthorizationPolicy",
+      );
+      expect(source, relative(process.cwd(), file)).not.toMatch(
+        /status:\s*"AUTHORIZED"[\s\S]{0,200}actorId:/u,
+      );
+    }
+
+    const runtimeFiles = (await sourceFiles(join(process.cwd(), "src"))).filter(
+      (file) =>
+        !/[\\/](?:__tests__)[\\/]/u.test(file) && !/\.(?:test|spec)\.(?:ts|tsx)$/u.test(file),
+    );
+    for (const file of runtimeFiles) {
+      const source = await readFile(file, "utf8");
+      expect(source, relative(process.cwd(), file)).not.toMatch(
+        /tests[\\/]support|SyntheticCommitmentAuthorizationPolicy/u,
+      );
+    }
+
+    const runtimeService = await readFile(
+      join(process.cwd(), "src/application/commitment/manage-commitments.ts"),
+      "utf8",
+    );
+    expect(runtimeService).toContain("new DenyAllCommitmentAuthorizationPolicy()");
+  });
+
+  it("bloquea participantes sintéticos en orden global estable", async () => {
+    const persistence = await readFile(
+      join(process.cwd(), "src/infrastructure/persistence/prisma-commitment-unit-of-work.ts"),
+      "utf8",
+    );
+    expect(persistence).toContain("orderedProtectedUserIds");
+    expect(persistence).toContain("definitionAndVersionCreatorUserIds");
+    expect(persistence).toMatch(/ORDER BY participant\."id" ASC[\s\S]*FOR UPDATE OF participant/u);
+  });
 });

@@ -902,7 +902,7 @@ model CommitmentDefinitionVersion {
   definitionId          String                        @map("definition_id")
   versionNumber         Int                           @map("version_number")
   state                 CommitmentDefinitionState     @default(DRAFT)
-  basedOnVersionId      String?                       @map("based_on_version_id")
+  basedOnVersionId      String?                       @unique(map: "commitment_definition_versions_base_unique") @map("based_on_version_id")
   isSynthetic           Boolean                       @default(false) @map("is_synthetic")
   sourceType            String                        @map("source_type") @db.VarChar(128)
   sourceId              String                        @map("source_id") @db.VarChar(128)
