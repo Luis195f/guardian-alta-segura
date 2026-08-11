@@ -116,6 +116,21 @@ fuente de evidencia, scheduler, piloto o uso real. ADR-0015, DEC-002,
 DEC-005, DEC-013 a DEC-017 y los gates regulatorios e institucionales permanecen
 visibles y bloqueantes para el alcance que corresponda.
 
+#### Seguimiento técnico 5B-HARDENING-01 del slice 5B (no canónico)
+
+Sobre el SHA base `82811c67cbef6b8411284e279020e6c635522322`, el núcleo interno queda
+`IMPLEMENTED FOR SYNTHETIC SANDBOX / DISABLED BY DEFAULT / NOT AUTHORIZED FOR REAL USE`.
+La cobertura técnica se limita a persistencia, dominio, port de autorización,
+servicios internos, auditoría atómica, idempotencia, concurrencia y pruebas con datos
+sintéticos. `EvidenceReferenceV1` es un objeto de valor sin tabla universal. No se
+añaden API/UI, reader externo, seed de compromisos, evaluator, ledger, scheduler,
+worker, notificación, comunicación, escalado o backfill.
+
+Esta nota no modifica ninguna fila canónica ni su CSV, no resuelve decisiones y no
+afirma validación clínica, institucional, jurídica, DCB0129, DCB0160, MDR, AI Act o
+aceptación de riesgo. `DEC-016 = Pendiente` y `REAL PILOT = NO_GO` permanecen.
+`CANONICAL SECURITY P13 = NOT EXECUTED`.
+
 ## Reglas de mantenimiento
 
 1. Una modificación de ID, título, responsable, estado o semántica canónica requiere detener el cambio, no reasignar el ID.

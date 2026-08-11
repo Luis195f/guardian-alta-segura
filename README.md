@@ -66,6 +66,28 @@ CI ejecuta instalación congelada, generación de Prisma, despliegue/estado de m
 - `src/presentation` y `src/app`: UI accesible y adaptadores HTTP de Next.js; no contienen reglas de autorización.
 - `prisma`: modelos, migraciones versionadas, controles append-only y seed exclusivamente sintético.
 
+### Núcleo de compromisos 5B
+
+`IMPLEMENTED FOR SYNTHETIC SANDBOX / DISABLED BY DEFAULT / NOT AUTHORIZED FOR REAL USE`.
+
+El delta técnico se identifica como `5B-HARDENING-01`.
+`CANONICAL SECURITY P13 = NOT EXECUTED`.
+
+El núcleo interno 5B persiste definiciones sintéticas `DRAFT`, compromisos ligados a un
+`DischargeEpisode`, snapshots inmutables N+1 y eventos append-only. Sus únicos estados,
+comandos y eventos son los enumerados en la especificación del motor. Reutiliza
+`AuditEvent` dentro de la misma transacción, exige idempotencia y revisión optimista, y
+mantiene `EvidenceReferenceV1` como objeto de valor minimizado sin ledger o tabla
+universal.
+
+`COMMITMENT_ENGINE_ENABLED=false` es el valor seguro. El valor `true` se restringe a
+`NODE_ENV=test` con `DEMO_MODE=true`; el runtime aplica autorización deny-by-default y
+el policy permisivo vive exclusivamente en soporte de pruebas. No existen API, UI,
+reader externo, seed de compromisos, evaluador de vencimientos, scheduler, worker,
+notificación, comunicación, escalado ni backfill para esta capacidad. Activar un
+compromiso sintético no aprueba ni publica su definición y no cambia el estado del
+episodio, tareas, avisos, Plan de Seguridad o SBAR.
+
 El Plan de Seguridad implementa los seis pasos Stanley-Brown como documento ligado a `DischargeEpisode`. Crear o editar produce una versión nueva; los estados se derivan de eventos append-only. La UI incluye edición por pasos, revisión, comparación, historial, vista paciente filtrada por sección y vista cuidador de la versión activa con doble filtro de scope y permiso documental. No hay firma automática, scoring ni recurso de crisis definitivo; la vista imprimible SBAR es determinista y no equivale a un PDF institucional aprobado.
 
 El portal de cuidador usa `CaregiverProfile` seudonimizado, invitaciones locales de un solo uso, scopes append-only versionados por autorización + episodio y una cookie HttpOnly independiente. Cada petición revalida identidad, política, vigencia, última versión del scope del episodio y revocación. PostgreSQL impide vínculos cruzados entre autorización, perfil, episodio, invitación, sesión y observación. Revocar serializa contra accesos, invalida todas las sesiones concurrentes y conserva historia; logout invalida la sesión persistida antes de expirar la cookie. Los TTL predeterminados son configuración técnica de demo, no política institucional. Las observaciones requieren revisión humana y nunca crean avisos o tareas automáticamente. La política demo `caregiver:portal` está `PENDING`; no habilita uso real ni presume capacidad o representación legal.

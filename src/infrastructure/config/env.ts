@@ -113,6 +113,9 @@ export function readServerEnvironment(source: NodeJS.ProcessEnv = process.env): 
   if (commitmentEngineEnabled && !demoMode) {
     throw new Error("COMMITMENT_ENGINE_ENABLED requires explicit synthetic DEMO_MODE");
   }
+  if (commitmentEngineEnabled && nodeEnv !== "test") {
+    throw new Error("COMMITMENT_ENGINE_ENABLED is restricted to internal synthetic tests");
+  }
 
   return {
     nodeEnv,

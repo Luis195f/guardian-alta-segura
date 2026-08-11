@@ -123,6 +123,16 @@ describe("server environment validation", () => {
     ).toThrow("COMMITMENT_ENGINE_ENABLED requires explicit synthetic DEMO_MODE");
   });
 
+  it("impide habilitar el gate 5B fuera de pruebas internas", () => {
+    expect(() =>
+      readServerEnvironment({
+        ...baseEnvironment,
+        NODE_ENV: "development",
+        COMMITMENT_ENGINE_ENABLED: "true",
+      }),
+    ).toThrow("COMMITMENT_ENGINE_ENABLED is restricted to internal synthetic tests");
+  });
+
   it.each(["0", "13", "8.5", "not-a-number"])(
     "rechaza TTL demo fuera del rango seguro: %s",
     (ttl) => {

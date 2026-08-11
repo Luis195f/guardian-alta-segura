@@ -30,7 +30,10 @@ export interface CommitmentDefinitionVersionRecord {
   readonly state: "DRAFT";
   readonly definitionIsSynthetic: boolean;
   readonly versionIsSynthetic: boolean;
-  readonly creatorIsSynthetic: boolean;
+  readonly definitionCreatorUserId: string;
+  readonly versionCreatorUserId: string;
+  readonly definitionCreatorIsSynthetic: boolean;
+  readonly versionCreatorIsSynthetic: boolean;
   readonly sourceType: string;
   readonly sourceId: string;
   readonly sourceVersion: string;
@@ -109,8 +112,9 @@ export interface CommitmentTransaction {
     readonly episodeId: string;
     readonly actorUserId: string;
     readonly assignedUserId: string | null;
+    readonly definitionAndVersionCreatorUserIds: readonly string[];
   }): Promise<CommitmentSyntheticContextRecord | null>;
-  getDefinitionVersionForUpdate(
+  getDefinitionVersion(
     definitionVersionId: string,
   ): Promise<CommitmentDefinitionVersionRecord | null>;
   getCommitmentForUpdate(commitmentId: string): Promise<EpisodeCommitmentRecord | null>;

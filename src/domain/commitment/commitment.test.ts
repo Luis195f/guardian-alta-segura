@@ -7,11 +7,26 @@ import {
   COMMITMENT_STATES,
   CommitmentTransitionError,
   commitmentRequestFingerprint,
+  createEvidenceReferenceV1,
   normalizeCorrectionReason,
   parseExplicitUtcInstant,
   validateDueSource,
   validateTimeZone,
 } from "@/domain/commitment/commitment";
+
+function validEvidenceReference() {
+  return {
+    schemaVersion: 1,
+    sourceType: "synthetic.task-event",
+    sourceResourceId: "synthetic-task-event-1",
+    episodeId: "synthetic-episode-1",
+    sourceVersionRef: "revision-1",
+    actionKind: "synthetic.contact-attempt",
+    recordedAt: "2026-08-03T10:00:00.000Z",
+    resolverVersion: "synthetic-resolver-v1",
+    integritySha256: "a".repeat(64),
+  } as const;
+}
 
 describe("commitment sandbox domain", () => {
   it("expone únicamente los catálogos alcanzables por 5B", () => {
@@ -79,5 +94,53 @@ describe("commitment sandbox domain", () => {
       "synthetic correction reference",
     );
     expect(() => normalizeCorrectionReason("short")).toThrow();
+  });
+
+  it("materializa EvidenceReferenceV1 como value object minimizado y cerrado", () => {
+    expect(createEvidenceReferenceV1(validEvidenceReference())).toEqual(validEvidenceReference());
+  });
+
+  it("rechaza un offset +02:00 en lugar de UTC Z", () => {
+    expect(() =>
+      createEvidenceReferenceV1({
+        ...validEvidenceReference(),
+        recordedAt: "2026-08-03T12:00:00+02:00",
+      }),
+    ).toThrow();
+  });
+
+  it("rechaza un SHA-256 inválido", () => {
+    expect(() =>
+      createEvidenceReferenceV1({ ...validEvidenceReference(), integritySha256: "not-a-digest" }),
+    ).toThrow();
+  });
+
+  it("rechaza una propiedad adicional", () => {
+    expect(() =>
+      createEvidenceReferenceV1({
+        ...validEvidenceReference(),
+        copiedClinicalPayload: "forbidden",
+      }),
+    ).toThrow();
+  });
+
+  it("rechaza una propiedad ausente", () => {
+    const missingActionKind: Record<string, unknown> = { ...validEvidenceReference() };
+    Reflect.deleteProperty(missingActionKind, "actionKind");
+    expect(() => createEvidenceReferenceV1(missingActionKind)).toThrow();
+  });
+
+  it("rechaza schemaVersion distinto de 1", () => {
+    expect(() =>
+      createEvidenceReferenceV1({ ...validEvidenceReference(), schemaVersion: 2 }),
+    ).toThrow();
+  });
+
+  it("impide mutar el value object retornado", () => {
+    const reference = createEvidenceReferenceV1(validEvidenceReference());
+    expect(() => {
+      (reference as { sourceType: string }).sourceType = "synthetic.mutated";
+    }).toThrow(TypeError);
+    expect(reference.sourceType).toBe("synthetic.task-event");
   });
 });

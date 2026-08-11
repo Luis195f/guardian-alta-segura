@@ -161,7 +161,8 @@ function assertSyntheticDefinition(definition: CommitmentDefinitionVersionRecord
     definition.state !== "DRAFT" ||
     !definition.definitionIsSynthetic ||
     !definition.versionIsSynthetic ||
-    !definition.creatorIsSynthetic
+    !definition.definitionCreatorIsSynthetic ||
+    !definition.versionCreatorIsSynthetic
   ) {
     throw new CommitmentSyntheticInvariantError(
       "Definition and version must be synthetic DRAFT records",
@@ -332,10 +333,20 @@ export class CommitmentSandboxCoreService {
           "NON_SYNTHETIC_ADAPTER",
         );
       }
+      const definitionBeforeUserLocks = await transaction.getDefinitionVersion(
+        command.definitionVersionId,
+      );
+      if (!definitionBeforeUserLocks) {
+        throw new CommitmentNotFoundError("Definition version not found");
+      }
       const context = await transaction.lockSyntheticContext({
         episodeId: command.episodeId,
         actorUserId: command.actor.userId,
         assignedUserId: command.assignedUserId,
+        definitionAndVersionCreatorUserIds: [
+          definitionBeforeUserLocks.definitionCreatorUserId,
+          definitionBeforeUserLocks.versionCreatorUserId,
+        ],
       });
       assertSyntheticContext(context);
       await authorize(
@@ -360,9 +371,7 @@ export class CommitmentSandboxCoreService {
         return replayResult(replay);
       }
 
-      const definition = await transaction.getDefinitionVersionForUpdate(
-        command.definitionVersionId,
-      );
+      const definition = await transaction.getDefinitionVersion(command.definitionVersionId);
       if (!definition) throw new CommitmentNotFoundError("Definition version not found");
       assertSyntheticDefinition(definition);
       if (definition.dueSourceKind !== command.dueSource.kind) {
@@ -457,10 +466,32 @@ export class CommitmentSandboxCoreService {
       }
       const commitment = await transaction.getCommitmentForUpdate(command.commitmentId);
       if (!commitment) throw new CommitmentNotFoundError();
+      const currentDefinitionBeforeUserLocks = await transaction.getDefinitionVersion(
+        commitment.currentVersion.definitionVersionId,
+      );
+      if (!currentDefinitionBeforeUserLocks) {
+        throw new CommitmentConflictError("Referenced definition is missing");
+      }
+      const replacementDefinitionBeforeUserLocks = normalizedReplacement
+        ? await transaction.getDefinitionVersion(normalizedReplacement.definitionVersionId)
+        : null;
+      if (normalizedReplacement && !replacementDefinitionBeforeUserLocks) {
+        throw new CommitmentNotFoundError("Replacement definition version not found");
+      }
       const context = await transaction.lockSyntheticContext({
         episodeId: commitment.episodeId,
         actorUserId: command.actor.userId,
         assignedUserId: normalizedReplacement?.assignedUserId ?? null,
+        definitionAndVersionCreatorUserIds: [
+          currentDefinitionBeforeUserLocks.definitionCreatorUserId,
+          currentDefinitionBeforeUserLocks.versionCreatorUserId,
+          ...(replacementDefinitionBeforeUserLocks
+            ? [
+                replacementDefinitionBeforeUserLocks.definitionCreatorUserId,
+                replacementDefinitionBeforeUserLocks.versionCreatorUserId,
+              ]
+            : []),
+        ],
       });
       assertSyntheticContext(context);
       await authorize(
@@ -490,7 +521,7 @@ export class CommitmentSandboxCoreService {
         throw new CommitmentConflictError("Expected revision does not match");
       }
       const toState = assertCommitmentTransition(command.kind, commitment.currentState);
-      const currentDefinition = await transaction.getDefinitionVersionForUpdate(
+      const currentDefinition = await transaction.getDefinitionVersion(
         commitment.currentVersion.definitionVersionId,
       );
       if (!currentDefinition) throw new CommitmentConflictError("Referenced definition is missing");
@@ -499,7 +530,7 @@ export class CommitmentSandboxCoreService {
 
       let replacementVersion: CommitmentVersionInput | null = null;
       if (normalizedReplacement) {
-        const replacementDefinition = await transaction.getDefinitionVersionForUpdate(
+        const replacementDefinition = await transaction.getDefinitionVersion(
           normalizedReplacement.definitionVersionId,
         );
         if (!replacementDefinition) {

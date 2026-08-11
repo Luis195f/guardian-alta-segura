@@ -6,6 +6,7 @@ import {
   CommitmentConflictError,
   CommitmentDeniedError,
   CommitmentGateError,
+  CommitmentNotFoundError,
   CommitmentSandboxCoreService,
   CommitmentSyntheticInvariantError,
   type CreateCommitmentDraftCommand,
@@ -20,19 +21,12 @@ import type {
 } from "@/application/ports/commitment-unit-of-work";
 import type { NewAuditEvent } from "@/domain/audit/audit-event";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
-import type { CommitmentAuthorizationPolicy } from "@/domain/commitment/commitment-authorization";
+import { SyntheticCommitmentAuthorizationPolicy } from "../../../tests/support/synthetic-commitment-authorization-policy";
 
 const fixedNow = new Date("2026-08-02T12:00:00.000Z");
 const enabledGate = { configured: true, enabled: true } as const;
 
-const syntheticPolicy: CommitmentAuthorizationPolicy = {
-  evaluate: (request) => ({
-    status: "AUTHORIZED",
-    command: request.command,
-    actorId: request.actor.userId,
-    episodeId: request.episodeId,
-  }),
-};
+const syntheticPolicy = new SyntheticCommitmentAuthorizationPolicy();
 
 const principal: AuthenticatedPrincipal = {
   userId: "synthetic-actor-1",
@@ -53,7 +47,10 @@ function definition(
     state: "DRAFT",
     definitionIsSynthetic: true,
     versionIsSynthetic: true,
-    creatorIsSynthetic: true,
+    definitionCreatorUserId: "synthetic-definition-creator-1",
+    versionCreatorUserId: "synthetic-version-creator-1",
+    definitionCreatorIsSynthetic: true,
+    versionCreatorIsSynthetic: true,
     sourceType: "synthetic.protocol",
     sourceId: "synthetic-protocol-1",
     sourceVersion: `v${versionNumber}`,
@@ -101,6 +98,7 @@ class MemoryCommitmentStore implements CommitmentUnitOfWork, CommitmentTransacti
     readonly episodeId: string;
     readonly actorUserId: string;
     readonly assignedUserId: string | null;
+    readonly definitionAndVersionCreatorUserIds: readonly string[];
   }) {
     if (input.episodeId !== "synthetic-episode-1" || input.actorUserId !== principal.userId) {
       return null;
@@ -117,7 +115,7 @@ class MemoryCommitmentStore implements CommitmentUnitOfWork, CommitmentTransacti
     };
   }
 
-  async getDefinitionVersionForUpdate(definitionVersionId: string) {
+  async getDefinitionVersion(definitionVersionId: string) {
     return this.definitions.get(definitionVersionId) ?? null;
   }
 
@@ -442,6 +440,45 @@ describe("commitment sandbox application service", () => {
     });
   });
 
+  it("rechaza una versión de definición inexistente sin mutaciones", async () => {
+    const store = new MemoryCommitmentStore();
+    store.definitions.delete("synthetic-definition-v1");
+    await expect(service(store).execute(createCommand())).rejects.toBeInstanceOf(
+      CommitmentNotFoundError,
+    );
+    expect(store.commitments.size).toBe(0);
+    expect(store.events).toHaveLength(0);
+    expect(store.audits).toHaveLength(0);
+  });
+
+  it.each([
+    { field: "dueAt", patch: { dueAt: "2026-08-04T14:00:00+02:00" } },
+    { field: "timeZone", patch: { timeZone: "Invalid/SyntheticZone" } },
+    {
+      field: "dueSource",
+      patch: { dueSource: { kind: "synthetic.due.source", sourceId: "", version: "v1" } },
+    },
+  ])("rechaza $field inválido antes de mutar", async ({ patch }) => {
+    const store = new MemoryCommitmentStore();
+    await expect(service(store).execute(createCommand(patch))).rejects.toThrow();
+    expect(store.commitments.size).toBe(0);
+    expect(store.events).toHaveLength(0);
+    expect(store.audits).toHaveLength(0);
+  });
+
+  it.each(["sourceId", "evidencePolicyVersion"] as const)(
+    "rechaza definición con %s inválido antes de mutar",
+    async (field) => {
+      const store = new MemoryCommitmentStore();
+      const current = store.definitions.get("synthetic-definition-v1")!;
+      store.definitions.set("synthetic-definition-v1", { ...current, [field]: "" });
+      await expect(service(store).execute(createCommand())).rejects.toThrow();
+      expect(store.commitments.size).toBe(0);
+      expect(store.events).toHaveLength(0);
+      expect(store.audits).toHaveLength(0);
+    },
+  );
+
   it.each(["episode", "actor", "assigned-user"] as const)(
     "rechaza contexto no sintético: %s",
     async (target) => {
@@ -459,7 +496,7 @@ describe("commitment sandbox application service", () => {
     },
   );
 
-  it.each(["definition", "version", "creator"] as const)(
+  it.each(["definition", "version", "definition-creator", "version-creator"] as const)(
     "rechaza definición/version no sintética: %s",
     async (target) => {
       const store = new MemoryCommitmentStore();
@@ -468,7 +505,8 @@ describe("commitment sandbox application service", () => {
         ...current,
         ...(target === "definition" ? { definitionIsSynthetic: false } : {}),
         ...(target === "version" ? { versionIsSynthetic: false } : {}),
-        ...(target === "creator" ? { creatorIsSynthetic: false } : {}),
+        ...(target === "definition-creator" ? { definitionCreatorIsSynthetic: false } : {}),
+        ...(target === "version-creator" ? { versionCreatorIsSynthetic: false } : {}),
       });
       await expect(service(store).execute(createCommand())).rejects.toBeInstanceOf(
         CommitmentSyntheticInvariantError,
