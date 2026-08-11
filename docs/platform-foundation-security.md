@@ -36,7 +36,7 @@ Estos permisos no conceden alcance global. Los futuros módulos deberán añadir
 - El adaptador demo verifica `isSynthetic`, cuenta activa y roles activos.
 - El token aleatorio de 256 bits solo sale del servidor como cookie HttpOnly; se persiste su hash.
 - El TTL demo se valida entre 1 y 12 horas; ocho horas es solo el valor del ejemplo local, no una política institucional.
-- `DEMO_MODE=true` en producción o con un host no loopback es un error de configuración. Next.js enlaza el servidor demo a `127.0.0.1` y cada ruta demo rechaza además un `Host` ausente/no loopback o un `X-Forwarded-Host` no loopback; no se confía únicamente en `APP_BASE_URL`.
+- `DEMO_MODE=true` en producción o con un host no loopback es un error de configuración. Next.js enlaza el servidor demo a `127.0.0.1` y cada ruta demo rechaza además un `Host` ausente/no loopback. El `X-Forwarded-Host` interno de Next.js solo se acepta como un valor único cuya autoridad canónica coincide exactamente con ese `Host`; no existe confianza general en forwarded headers ni se confía únicamente en `APP_BASE_URL`.
 - `admin` no puede autoasignarse roles clínicos.
 - La asignación administrativa recibe `actingRole=admin` explícito y revalida dentro de la misma transacción que el actor siga activo y conserve el rol.
 - Un objetivo administrativo debe existir, estar activo y ser sintético. Las seis identidades demo reservadas no aceptan roles adicionales mediante la API.
@@ -51,15 +51,15 @@ El error público contiene solo código, mensaje estable y correlation ID. El lo
 
 ## Controles HTTP y limitaciones
 
-- Mutaciones: comprobación estricta de `Origin`; cookies SameSite Strict.
+- Mutaciones: comprobación estricta del valor canónico de `Origin`; cookies SameSite Strict.
 - Demo: comprobación server-side del host efectivo, incluso cuando `APP_BASE_URL` ya es loopback.
-- Headers: frame denial, no-sniff, no-referrer, COOP y desactivación de cámara/micrófono/geolocalización.
-- Login demo: cinco intentos por minuto y clave derivada, almacenada solo en memoria.
+- Headers: CSP acotada que bloquea `base`, objetos y framing, frame denial, no-sniff, no-referrer, COOP y desactivación de cámara/micrófono/geolocalización.
+- Login demo: cinco intentos por minuto y alias sintético validado como clave, almacenado solo en memoria; no se particiona por `User-Agent` ni otras cabeceras controladas por el cliente.
 - Docker publica PostgreSQL únicamente en `127.0.0.1:5432`.
 - Healthcheck: sin base de datos, secretos, versión interna ni datos de usuario.
 - Correlation ID: UUID generado en el proxy, propagado a respuestas y auditoría.
 
-El rate limiter no es distribuido, se reinicia con el proceso y no sustituye WAF/API gateway. HSTS requiere terminación TLS verificada. Una CSP estricta con nonces se aplaza hasta definir el despliegue y no se simula mediante `unsafe-inline`. Estos controles son bloqueos pendientes de infraestructura, no defectos ocultos como controles completos.
+El rate limiter no es distribuido, se reinicia con el proceso y no sustituye WAF/API gateway. HSTS requiere terminación TLS verificada. La CSP acotada no declara una política de scripts; una CSP estricta con nonces se aplaza hasta definir el despliegue y no se simula mediante `unsafe-inline`. Estos controles son bloqueos pendientes de infraestructura, no defectos ocultos como controles completos.
 
 ## Seed demo determinista
 

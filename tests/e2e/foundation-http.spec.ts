@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { request as nodeHttpRequest } from "node:http";
 
 import { PrismaClient } from "@prisma/client";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
@@ -10,6 +11,7 @@ const prisma = new PrismaClient();
 const baseURL = "http://127.0.0.1:3000";
 const originHeaders = { Origin: baseURL };
 const sessionCookieName = "guardian_demo_session";
+const loginRateLimitWindowMilliseconds = 60_000;
 
 const resources = [
   "authenticated-session",
@@ -30,6 +32,44 @@ const allowedByRole = {
 } as const;
 
 type DemoRole = keyof typeof allowedByRole;
+
+async function postDemoSessionWithRawHeaders(
+  headers: ReadonlyArray<readonly [string, string]>,
+  body = JSON.stringify({ syntheticAlias: "demo-nurse" }),
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = nodeHttpRequest(
+      {
+        hostname: "127.0.0.1",
+        port: 3000,
+        path: "/api/demo/session",
+        method: "POST",
+        headers: headers.flat(),
+      },
+      (response) => {
+        response.resume();
+        response.on("end", () => resolve(response.statusCode ?? 0));
+      },
+    );
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+function standardSessionHeaders(
+  additional: ReadonlyArray<readonly [string, string]> = [],
+): ReadonlyArray<readonly [string, string]> {
+  return [
+    ["Content-Type", "application/json"],
+    ["Host", "127.0.0.1:3000"],
+    ["Origin", baseURL],
+    ...additional,
+  ];
+}
+
+async function waitForLoginRateLimitWindow(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, loginRateLimitWindowMilliseconds + 100));
+}
 
 async function createAuthenticatedContext(role: DemoRole): Promise<APIRequestContext> {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: originHeaders });
@@ -563,7 +603,7 @@ test.describe.serial("HTTP demo authentication and authorization with PostgreSQL
     await patientContext.dispose();
   });
 
-  test("Origin extranjero o ausente bloquea mutaciones", async () => {
+  test("Origin ausente, no canónico, malformado o extranjero bloquea mutaciones", async () => {
     const missingOrigin = await apiRequest.newContext({ baseURL });
     expect(
       (
@@ -574,21 +614,37 @@ test.describe.serial("HTTP demo authentication and authorization with PostgreSQL
     ).toBe(403);
     await missingOrigin.dispose();
 
-    const foreignOrigin = await apiRequest.newContext({
-      baseURL,
-      extraHTTPHeaders: { Origin: "https://attacker.invalid" },
-    });
-    expect(
-      (
-        await foreignOrigin.post("/api/demo/session", {
-          data: { syntheticAlias: "demo-nurse" },
-        })
-      ).status(),
-    ).toBe(403);
-    await foreignOrigin.dispose();
+    for (const origin of [
+      `${baseURL}/path`,
+      `${baseURL}?ambiguous=true`,
+      "http://user@127.0.0.1:3000",
+      `${baseURL}, https://attacker.invalid`,
+      "not a valid origin",
+      "https://attacker.invalid",
+    ]) {
+      await test.step(`rechaza Origin: ${origin}`, async () => {
+        expect(
+          await postDemoSessionWithRawHeaders([
+            ["Content-Type", "application/json"],
+            ["Host", "127.0.0.1:3000"],
+            ["Origin", origin],
+          ]),
+        ).toBe(403);
+      });
+    }
   });
 
-  test("Host o X-Forwarded-Host no loopback bloquea las rutas demo", async () => {
+  test("el X-Forwarded-Host interno ausente o coincidente supera el boundary", async () => {
+    expect(await postDemoSessionWithRawHeaders(standardSessionHeaders(), "{}")).toBe(400);
+    expect(
+      await postDemoSessionWithRawHeaders(
+        standardSessionHeaders([["X-Forwarded-Host", "127.0.0.1:3000"]]),
+        "{}",
+      ),
+    ).toBe(400);
+  });
+
+  test("Host o X-Forwarded-Host inválido bloquea las rutas demo", async () => {
     const foreignHost = await apiRequest.newContext({
       baseURL,
       extraHTTPHeaders: { ...originHeaders, Host: "192.168.1.50:3000" },
@@ -619,6 +675,64 @@ test.describe.serial("HTTP demo authentication and authorization with PostgreSQL
     expect((await foreignForwardedHost.get("/api/demo/rules")).status()).toBe(403);
     expect((await foreignForwardedHost.get("/api/demo/alerts")).status()).toBe(403);
     await foreignForwardedHost.dispose();
+
+    const rejectedForwardedHostHeaders: ReadonlyArray<{
+      readonly name: string;
+      readonly values: ReadonlyArray<readonly [string, string]>;
+    }> = [
+      { name: "vacío", values: [["X-Forwarded-Host", ""]] },
+      {
+        name: "múltiple",
+        values: [["X-Forwarded-Host", "127.0.0.1:3000, 127.0.0.1:3000"]],
+      },
+      {
+        name: "duplicado",
+        values: [
+          ["X-Forwarded-Host", "127.0.0.1:3000"],
+          ["X-Forwarded-Host", "127.0.0.1:3000"],
+        ],
+      },
+      { name: "no loopback", values: [["X-Forwarded-Host", "guardian-staging.invalid"]] },
+      { name: "contradictorio", values: [["X-Forwarded-Host", "localhost:3000"]] },
+    ];
+
+    for (const forwardedHost of rejectedForwardedHostHeaders) {
+      await test.step(`rechaza X-Forwarded-Host ${forwardedHost.name}`, async () => {
+        expect(
+          await postDemoSessionWithRawHeaders(standardSessionHeaders(forwardedHost.values)),
+        ).toBe(403);
+      });
+    }
+  });
+
+  test("el rate limiter HTTP agrupa User-Agent por alias y separa aliases", async () => {
+    test.setTimeout(150_000);
+    await waitForLoginRateLimitWindow();
+    try {
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        expect(
+          await postDemoSessionWithRawHeaders(
+            standardSessionHeaders([["User-Agent", `gas-p13-rate-limit-${attempt}`]]),
+            JSON.stringify({ syntheticAlias: "demo-support" }),
+          ),
+        ).toBe(201);
+      }
+
+      expect(
+        await postDemoSessionWithRawHeaders(
+          standardSessionHeaders([["User-Agent", "gas-p13-rate-limit-bypass"]]),
+          JSON.stringify({ syntheticAlias: "demo-support" }),
+        ),
+      ).toBe(429);
+      expect(
+        await postDemoSessionWithRawHeaders(
+          standardSessionHeaders([["User-Agent", "gas-p13-rate-limit-bypass"]]),
+          JSON.stringify({ syntheticAlias: "demo-caregiver" }),
+        ),
+      ).toBe(201);
+    } finally {
+      await waitForLoginRateLimitWindow();
+    }
   });
 
   test("asignación administrativa autorizada, duplicada y no autorizada", async () => {

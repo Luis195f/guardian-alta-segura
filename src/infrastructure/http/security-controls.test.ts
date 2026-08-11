@@ -1,7 +1,9 @@
+import nextConfig from "../../../next.config";
+
 import { describe, expect, it } from "vitest";
 
 import { assertSameOrigin } from "@/infrastructure/http/csrf";
-import { InMemoryRateLimiter } from "@/infrastructure/http/rate-limiter";
+import { DemoLoginRateLimiter, InMemoryRateLimiter } from "@/infrastructure/http/rate-limiter";
 import { sessionCookie } from "@/infrastructure/http/session-cookie";
 import { assertLoopbackRequestHost } from "@/infrastructure/security/loopback";
 
@@ -33,6 +35,23 @@ describe("HTTP security controls", () => {
     expect(() => assertLoopbackRequestHost(request)).toThrow("FORBIDDEN");
   });
 
+  it("acepta X-Forwarded-Host solo si coincide con el Host loopback validado", () => {
+    const request = new Request("http://127.0.0.1:3000/api/demo/session", {
+      headers: { Host: "127.0.0.1:3000", "X-Forwarded-Host": "127.0.0.1:3000" },
+    });
+    expect(() => assertLoopbackRequestHost(request)).not.toThrow();
+  });
+
+  it.each(["localhost:3000", "127.0.0.1:3000, 127.0.0.1:3000", ""])(
+    "rechaza X-Forwarded-Host contradictorio, múltiple o vacío: %s",
+    (forwardedHost) => {
+      const request = new Request("http://127.0.0.1:3000/api/demo/session", {
+        headers: { Host: "127.0.0.1:3000", "X-Forwarded-Host": forwardedHost },
+      });
+      expect(() => assertLoopbackRequestHost(request)).toThrow("FORBIDDEN");
+    },
+  );
+
   it("exige Origin exacto en mutaciones", () => {
     const valid = new Request("http://localhost:3000/api/demo/session", {
       method: "POST",
@@ -53,12 +72,43 @@ describe("HTTP security controls", () => {
     expect(() => assertSameOrigin(malformed, "http://localhost:3000")).toThrow();
   });
 
+  it.each([
+    "http://localhost:3000/path",
+    "http://localhost:3000?ambiguous=true",
+    "http://user@localhost:3000",
+    "http://localhost:3000/",
+    "null",
+    "http://localhost:3000,https://attacker.invalid",
+  ])("rechaza Origin no canónico o ambiguo: %s", (origin) => {
+    const request = new Request("http://localhost:3000/api/demo/session", {
+      method: "POST",
+      headers: { Origin: origin },
+    });
+    expect(() => assertSameOrigin(request, "http://localhost:3000")).toThrow("FORBIDDEN");
+  });
+
   it("limita intentos dentro de una ventana", () => {
     const limiter = new InMemoryRateLimiter(2, 1_000);
     expect(limiter.take("synthetic-key", 1_000)).toBe(true);
     expect(limiter.take("synthetic-key", 1_001)).toBe(true);
     expect(limiter.take("synthetic-key", 1_002)).toBe(false);
     expect(limiter.take("synthetic-key", 2_001)).toBe(true);
+  });
+
+  it("particiona el contrato puro de login únicamente por alias sintético", () => {
+    const limiter = new DemoLoginRateLimiter(2, 1_000);
+    expect(limiter.takeForSyntheticAlias("demo-admin", 1_000)).toBe(true);
+    expect(limiter.takeForSyntheticAlias("demo-admin", 1_001)).toBe(true);
+    expect(limiter.takeForSyntheticAlias("demo-admin", 1_002)).toBe(false);
+    expect(limiter.takeForSyntheticAlias("demo-nurse", 1_002)).toBe(true);
+  });
+
+  it("publica una CSP restrictiva sin simular nonces ni permitir inline", async () => {
+    const rules = await nextConfig.headers?.();
+    const headers = new Map(rules?.[0]?.headers.map((header) => [header.key, header.value]));
+    const policy = headers.get("Content-Security-Policy");
+    expect(policy).toBe("base-uri 'none'; object-src 'none'; frame-ancestors 'none'");
+    expect(policy).not.toMatch(/unsafe-inline|data:|\*/u);
   });
 
   it("configura la sesión como HttpOnly, SameSite strict y Secure cuando corresponde", () => {
