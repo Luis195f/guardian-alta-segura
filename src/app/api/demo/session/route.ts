@@ -5,17 +5,13 @@ import { LogoutService } from "@/application/auth/logout";
 import { isRole } from "@/domain/auth/role";
 import { readAuthenticatedPrincipal } from "@/infrastructure/auth/session-reader";
 import { readServerEnvironment } from "@/infrastructure/config/env";
-import {
-  hashUserAgent,
-  secureSessionTokenIssuer,
-  sha256,
-} from "@/infrastructure/crypto/session-token";
+import { hashUserAgent, secureSessionTokenIssuer } from "@/infrastructure/crypto/session-token";
 import { PrismaDemoIdentityProvider } from "@/infrastructure/identity/demo-identity-provider";
 import { errors } from "@/infrastructure/http/app-error";
 import { getCorrelationId } from "@/infrastructure/http/correlation-id";
 import { assertSameOrigin } from "@/infrastructure/http/csrf";
 import { errorResponse } from "@/infrastructure/http/error-handler";
-import { InMemoryRateLimiter } from "@/infrastructure/http/rate-limiter";
+import { DemoLoginRateLimiter } from "@/infrastructure/http/rate-limiter";
 import {
   expiredSessionCookie,
   SESSION_COOKIE_NAME,
@@ -26,7 +22,7 @@ import { assertLoopbackRequestHost } from "@/infrastructure/security/loopback";
 
 export const dynamic = "force-dynamic";
 
-const loginLimiter = new InMemoryRateLimiter(5, 60_000);
+const loginLimiter = new DemoLoginRateLimiter(5, 60_000);
 const aliasPattern = /^demo-(admin|nurse|clinician|patient|caregiver|support)$/;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -49,8 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const userAgent = request.headers.get("user-agent");
-    const limiterKey = sha256(`${input.syntheticAlias}:${userAgent ?? "unknown"}`);
-    if (!loginLimiter.take(limiterKey)) throw errors.rateLimited();
+    if (!loginLimiter.takeForSyntheticAlias(input.syntheticAlias)) throw errors.rateLimited();
 
     const service = new DemoLoginService(
       new PrismaDemoIdentityProvider(),

@@ -18,3 +18,15 @@ export class InMemoryRateLimiter {
     return true;
   }
 }
+
+export class DemoLoginRateLimiter {
+  private readonly limiter: InMemoryRateLimiter;
+
+  constructor(limit: number, windowMilliseconds: number) {
+    this.limiter = new InMemoryRateLimiter(limit, windowMilliseconds);
+  }
+
+  takeForSyntheticAlias(syntheticAlias: string, now = Date.now()): boolean {
+    return this.limiter.take(syntheticAlias, now);
+  }
+}

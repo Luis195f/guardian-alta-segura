@@ -5,7 +5,7 @@ export function isLoopbackHostname(hostname: string): boolean {
   return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
 }
 
-function hostnameFromAuthority(authority: string): string | null {
+function canonicalLoopbackAuthority(authority: string): string | null {
   try {
     const parsed = new URL(`http://${authority.trim()}`);
     if (
@@ -17,25 +17,24 @@ function hostnameFromAuthority(authority: string): string | null {
     ) {
       return null;
     }
-    return parsed.hostname;
+    return isLoopbackHostname(parsed.hostname) ? parsed.host : null;
   } catch {
     return null;
   }
 }
 
 function isLoopbackAuthority(authority: string): boolean {
-  const hostname = hostnameFromAuthority(authority);
-  return hostname !== null && isLoopbackHostname(hostname);
+  return canonicalLoopbackAuthority(authority) !== null;
 }
 
 export function assertLoopbackRequestHost(request: Pick<Request, "headers">): void {
   const host = request.headers.get("host");
   if (!host || !isLoopbackAuthority(host)) throw errors.forbidden();
 
-  const forwardedHosts = request.headers.get("x-forwarded-host");
+  const forwardedHost = request.headers.get("x-forwarded-host");
   if (
-    forwardedHosts &&
-    forwardedHosts.split(",").some((forwardedHost) => !isLoopbackAuthority(forwardedHost))
+    forwardedHost !== null &&
+    canonicalLoopbackAuthority(forwardedHost) !== canonicalLoopbackAuthority(host)
   ) {
     throw errors.forbidden();
   }
