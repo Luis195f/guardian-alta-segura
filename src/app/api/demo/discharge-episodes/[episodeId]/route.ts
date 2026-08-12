@@ -60,11 +60,13 @@ export async function GET(
     const { episodeId } = await context.params;
     const [episode, governance] = await Promise.all([
       getAssignedEpisodeDetail(episodeId, principal.userId),
-      new GetEpisodeGovernanceViewService(new PrismaEpisodeUnitOfWork(), governancePolicy).execute({
-        actor: principal,
-        episodeId,
-        correlationId,
-      }),
+      new GetEpisodeGovernanceViewService(new PrismaEpisodeUnitOfWork(), governancePolicy)
+        .execute({
+          actor: principal,
+          episodeId,
+          correlationId,
+        })
+        .catch(mapTransitionError),
     ]);
     if (!episode) throw errors.notFound();
     if (episode.version !== governance.episodeVersion) throw errors.conflict();
