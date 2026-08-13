@@ -1,0 +1,78 @@
+{
+  "manifestVersion": "gas2-p15-v1",
+  "notice": "DEMO SINTÉTICA · NO USO CLÍNICO",
+  "appBaseUrl": "http://127.0.0.1:3000",
+  "database": {
+    "hostname": "127.0.0.1",
+    "port": 5432,
+    "name": "guardian_demo",
+    "user": "guardian_demo",
+    "postgresMajor": 16,
+    "composeService": "postgres"
+  },
+  "migrations": [
+    "20260715000100_platform_foundation",
+    "20260716000100_consent_legal_basis",
+    "20260716000200_discharge_episode",
+    "20260717000100_safety_plan_versioning",
+    "20260717000200_check_in_protocols",
+    "20260717000300_explainable_alerts",
+    "20260720000100_nursing_workqueue_tasks",
+    "20260721000100_caregiver_access_revocation",
+    "20260721000200_home_safety_and_sbar",
+    "20260721000300_reconcile_task_integrity_guards",
+    "20260721000400_enforce_task_event_semantics",
+    "20260802000100_commitment_sandbox_core_5b",
+    "20260808000100_alert_review_idempotency",
+    "20260810000100_commitment_definition_lineage_guard"
+  ],
+  "identities": [
+    { "alias": "demo-admin", "role": "admin" },
+    { "alias": "demo-nurse", "role": "nurse" },
+    { "alias": "demo-clinician", "role": "clinician" },
+    { "alias": "demo-patient", "role": "patient" },
+    { "alias": "demo-caregiver", "role": "caregiver" },
+    { "alias": "demo-support", "role": "support" }
+  ],
+  "fixtures": {
+    "patient": "SYNTH-PATIENT-001",
+    "episode": "synthetic-demo-episode-buildweek",
+    "safetyPlan": "synthetic-demo-safety-plan-buildweek",
+    "checkInProtocol": "synthetic-check-in-template",
+    "checkInAssignment": "synthetic-demo-checkin-assignment-1",
+    "checkInResponse": "synthetic-demo-checkin-response-1",
+    "homeSafety": "synthetic-demo-home-safety-v1",
+    "flowRule": "synthetic-demo-flow-mechanics",
+    "flowAlert": "synthetic-demo-flow-alert-1"
+  },
+  "requiredFlags": {
+    "DEMO_MODE": "true",
+    "EXPLAINABLE_TRAFFIC_LIGHT": "false",
+    "COMMITMENT_ENGINE_ENABLED": "false"
+  },
+  "capabilities": [
+    {
+      "status": "IMPLEMENTADO",
+      "capability": "Demo local, RBAC, Plan de Seguridad, check-in, revisión humana, tarea manual, acceso cuidador revocable, SBAR no firmado y health sanitizado"
+    },
+    {
+      "status": "SIMULADO",
+      "capability": "Identidades demo, paciente/episodio, contenido de fixtures, aviso técnico y recorrido de seguimiento"
+    },
+    {
+      "status": "DOCUMENTADO",
+      "capability": "Puertos institucionales, decision packs, trazabilidad y gate de piloto real; no equivalen a implementación o aprobación"
+    },
+    {
+      "status": "FUTURO-NO_AUTORIZADO",
+      "capability": "Comunicaciones, proveedores externos, HCE/EHR/FHIR productivo, SSO, crisis accionable, 5C y despliegue real"
+    }
+  ],
+  "fingerprintExclusions": [
+    "UUID/CUID técnicos",
+    "timestamps de creación y actualización",
+    "AuditEvent y correlationId",
+    "sesiones y tokens",
+    "estado operativo generado por un recorrido posterior al seed"
+  ]
+}

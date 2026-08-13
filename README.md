@@ -16,20 +16,24 @@ No se usan contraseñas propias, OAuth, SSO o MFA simulados. El proveedor instit
 
 ## Puesta en marcha local
 
-Desde un clon limpio del repositorio y con `main` actualizado:
+Desde un clon limpio del repositorio y con `main` actualizado, usa el único
+procedimiento Node multiplataforma:
 
 ```powershell
-Copy-Item .env.example .env
-# Edita .env y sustituye ambos placeholders de contraseña por el mismo valor local.
-docker compose up -d postgres
-pnpm install --frozen-lockfile
-pnpm prisma:generate
-pnpm db:migrate:deploy
-pnpm db:seed
-pnpm dev
+pnpm demo:prepare
+pnpm demo:verify
+pnpm demo:start
 ```
 
-Abrir `http://127.0.0.1:3000`. El healthcheck técnico está en `GET /api/health` y solo responde `status` y `service`.
+`demo:prepare` crea `.env` desde `.env.example` solo cuando falta y nunca
+sobrescribe uno existente. Abrir `http://127.0.0.1:3000` únicamente cuando
+`demo:start` anuncie readiness. El healthcheck técnico está en `GET /api/health`
+y solo responde `status` y `service`.
+
+Comandos adicionales: `pnpm demo:smoke`, `pnpm demo:clean` y el reset protegido
+`pnpm demo:reset -- --confirm=RESET_SYNTHETIC_DEMO`. El contrato, exit codes y
+recuperación segura están en el
+[runbook de la demo](docs/build-week/DEMO_RUNBOOK.md).
 
 El seed es idempotente y crea estas seis identidades ficticias con exactamente un rol activo esperado:
 
@@ -40,7 +44,15 @@ El seed es idempotente y crea estas seis identidades ficticias con exactamente u
 - `demo-caregiver`
 - `demo-support`
 
-Todas muestran la etiqueta `SINTÉTICO / NO USO CLÍNICO`. No existe contraseña: el adaptador demo acepta el alias únicamente cuando `DEMO_MODE=true`, fuera de producción, con `APP_BASE_URL` en loopback y con el `Host` efectivo de la petición también en loopback. Las seis identidades fijas no admiten roles adicionales mediante la API. Si una ejecución anterior dejó roles demo activos inesperados, el seed los revoca y audita sin borrar su historial.
+Todas muestran la etiqueta `DEMO SINTÉTICA · NO USO CLÍNICO`. El manifiesto
+`config/synthetic-demo-manifest.json` es la fuente versionada del contrato y
+`demo:verify` emite un fingerprint SHA-256 del estado material, estable entre ejecuciones
+consecutivas. Se excluyen justificadamente IDs técnicos variables, timestamps,
+auditoría y sesiones; no se excluye drift de fixtures o del estado inicial del
+recorrido. No existe contraseña: el adaptador demo acepta el alias únicamente
+cuando `DEMO_MODE=true`, fuera de producción, con `APP_BASE_URL` y Host efectivo
+en loopback. Las seis identidades fijas no admiten roles adicionales mediante la
+API; cualquier rol activo inesperado se revoca y audita sin borrar historia.
 
 ## Verificación
 
@@ -165,10 +177,13 @@ Codex inspected code and history, implemented bounded modules, wrote tests, reco
 
 ```powershell
 pnpm demo:prepare
-pnpm dev
+pnpm demo:verify
+pnpm demo:start
 ```
 
-Open `http://127.0.0.1:3000`. Do not bind the demo to `0.0.0.0`. Exact prerequisites and recovery-safe steps are in [DEMO_RUNBOOK](docs/build-week/DEMO_RUNBOOK.md).
+Open `http://127.0.0.1:3000` only after readiness is reported. Do not bind the
+demo to `0.0.0.0`. Exact prerequisites, smoke/reset/clean commands and
+recovery-safe steps are in [DEMO_RUNBOOK](docs/build-week/DEMO_RUNBOOK.md).
 
 ### Demo flow
 

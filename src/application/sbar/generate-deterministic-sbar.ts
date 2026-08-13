@@ -1,7 +1,7 @@
 export const SBAR_PROFILE = {
   key: "synthetic-minimized-sbar",
   version: "demo-v1",
-  label: "DEMO SINTÉTICA / SIN FIRMA / NO USO CLÍNICO",
+  label: "DEMO SINTÉTICA · NO USO CLÍNICO · SIN FIRMA",
 } as const;
 
 export interface SbarStructuredSource {

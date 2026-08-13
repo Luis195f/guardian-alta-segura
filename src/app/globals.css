@@ -792,6 +792,57 @@ footer {
   font-size: 0.7rem;
 }
 
+.demo-capability-matrix {
+  margin: 0 0 2rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1rem;
+}
+
+.demo-capability-matrix h2 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.demo-capability-matrix dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.demo-capability-matrix dl div {
+  border-left: 0.25rem solid var(--accent);
+  padding-left: 0.75rem;
+}
+
+.demo-capability-matrix dt {
+  color: var(--navy);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+}
+
+.demo-capability-matrix dd,
+.demo-capability-matrix > p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.demo-capability-matrix.compact {
+  margin: 1.25rem 0 0;
+  padding: 0.8rem;
+}
+
+.demo-capability-matrix.compact dl {
+  grid-template-columns: 1fr;
+}
+
+.demo-capability-matrix.compact dd {
+  display: none;
+}
+
 .landing-access {
   display: grid;
   grid-template-columns: minmax(18rem, 0.85fr) minmax(24rem, 1.15fr);

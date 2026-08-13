@@ -13,6 +13,7 @@ const environmentVariableNames = [
   "CAREGIVER_DEMO_SESSION_TTL_HOURS",
   "SESSION_COOKIE_SECURE",
   "EXPLAINABLE_TRAFFIC_LIGHT",
+  "COMMITMENT_ENGINE_ENABLED",
 ];
 
 function resolvePnpmInvocation(args, environment) {
@@ -127,6 +128,13 @@ export function prepareDemo({
     });
   }
 
+  const preparedPostgresContainer = commandRunner("docker", ["compose", "ps", "-q", "postgres"], {
+    cwd: repositoryRoot,
+    environment,
+    captureOutput: true,
+  }).trim();
+  if (!preparedPostgresContainer) throw new Error("PostgreSQL demo container did not start.");
+
   for (const args of [
     ["install", "--frozen-lockfile"],
     ["prisma:generate"],
@@ -138,17 +146,40 @@ export function prepareDemo({
     commandRunner("pnpm", args, { cwd: repositoryRoot, environment });
   }
 
-  log("Synthetic demo prepared. Run 'pnpm dev' and open http://127.0.0.1:3000");
+  return {
+    containerId: preparedPostgresContainer,
+    createdByP15: !existingPostgresContainer.trim(),
+    startedByP15: true,
+    environment,
+  };
 }
 
 const isMain =
   process.argv[1] !== undefined &&
   pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
-  try {
-    prepareDemo();
-  } catch (error) {
+  (async () => {
+    const prepared = prepareDemo();
+    const { inspectComposeContainer, verifyDemo } = await import("./demo.mjs");
+    const { readRuntimeState, updateRuntimeState } = await import("./demo-runtime.mjs");
+    const compose = inspectComposeContainer(prepared.environment);
+    if (compose.containerId !== prepared.containerId) {
+      throw new Error("PostgreSQL demo container identity changed during preparation.");
+    }
+    const previous = readRuntimeState();
+    updateRuntimeState({
+      compose: {
+        ...compose,
+        createdByP15:
+          prepared.createdByP15 ||
+          (previous?.compose?.containerId === compose.containerId && previous.compose.createdByP15),
+        startedByP15: prepared.startedByP15,
+      },
+    });
+    await verifyDemo({ environment: prepared.environment, recordFingerprint: true });
+    console.log("Synthetic demo prepared. Run 'pnpm demo:start'.");
+  })().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  }
+  });
 }

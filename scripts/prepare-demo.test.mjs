@@ -18,6 +18,7 @@ const validEnvironment = [
   'CAREGIVER_DEMO_SESSION_TTL_HOURS="8"',
   'SESSION_COOKIE_SECURE="false"',
   'EXPLAINABLE_TRAFFIC_LIGHT="false"',
+  'COMMITMENT_ENGINE_ENABLED="false"',
   "",
 ].join("\n");
 
@@ -29,9 +30,14 @@ function createDemoRoot(t) {
 }
 
 function recordingRunner(calls, postgresContainer = "") {
+  let inspections = 0;
   return (executable, args, options) => {
     calls.push({ executable, args: [...args], options });
-    return args.join(" ") === "compose ps -q postgres" ? postgresContainer : "";
+    if (args.join(" ") === "compose ps -q postgres") {
+      inspections += 1;
+      return inspections === 1 ? postgresContainer : postgresContainer || "prepared-container-id\n";
+    }
+    return "";
   };
 }
 
@@ -105,6 +111,7 @@ test("rechaza cualquier aparición de 0.0.0.0", (t) => {
 test("propaga el fallo de un subproceso y detiene la secuencia", (t) => {
   const root = createDemoRoot(t);
   const calls = [];
+  let inspections = 0;
   let propagated;
   try {
     prepareDemo({
@@ -112,6 +119,10 @@ test("propaga el fallo de un subproceso y detiene la secuencia", (t) => {
       environment: {},
       commandRunner: (executable, args, options) => {
         calls.push({ executable, args: [...args], options });
+        if (args.join(" ") === "compose ps -q postgres") {
+          inspections += 1;
+          return inspections === 1 ? "" : "prepared-container-id\n";
+        }
         if (args[0] === "prisma:generate") {
           throw new CommandFailedError(executable, args, 7);
         }

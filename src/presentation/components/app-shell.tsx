@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import type { Role } from "@/domain/auth/role";
+import { DemoCapabilityMatrix } from "@/presentation/components/demo-capability-matrix";
 import {
   homeForRole,
   navigationForRole,
@@ -87,6 +88,7 @@ export function AppShell({
               Esta herramienta no sustituye la atención profesional ni es un canal de urgencias.
             </p>
           )}
+          <DemoCapabilityMatrix compact />
         </aside>
         <main className="product-main">{children}</main>
       </div>

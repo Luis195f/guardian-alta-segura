@@ -12,5 +12,6 @@ test-results/
 prisma/*.db
 prisma/*.db-journal
 *.log
+.demo-runtime.json
 .DS_Store
 Thumbs.db
