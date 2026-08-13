@@ -3,17 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 
+import { FIXED_DEMO_ALIASES, type FixedDemoAlias } from "@/domain/auth/demo-identities";
 import type { Role } from "@/domain/auth/role";
 import { homeForRole, roleLabels } from "@/presentation/navigation/role-navigation";
-
-const demoAliases = [
-  "demo-admin",
-  "demo-nurse",
-  "demo-clinician",
-  "demo-patient",
-  "demo-caregiver",
-  "demo-support",
-] as const;
 
 function subscribeToHydration(): () => void {
   return () => {};
@@ -30,7 +22,7 @@ function getServerHydrationSnapshot(): boolean {
 export function DemoLoginPanel({ enabled }: { readonly enabled: boolean }) {
   const router = useRouter();
 
-  const [alias, setAlias] = useState<(typeof demoAliases)[number]>("demo-nurse");
+  const [alias, setAlias] = useState<FixedDemoAlias>("demo-nurse");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -100,9 +92,9 @@ export function DemoLoginPanel({ enabled }: { readonly enabled: boolean }) {
           id="demo-alias"
           value={alias}
           disabled={!enabled || !ready || pending}
-          onChange={(event) => setAlias(event.target.value as (typeof demoAliases)[number])}
+          onChange={(event) => setAlias(event.target.value as FixedDemoAlias)}
         >
-          {demoAliases.map((item) => {
+          {FIXED_DEMO_ALIASES.map((item) => {
             const role = item.replace("demo-", "") as Role;
 
             return (

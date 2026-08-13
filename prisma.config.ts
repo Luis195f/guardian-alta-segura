@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
 import { defineConfig, env } from "prisma/config";
 
-if (existsSync(".env")) {
+if (process.env.P15_DATABASE_URL_OVERRIDE) {
+  process.env.DATABASE_URL = process.env.P15_DATABASE_URL_OVERRIDE;
+} else if (existsSync(".env")) {
   delete process.env.DATABASE_URL;
   process.loadEnvFile(".env");
 }

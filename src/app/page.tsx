@@ -1,4 +1,5 @@
 import { DemoLoginPanel } from "@/presentation/components/demo-login-panel";
+import { DemoCapabilityMatrix } from "@/presentation/components/demo-capability-matrix";
 import { redirect } from "next/navigation";
 
 import { homeForRole, roleLabels } from "@/presentation/navigation/role-navigation";
@@ -41,6 +42,8 @@ export default async function HomePage() {
           </li>
         ))}
       </ol>
+
+      <DemoCapabilityMatrix />
 
       <section className="landing-access" aria-labelledby="access-title">
         <DemoLoginPanel enabled={demoEnabled} />

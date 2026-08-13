@@ -18,7 +18,7 @@
     "test": "pnpm test:unit && pnpm test:integration && pnpm test:tooling",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:tooling": "node --test scripts/check-requirements-traceability.test.mjs scripts/prepare-demo.test.mjs",
+    "test:tooling": "node --test scripts/check-requirements-traceability.test.mjs scripts/prepare-demo.test.mjs scripts/demo.test.mjs",
     "test:watch": "vitest --config vitest.config.ts",
     "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
@@ -28,7 +28,12 @@
     "db:seed": "prisma db seed",
     "traceability:check": "node scripts/check-requirements-traceability.mjs",
     "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "demo:prepare": "node scripts/prepare-demo.mjs"
+    "demo:prepare": "node scripts/prepare-demo.mjs",
+    "demo:verify": "node scripts/demo.mjs verify",
+    "demo:start": "node scripts/demo.mjs start",
+    "demo:reset": "node scripts/demo.mjs reset",
+    "demo:clean": "node scripts/demo.mjs clean",
+    "demo:smoke": "node scripts/smoke-demo.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",

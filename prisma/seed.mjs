@@ -1,13 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { PrismaClient } from "@prisma/client";
+import demoManifest from "../config/synthetic-demo-manifest.json" with { type: "json" };
 import syntheticRuleFixtures from "../src/domain/alerts/synthetic-rule-fixtures.json" with { type: "json" };
 import { CanonicalPolicyMismatchError, writeSafeSeedError } from "./seed-error.mjs";
 
-if (existsSync(".env")) {
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const environmentPath = path.join(repositoryRoot, ".env");
+if (process.env.P15_DATABASE_URL_OVERRIDE) {
+  process.env.DATABASE_URL = process.env.P15_DATABASE_URL_OVERRIDE;
+} else if (existsSync(environmentPath)) {
   delete process.env.DATABASE_URL;
-  process.loadEnvFile(".env");
+  process.loadEnvFile(environmentPath);
 }
 
 const prisma = new PrismaClient();
@@ -26,14 +33,7 @@ function sameJson(left, right) {
   return JSON.stringify(stableJson(left)) === JSON.stringify(stableJson(right));
 }
 
-const syntheticUsers = [
-  { alias: "demo-admin", role: "admin" },
-  { alias: "demo-nurse", role: "nurse" },
-  { alias: "demo-clinician", role: "clinician" },
-  { alias: "demo-patient", role: "patient" },
-  { alias: "demo-caregiver", role: "caregiver" },
-  { alias: "demo-support", role: "support" },
-];
+const syntheticUsers = demoManifest.identities;
 
 const pendingPolicyVersions = [
   { policyKey: "pilot-participation", recordType: "PARTICIPATION", scope: "pilot" },

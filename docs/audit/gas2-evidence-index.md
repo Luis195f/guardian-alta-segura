@@ -20,13 +20,17 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `.env.example` | `DOCUMENTATION` | Synthetic loopback demo defaults | Local `.env` is not versioned/productive config |
 | `docker-compose.yml` | `DEMO_SCRIPT` | Loopback PostgreSQL 16 demo service | Volume is not a governed backup |
 | `scripts/prepare-demo.mjs` | `DEMO_SCRIPT` | Reproducible cross-platform local setup without deletion | Requires Docker/pnpm/local environment |
+| `config/synthetic-demo-manifest.json` | `DEMO_CONFIGURATION` | Versioned identities, fixtures, flags, migrations and capability taxonomy | Synthetic/local contract only |
+| `scripts/demo.mjs` and `scripts/demo-runtime.mjs` | `DEMO_SCRIPT` | Verify/start/fail-closed reset/non-destructive clean with loopback and ownership guards | Not production operations tooling |
+| `scripts/demo-state.mjs` | `DEMO_SCRIPT` | Material-state validation and SHA-256 fingerprint | Deliberately excludes technical IDs, timestamps, audits and sessions |
+| `scripts/smoke-demo.mjs` and `tests/e2e/demo-smoke.p15.ts` | `DEMO_SCRIPT` / `E2E_TEST` | Isolated PostgreSQL 16 smoke, seed reproducibility, six roles, main flow, denials and cleanup | Local Chromium and synthetic data only |
 
 ## Persistence and lifecycle
 
 | Source | Type | Supports | Limitation |
 | --- | --- | --- | --- |
-| `prisma/schema.prisma` | `CODE` | 45 models, 32 enums, 113 `RESTRICT` relations | Schema alone does not prove deployed state |
-| `prisma/migrations/**` | `DATABASE_CONSTRAINT` | 11-version history, FKs, uniques and triggers | Does not approve lifecycle policy |
+| `prisma/schema.prisma` | `CODE` | 50 models, 35 enums, 128 `RESTRICT` relations | Schema alone does not prove deployed state |
+| `prisma/migrations/**` | `DATABASE_CONSTRAINT` | 14-version history, FKs, uniques and triggers | Does not approve lifecycle policy |
 | `20260715000100_platform_foundation` | `DATABASE_CONSTRAINT` | Immutable audit events | Retention/access procedure absent |
 | `20260716000100_consent_legal_basis` | `DATABASE_CONSTRAINT` | Append-only legal history | Legal applicability pending |
 | `20260716000200_discharge_episode` | `DATABASE_CONSTRAINT` | Episode/patient no-delete and transition history | Closure policy pending |
@@ -36,7 +40,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `20260720000100_nursing_workqueue_tasks` plus reconciliation migrations | `DATABASE_CONSTRAINT` | Task/Event chain and reviewed-alert link | Institutional task policy pending |
 | `20260721000100_caregiver_access_revocation` | `DATABASE_CONSTRAINT` | Cross-reference integrity, revocation locks and history | Legal/IAM policy pending |
 | `20260721000200_home_safety_and_sbar` | `DATABASE_CONSTRAINT` | Append-only Home Safety | Demo template only |
-| `pnpm db:migrate:status` on 2026-07-28 | `CI` | 11 migrations applied; schema up to date | Local synthetic DB only |
+| `pnpm db:migrate:status` | `CI` | 14 migrations expected; execution evidence recorded below | Local synthetic DB only |
 
 ## Episode governance
 
@@ -121,6 +125,38 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
 
 ## Executed baseline evidence
+
+### GAS2-P15 local execution — 2026-08-13
+
+Windows was the only platform executed. Linux and macOS remain `NOT_EXECUTED`;
+no compatibility is inferred and CI was not modified.
+
+| Command / evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; lockfile unchanged | 0 | Windows local |
+| `pnpm audit --prod` | EXPECTED NONZERO; inherited 4 high + 2 moderate, P15 new = 0 | 1 | No dependency changed; advisories remain unresolved |
+| `pnpm format:check` | PASS | 0 | Rerun required after final evidence edit |
+| `pnpm lint` | PASS | 0 | Static analysis |
+| `pnpm typecheck` | PASS | 0 | Next route types + TypeScript |
+| `pnpm test` | PASS: 401 unit + 103 integration + 22 tooling = 526 | 0 | Baseline 516; P15 adds 10 tooling tests |
+| `pnpm traceability:check` | PASS | 0 | Markdown/CSV canonical and synchronized |
+| `pnpm build` | PASS | 0 | Local build, not deployment |
+| `pnpm test:e2e` | PASS: 74/74, skips 0, retries 0 | 0 | Existing Chromium/mobile-Chromium suite |
+| `pnpm demo:prepare` | PASS; repeated idempotently | 0 | Normal volume preserved |
+| `pnpm demo:verify` | PASS; 14 migrations, PostgreSQL 16, 6 identities, providers 0 | 0 | Canonical local demo |
+| `pnpm demo:start` + `GET /api/health` + `demo:clean` | PASS; readiness and parent exit 0 | 0 | Loopback only; volume preserved |
+| `pnpm demo:reset` without confirmation | PASS (rejected fail-closed) | 5 | No destructive access attempted |
+| reset without P15 runtime marker | PASS (rejected fail-closed) | 5 | `RESET_RESOURCE_NOT_CREATED_BY_P15` |
+| confirmed `pnpm demo:reset -- --confirm=RESET_SYNTHETIC_DEMO` | PASS | 0 | Exact P15 schema only; 14 migrations + one seed + verify |
+| `pnpm demo:smoke` | PASS: 1/1 P15 smoke, six roles, external requests 0 | 0 | Separate empty PostgreSQL 16 project; all ephemeral resources removed |
+| Prisma migrate diff with `guardian_demo_shadow_p15` | PASS: no difference | 0 | Shadow DB removed |
+
+Canonical material fingerprint:
+`a890494bbd9919d64f366a443459a476512db6f256fffe73813c774d04b7cf1d`.
+It was identical after consecutive seeds and after protected reset. Technical IDs,
+timestamps, audit/correlation records, sessions/tokens and post-seed operational
+state are explicitly excluded; fixture content, roles, policies, relations and
+initial flow state are included.
 
 | Command | Evidence type | Result | Limitation |
 | --- | --- | --- | --- |
