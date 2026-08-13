@@ -134,7 +134,7 @@ aceptación de riesgo. `DEC-016 = Pendiente` y `REAL PILOT = NO_GO` permanecen.
 ## Reglas de mantenimiento
 
 1. Una modificación de ID, título, responsable, estado o semántica canónica requiere detener el cambio, no reasignar el ID.
-2. Markdown y CSV se modifican juntos y deben superar `scripts/check-requirements-traceability.ps1`.
+2. Markdown y CSV se modifican juntos y deben superar `pnpm traceability:check`, cuya fuente de verdad es `scripts/check-requirements-traceability.mjs`.
 3. El estado expresa preparación de gobernanza, no prueba de implementación ni aprobación institucional.
 4. La autoridad de validación no sustituye las autoridades finales de los stage gates.
 5. Los ejemplos y pruebas usan datos sintéticos y no contienen teléfonos, reglas o valores clínicos definitivos.

@@ -4,15 +4,40 @@
 
 ## Requisitos
 
-- Node.js 22.14–24, pnpm 11.7, PowerShell 7 y Docker con Compose.
+- Node.js 22.14–24, pnpm 11.7 y Docker con Compose.
 - Puerto 5432 libre en loopback.
 - No usar datos, correos, teléfonos, historias o credenciales reales.
 
 ## Preparación segura desde un clon
 
+Los tres entornos usan los mismos scripts `pnpm`; no existe una implementación específica por
+plataforma.
+
+### PowerShell
+
 ```powershell
 git clone https://github.com/Luis195f/guardian-alta-segura.git
 Set-Location guardian-alta-segura
+git switch main
+pnpm demo:prepare
+pnpm dev
+```
+
+### bash
+
+```bash
+git clone https://github.com/Luis195f/guardian-alta-segura.git
+cd guardian-alta-segura
+git switch main
+pnpm demo:prepare
+pnpm dev
+```
+
+### zsh
+
+```zsh
+git clone https://github.com/Luis195f/guardian-alta-segura.git
+cd guardian-alta-segura
 git switch main
 pnpm demo:prepare
 pnpm dev
@@ -52,7 +77,9 @@ El flujo exige una autorización legal demo vigente, scope del episodio, invitac
 
 ## Comprobación previa a grabar
 
-```powershell
+Estos mismos comandos son válidos en PowerShell, bash y zsh:
+
+```text
 pnpm traceability:check
 pnpm run ci
 pnpm test:e2e
