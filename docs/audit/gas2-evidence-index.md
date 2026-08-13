@@ -19,7 +19,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `.github/workflows/ci.yml` | `CI` | Intended PR/main verification with PostgreSQL 16 | Repository workflow is not evidence of a specific remote run |
 | `.env.example` | `DOCUMENTATION` | Synthetic loopback demo defaults | Local `.env` is not versioned/productive config |
 | `docker-compose.yml` | `DEMO_SCRIPT` | Loopback PostgreSQL 16 demo service | Volume is not a governed backup |
-| `scripts/prepare-demo.ps1` | `DEMO_SCRIPT` | Reproducible local setup without deletion | Requires Docker/pnpm/local environment |
+| `scripts/prepare-demo.mjs` | `DEMO_SCRIPT` | Reproducible cross-platform local setup without deletion | Requires Docker/pnpm/local environment |
 
 ## Persistence and lifecycle
 
@@ -115,7 +115,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | Source | Type | Supports | Limitation |
 | --- | --- | --- | --- |
 | `docs/requirements-traceability.md/.csv` | `TRACEABILITY` | Canonical REQ-01–14 and technical follow-up | Canonical status is not implementation proof |
-| `scripts/check-requirements-traceability.ps1` | `CI` | Exact Markdown/CSV equivalence | Does not validate clinical content |
+| `scripts/check-requirements-traceability.mjs` | `CI` | Exact Markdown/CSV equivalence without a shell-specific runtime | Does not validate clinical content |
 | `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–17 authorities/status/blockers | All remain pending |
 | `docs/decisions/**` | `DECISION_SUPPORT_EVIDENCE` | Seven prepared packs and workshop/form evidence | No approval |
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
