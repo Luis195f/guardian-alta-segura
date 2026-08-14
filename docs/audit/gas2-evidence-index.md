@@ -120,6 +120,9 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | --- | --- | --- | --- |
 | `docs/requirements-traceability.md/.csv` | `TRACEABILITY` | Canonical REQ-01–14 and technical follow-up | Canonical status is not implementation proof |
 | `scripts/check-requirements-traceability.mjs` | `CI` | Exact Markdown/CSV equivalence without a shell-specific runtime | Does not validate clinical content |
+| `docs/audit/gas2-claims-register.md` | `TRACEABILITY` | Canonical claim IDs, permitted status taxonomy and explicit REQ/DEC/control/hazard/test/SHA chain | A technical chain is not clinical, legal, regulatory or institutional proof |
+| `scripts/check-governance-evidence.mjs` | `CI` | Fails explicitly on unsupported claim status, broken REQ/DEC/control/hazard/test references, malformed SHA or broken local Markdown links | Validates repository references and taxonomy, not truth outside the inspected baseline |
+| `scripts/check-traceability.mjs` | `CI` | Single cross-platform entrypoint for requirement equivalence and governance-evidence validation | Aggregates deterministic repository checks only |
 | `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–17 authorities/status/blockers | All remain pending |
 | `docs/decisions/**` | `DECISION_SUPPORT_EVIDENCE` | Seven prepared packs and workshop/form evidence | No approval |
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
@@ -158,6 +161,10 @@ timestamps, audit/correlation records, sessions/tokens and post-seed operational
 state are explicitly excluded; fixture content, roles, policies, relations and
 initial flow state are included.
 
+The table below is retained as a superseded pre-P15 local snapshot. Its counts
+must not be used as the current baseline; the dated P15 execution above replaces
+it without deleting the historical record.
+
 | Command | Evidence type | Result | Limitation |
 | --- | --- | --- | --- |
 | `pnpm demo:prepare` | `DEMO_SCRIPT` | PASS | Audited local environment only |
@@ -170,4 +177,34 @@ initial flow state are included.
 | `pnpm build` | `CI` | PASS | Not deployment qualification |
 | `pnpm traceability:check` | `TRACEABILITY` | PASS | Documentary consistency only |
 | `pnpm db:migrate:status` | `DATABASE_CONSTRAINT` | PASS | Local synthetic DB |
+
+### GAS2-P11 local execution — 2026-08-14 — blocked gate
+
+Baseline inspected: `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b`.
+The P11 delta changes documentation and deterministic repository validation only;
+it does not change runtime, schema, migrations, dependencies or feature flags.
+
+| Command / evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `git fetch origin --prune` | PASS | 0 | `origin/main` remained at the exact baseline SHA |
+| CI run `31698359702` | `completed/success` | 0 | GitHub run for the exact baseline SHA |
+| `pnpm install --frozen-lockfile` | PASS; lockfile unchanged | 0 | Existing dependency graph only |
+| `pnpm prisma:generate` | PASS | 0 | Prisma 6.19.0 |
+| `pnpm db:migrate:deploy` on empty P11 PostgreSQL 16 | PASS; 14/14 migrations | 0 | Isolated container, network, volume and port 55411 |
+| `pnpm db:seed` | PASS | 0 | Synthetic seed only |
+| `pnpm db:migrate:status` | PASS; schema up to date | 0 | Same isolated database |
+| `node --test scripts/check-governance-evidence.test.mjs` | PASS; 4/4 | 0 | Taxonomy, broken REQ/DEC/hazard/test and malformed SHA negatives |
+| `pnpm format:check` | PASS | 0 | Final evidence edit included |
+| `pnpm lint` | PASS | 0 | Static analysis |
+| `pnpm typecheck` | PASS | 0 | Next route types and TypeScript |
+| `pnpm test` | PASS; 401 unit + 103 integration + 26 tooling = 530 | 0 | PostgreSQL 16 synthetic scope |
+| `pnpm traceability:check` | PASS; 35 claims and Markdown/CSV drift 0 | 0 | Repository references and taxonomy only |
+| `pnpm build` | PASS | 0 | Local build, not deployment |
+| `pnpm test:e2e` | BLOCKED before tests | 1 | Required port 3000 occupied by an unrelated `NurManOS` process; it was not stopped |
+| Temporary port-3001 diagnostic run | INVALID AS GATE: 30 passed, 30 failed, 14 did not run | 1 | Tests and network boundary intentionally fix port 3000; temporary config removed |
+| `pnpm audit --prod` | EXPECTED NONZERO; inherited 5 high + 2 moderate; P11 attributable = 0 | 1 | One additional high advisory is visible versus P15; no dependency or lockfile change in P11 |
+
+Because the canonical E2E command could not start against its required port,
+P11 does not claim a passing full validation. This is an environmental blocker,
+not evidence that the failed port-3001 diagnostic changed product behavior.
 
