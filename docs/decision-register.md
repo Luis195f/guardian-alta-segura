@@ -24,6 +24,16 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | DEC-016 | Gobierno institucional | Alcance, población, entorno, periodo, formación, soporte, rollback y continuidad de negocio del piloto | REQ-01 a REQ-14 | Gerencia del Hospital como Responsable del Tratamiento | Expediente de gate de Piloto Clínico completo | Pendiente | NO-GO para pacientes y datos reales |
 | DEC-017 | Protocolo/operación | Taxonomía, prioridades administrativas, SLA, tiempos objetivo, resultados de contacto y reglas de asignación de tareas | REQ-09 | Dirección de Enfermería | Configuración versionada, explicable y validada localmente | Pendiente | Prioridades, SLA y valores operativos definitivos no se codifican |
 
+### Evidencia de apoyo a DEC-003 y comunicaciones futuras
+
+La [frontera documental de comunicaciones futuras](adr/0017-future-communications-boundary.md)
+define separación paciente/profesional, autorización por canal y finalidad,
+revalidación, minimización, fallos, amenazas y pruebas futuras de forma neutral
+respecto del proveedor. Es `DOCUMENTED_ONLY / DECISION SUPPORT EVIDENCE`: no
+selecciona destinatarios, canales, base jurídica, contenido, proveedor,
+responsable o piloto; no implementa entrega y no modifica `DEC-003 = Pendiente`
+ni las dependencias DEC-005/013/014/015/016/017.
+
 ### Evidencia de apoyo a DEC-002
 
 El [paquete institucional de decisión sobre duración y cierre del
