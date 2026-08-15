@@ -175,10 +175,11 @@ La expiración o infracción de SLA:
 3. puede proponer o crear una tarea administrativa según política aprobada;
 4. nunca deriva, trata, contacta o modifica el episodio automáticamente.
 
-## FHIR como anti-corruption layer condicional
+## FHIR como anti-corruption layer condicional y de solo lectura
 
 FHIR no forma parte del dominio ni del MVP actual. Si un contrato institucional lo
-exige, la posición correcta es:
+exige, [ADR-0018](../adr/0018-future-read-only-fhir-boundary.md) limita el punto de
+partida a una importación futura de solo lectura:
 
 ```mermaid
 flowchart LR
@@ -188,10 +189,10 @@ flowchart LR
   CANON["Canonical signal / command"]
   CORE["Guardián core"]
 
-  EHR <--> FHIR
-  FHIR <--> ACL
-  ACL <--> CANON
-  CANON <--> CORE
+  EHR --> FHIR
+  FHIR --> ACL
+  ACL --> CANON
+  CANON --> CORE
 ```
 
 Condiciones:
@@ -204,8 +205,10 @@ Condiciones:
 - pruebas de contrato sintéticas;
 - ninguna exposición de recursos FHIR como modelos internos Prisma.
 
-No se construye un servidor FHIR completo, SMART on FHIR, CDS Hooks ni una
-integración productiva sin requisito y autorización separados.
+No se construye un servidor FHIR completo, SMART on FHIR, OAuth, CDS Hooks,
+subscriptions, writeback, Bulk Data ni una integración productiva. Los recursos
+externos no mutan el dominio y toda reconciliación requiere revisión humana; una
+fase posterior necesitaría requisito y autorización separados.
 
 ## Seguridad y fallo seguro
 

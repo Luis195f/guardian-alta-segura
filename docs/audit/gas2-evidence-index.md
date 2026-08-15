@@ -111,6 +111,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | Repository search for browser offline stores | `CODE` | No clinical `localStorage`/IndexedDB path found | Static absence check |
 | Repository search for connector/FHIR runtime | `CODE` | No external/FHIR adapter found | Documentation contains future boundaries |
 | ADR-0017 | `DOCUMENTATION` | Provider-neutral future boundary, recipient separation, minimization, conservative failures and threat/test plan | `DOCUMENTED_ONLY`; no transport, delivery, provider, approval or operational evidence |
+| ADR-0018 | `DOCUMENTATION` | Future inbound/read-only FHIR anti-corruption boundary, candidate mappings, open decisions, failure contract, threat model and future test plan | `DOCUMENTED_ONLY / NOT_IMPLEMENTED`; no FHIR runtime, profile, provider, writeback, interoperability or conformance evidence |
 | DEC-014 pack | `DECISION_SUPPORT_EVIDENCE` | Incident-operation decision preparation | Pending |
 | DEC-015 pack | `DECISION_SUPPORT_EVIDENCE` | Continuity decision preparation and known health gap | Pending |
 | DEC-016 pack | `DECISION_SUPPORT_EVIDENCE` | Real-pilot gate; `NO_GO` | Not pilot approval |
@@ -124,11 +125,47 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `docs/audit/gas2-claims-register.md` | `TRACEABILITY` | Canonical claim IDs, permitted status taxonomy and explicit REQ/DEC/control/hazard/test/SHA chain | A technical chain is not clinical, legal, regulatory or institutional proof |
 | `scripts/check-governance-evidence.mjs` | `CI` | Fails explicitly on unsupported claim status, broken REQ/DEC/control/hazard/test references, malformed SHA or broken local Markdown links | Validates repository references and taxonomy, not truth outside the inspected baseline |
 | `scripts/check-traceability.mjs` | `CI` | Single cross-platform entrypoint for requirement equivalence and governance-evidence validation | Aggregates deterministic repository checks only |
-| `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–17 authorities/status/blockers and P09 decision-support reference | All remain pending; P09 does not select communication policy or provider |
+| `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–18 authorities/status/blockers and P09/P12 decision-support references | All remain pending; P12 does not select FHIR version, profile, terminology, security model, provider or operation |
 | `docs/decisions/**` | `DECISION_SUPPORT_EVIDENCE` | Seven prepared packs and workshop/form evidence | No approval |
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
 
 ## Executed baseline evidence
+
+### GAS2-P12 local execution — 2026-08-15 — read-only FHIR documentary boundary
+
+Baseline inspected: `3be58f6566a00293bc3ad33f8f520286b6727bf0`;
+tree `edbc1830f941d09fc2821dbf7dc0453d67b81af4`; branch
+`docs/fhir-interoperability-boundary-12`. CI run `31868000944` was
+`completed/success` for that exact SHA. The P12 delta changes documentation only:
+it does not add FHIR runtime, schema, migrations, dependencies, endpoints,
+feature flags, workflows, services or tests.
+
+| Command / evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; 409 packages reused, downloads 0, lockfile unchanged | 0 | Existing dependency graph only |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.0 | 0 | No schema or migration change |
+| Empty PostgreSQL 16 base | PASS; public tables 0 | 0 | Isolated loopback container/network, port 55420 and tmpfs; no persistent volume |
+| `pnpm db:migrate:deploy` | PASS; 14/14 migrations | 0 | P12 synthetic database only |
+| `pnpm db:seed` | PASS | 0 | Canonical synthetic seed only |
+| `pnpm db:migrate:status` | PASS; schema up to date | 0 | Same isolated database |
+| `pnpm format:check` | PASS | 0 | P12 documentary delta |
+| `pnpm lint` | PASS | 0 | Static analysis |
+| `pnpm typecheck` | PASS | 0 | Next route types and TypeScript |
+| `pnpm test` | PASS; 401 unit + 103 integration + 26 tooling = 530/530 | 0 | Synthetic fixtures and PostgreSQL 16 |
+| `pnpm test:tooling` | PASS; 26/26 | 0 | Includes governance and traceability negative tests |
+| `pnpm traceability:check` | PASS; 37 claims and Markdown/CSV drift 0 | 0 | Repository taxonomy/references only |
+| P11 governance evidence checker | PASS; 37 claims and local references resolved | 0 | Does not validate external truth or FHIR conformance |
+| `pnpm build` | PASS; 18 static pages generated and dynamic routes compiled | 0 | Local build, not deployment |
+| `git diff --check` | PASS | 0 | No whitespace errors |
+| `pnpm audit --prod` | EXPECTED NONZERO; inherited 5 high + 2 moderate; P12 attributable = 0 | 1 | No dependency or lockfile change |
+| `pnpm test:e2e` | `NOT_EXECUTED` | `NOT_APPLICABLE` | Delta is exclusively documentary; no runtime, config, script or test change |
+
+The integration suites deliberately create synthetic negative-control rows whose
+`isSynthetic` field is false to test fail-closed rejection; their labels and
+values remain synthetic and are not real data. The temporary container used
+tmpfs and was removed with its network after validation. Port 55420 was free,
+`.env` remained absent, no P12 volume/resource remained, and the pre-existing P15
+container, network and volume were unchanged.
 
 ### GAS2-P15 local execution — 2026-08-13
 

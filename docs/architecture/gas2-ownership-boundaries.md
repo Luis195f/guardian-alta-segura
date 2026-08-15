@@ -32,7 +32,7 @@ separado.
 | `CORE GUARDIAN` | Connector contracts | Mantener como IP/core | Definir ports, autenticidad, idempotencia, validación, cuarentena, errores y versionado de contrato |
 | `CLINICAL RULES` | Catálogo y evaluación de reglas clínicas | Separar de Core; evaluación regulatoria propia | Poseer DSL, inputs, umbrales, ventanas, evaluación, explicación y evidencia de rendimiento por intended purpose |
 | `CLINICAL RULES` | Avisos clínicos | Separar de Core; solo solicitud de revisión | Un `matched` puede solicitar revisión humana, pero no mutar tareas, episodios, comunicaciones o tratamiento |
-| `INTEGRATE` | HCE/EHR | Sistema externo | Consumir o publicar solo mediante contrato y autorización institucional; no replicar la HCE |
+| `INTEGRATE` | HCE/EHR | Sistema externo | P12 solo documenta una posible importación read-only mediante [ADR-0018](../adr/0018-future-read-only-fhir-boundary.md); publicar/writeback requiere otra fase y permanece `NO_GO`; no replicar la HCE |
 | `INTEGRATE` | Servicio clínico o de telemonitorización externo | Proveedor futuro no seleccionado | No asumir API, contrato, acceso, payload, finalidad, DPA, equivalencia semántica ni capacidad clínica |
 | `INTEGRATE` | Wearables | Fuente externa potencial | Ingerir solo datos y finalidades aprobados; no controlar el dispositivo |
 | `INTEGRATE` | Messaging | Canal externo futuro; `DOCUMENTED_ONLY / NO_GO` | Aplicar la [frontera documental neutral respecto del proveedor](../adr/0017-future-communications-boundary.md); los registros legales actuales no prueban entrega ni autorizan un adapter |
@@ -45,7 +45,7 @@ separado.
 | `NEVER BUILD` | Chatbot terapéutico autónomo | `DO-NOT-BUILD` | Contradice la revisión humana y el alcance organizativo |
 | `NEVER BUILD` | Predictor clínico opaco | `DO-NOT-BUILD` | Contradice la prohibición de scoring/predicción y no es explicable |
 | `NEVER BUILD` | Graph database | `DO-NOT-BUILD` sin evidencia | La responsabilidad actual cabe en relaciones y proyecciones; no hay consulta o escala demostrada |
-| `NEVER BUILD` | Servidor FHIR completo | `DO-NOT-BUILD` sin requisito | Si se requiere FHIR, construir solo anti-corruption layer y adapters de perfiles institucionales |
+| `NEVER BUILD` | Servidor FHIR completo | `DO-NOT-BUILD` sin requisito | Si se requiere FHIR, evaluar solo la capa anticorrupción read-only de ADR-0018 y adapters de perfiles institucionales aprobados |
 
 ## Telefonía futura: capacidades separadas
 

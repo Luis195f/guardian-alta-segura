@@ -23,6 +23,7 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | DEC-015 | Protocolo local | Activación, acceso, contenido, restablecimiento, RTO/RPO y retención de contingencia | REQ-14 | Dirección de Enfermería | Plan local de continuidad aprobado y probado | Pendiente | Contingencia desactivada |
 | DEC-016 | Gobierno institucional | Alcance, población, entorno, periodo, formación, soporte, rollback y continuidad de negocio del piloto | REQ-01 a REQ-14 | Gerencia del Hospital como Responsable del Tratamiento | Expediente de gate de Piloto Clínico completo | Pendiente | NO-GO para pacientes y datos reales |
 | DEC-017 | Protocolo/operación | Taxonomía, prioridades administrativas, SLA, tiempos objetivo, resultados de contacto y reglas de asignación de tareas | REQ-09 | Dirección de Enfermería | Configuración versionada, explicable y validada localmente | Pendiente | Prioridades, SLA y valores operativos definitivos no se codifican |
+| DEC-018 | Interoperabilidad/seguridad/privacidad | Versión FHIR, perfiles, terminologías, identificadores/namespaces, provenance, finalidad/base jurídica, seguridad, retención, autoridad semántica, reconciliación, errores y responsabilidad operativa de una posible importación HCE read-only | REQ-01, REQ-02, REQ-12, REQ-13, REQ-14 | Dirección TI, Responsable del Tratamiento y autoridades clínicas aplicables; decisión conjunta pendiente | Contrato y perfiles versionados, threat model, evaluaciones aplicables, responsabilidades y pruebas sintéticas aprobadas para un alcance exacto | Pendiente | FHIR runtime, perfiles definitivos, integración institucional, datos reales, writeback y claims de interoperabilidad/conformidad |
 
 ### Evidencia de apoyo a DEC-003 y comunicaciones futuras
 
@@ -107,6 +108,16 @@ tareas](decisions/dec-017-task-policy-decision-pack.md) documenta el baseline
 técnico, subdecisiones, opciones neutrales, dependencias, impacto y formulario
 para Dirección de Enfermería. Es `DECISION SUPPORT EVIDENCE`: no selecciona
 valores, no acredita aprobación y no modifica el estado `Pendiente` de DEC-017.
+
+### Evidencia de apoyo a DEC-018
+
+La [frontera FHIR futura de solo lectura](adr/0018-future-read-only-fhir-boundary.md)
+documenta inventario, candidatos no definitivos, decisiones abiertas, contrato
+conceptual de importación, amenazas, tecnologías pospuestas y pruebas futuras.
+Es `DOCUMENTED_ONLY / NOT_IMPLEMENTED`: no selecciona versión, perfil,
+terminología, identificador, autoridad, proveedor u operación; no implementa
+FHIR ni modifica las dependencias DEC-003/005/013/014/015/016. DEC-018 permanece
+`Pendiente`.
 
 ## Estados permitidos
 

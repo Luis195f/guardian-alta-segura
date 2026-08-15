@@ -112,3 +112,8 @@ comunicaciones, deriva, trata, recomienda, firma ni cierra episodios.
 - Los adaptadores futuros deberán resolver sus referencias contra su fuente de
   verdad autorizada antes de reutilizar el contrato; no basta con aceptar un ID
   aportado por el llamador.
+- [ADR-0018](0018-future-read-only-fhir-boundary.md) documenta, sin implementar,
+  cómo una futura importación FHIR de solo lectura debería mantener separadas la
+  procedencia externa no confiable y esta procedencia interna. Un recurso válido
+  o una referencia externa no se convierten por ello en lineage interno
+  verificado.
