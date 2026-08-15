@@ -110,6 +110,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | Error/correlation modules and tests | `CODE` / `UNIT_TEST` | Sanitized technical signal | No metrics/tracing/incident workflow |
 | Repository search for browser offline stores | `CODE` | No clinical `localStorage`/IndexedDB path found | Static absence check |
 | Repository search for connector/FHIR runtime | `CODE` | No external/FHIR adapter found | Documentation contains future boundaries |
+| ADR-0017 | `DOCUMENTATION` | Provider-neutral future boundary, recipient separation, minimization, conservative failures and threat/test plan | `DOCUMENTED_ONLY`; no transport, delivery, provider, approval or operational evidence |
 | DEC-014 pack | `DECISION_SUPPORT_EVIDENCE` | Incident-operation decision preparation | Pending |
 | DEC-015 pack | `DECISION_SUPPORT_EVIDENCE` | Continuity decision preparation and known health gap | Pending |
 | DEC-016 pack | `DECISION_SUPPORT_EVIDENCE` | Real-pilot gate; `NO_GO` | Not pilot approval |
@@ -123,7 +124,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `docs/audit/gas2-claims-register.md` | `TRACEABILITY` | Canonical claim IDs, permitted status taxonomy and explicit REQ/DEC/control/hazard/test/SHA chain | A technical chain is not clinical, legal, regulatory or institutional proof |
 | `scripts/check-governance-evidence.mjs` | `CI` | Fails explicitly on unsupported claim status, broken REQ/DEC/control/hazard/test references, malformed SHA or broken local Markdown links | Validates repository references and taxonomy, not truth outside the inspected baseline |
 | `scripts/check-traceability.mjs` | `CI` | Single cross-platform entrypoint for requirement equivalence and governance-evidence validation | Aggregates deterministic repository checks only |
-| `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–17 authorities/status/blockers | All remain pending |
+| `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–17 authorities/status/blockers and P09 decision-support reference | All remain pending; P09 does not select communication policy or provider |
 | `docs/decisions/**` | `DECISION_SUPPORT_EVIDENCE` | Seven prepared packs and workshop/form evidence | No approval |
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
 
@@ -208,3 +209,36 @@ Because the canonical E2E command could not start against its required port,
 P11 does not claim a passing full validation. This is an environmental blocker,
 not evidence that the failed port-3001 diagnostic changed product behavior.
 
+### GAS2-P09 publication validation — 2026-08-15 — documentary boundary
+
+Baseline inspected: `92eb7e9a37f2c46ee2209b7a30ad9b9ea45fddef`.
+The P09 delta changes documentation only. It does not change runtime, schema,
+migrations, dependencies, feature flags, CI, scripts or tests.
+
+| Command / evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| Corrected tree validation | PASS; tree `93c7438b97f657ab386a964bb6b45b3bc234d4d0`, parent `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | 0 | Both `git show -s --format='%T' HEAD` and `git rev-parse 'HEAD^{tree}'` agreed |
+| CI run `31839963551` | `completed/success` | 0 | Exact main SHA `92eb7e9a37f2c46ee2209b7a30ad9b9ea45fddef` |
+| `pnpm install --frozen-lockfile` | PASS; lockfile unchanged, 409 packages reused, downloads 0 | 0 | Existing dependency graph only |
+| Empty PostgreSQL 16 base | PASS; public tables 0 | 0 | Isolated loopback project `gas2-p09-validation-20260815`; synthetic database only |
+| `pnpm prisma:generate` | PASS | 0 | No schema or migration change |
+| `pnpm db:migrate:deploy` | PASS; 14/14 migrations | 0 | Isolated PostgreSQL 16.14 on loopback port 55419 |
+| `pnpm db:seed` | PASS | 0 | Canonical synthetic seed only |
+| `pnpm db:migrate:status` | PASS; schema up to date | 0 | Same isolated database |
+| `pnpm format:check` | PASS | 0 | Final evidence edit included |
+| `pnpm lint` | PASS | 0 | Static analysis |
+| `pnpm typecheck` | PASS | 0 | Next route types and TypeScript |
+| `pnpm test` | PASS; 401 unit + 103 integration + 26 tooling = 530/530 | 0 | PostgreSQL 16 synthetic scope |
+| `pnpm test:tooling` | PASS; 26/26 | 0 | Includes governance evidence negatives and traceability fixtures |
+| `pnpm traceability:check` | PASS; 36 claims and Markdown/CSV drift 0 | 0 | Repository references and taxonomy only |
+| `node scripts/check-governance-evidence.mjs` | PASS; 36 claims | 0 | P11 checker executed directly |
+| Local Markdown reference verification over the five P09 documents | PASS; broken references 0 | 0 | Local targets only; no external URL validation |
+| `pnpm build` | PASS; 18/18 static pages generated | 0 | Local build, not deployment |
+| `pnpm test:e2e` | `NOT_EXECUTED` | — | Delta is exclusively documentary; runtime, configuration, scripts and tests are unchanged; no PASS claimed |
+| `pnpm audit --prod` | EXPECTED NONZERO; inherited 5 high + 2 moderate; P09 attributable = 0 | 1 | No dependency or lockfile change; advisories remain unresolved |
+| Isolated resource cleanup | PASS; container, network and volume removed; port 55419 free; temporary `.env` absent | 0 | P15 container `d156f1601592` and volume `gas-p15_guardian_postgres_data` remained intact |
+
+P09 does not claim E2E PASS. Integration validation passed against an isolated,
+synthetic PostgreSQL instance that was removed after execution. Communications
+remain unimplemented, no persistent external resource was created and the
+documented future boundary does not authorize delivery behavior.

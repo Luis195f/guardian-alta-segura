@@ -65,6 +65,7 @@ release signature, timestamp, regulatory proof or acceptance of residual risk.
 | CLAIM-GAS2-033 | “Production ready” | External/release | Productive IAM, observability, continuity and lifecycle absent | `NOT_EVIDENCED` | REQ-02, REQ-12, REQ-13, REQ-14 | DEC-005, DEC-013, DEC-014, DEC-015, DEC-016 | CTRL-011-A / HAZ-GAS-011 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Do not use |
 | CLAIM-GAS2-034 | “Real external integration” | External/interoperability | No adapter or approved external contract | `NOT_EVIDENCED` | REQ-12, REQ-13 | DEC-013, DEC-014, DEC-016 | CTRL-011-A / HAZ-GAS-011 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Say conditional boundary only |
 | CLAIM-GAS2-035 | “FHIR interoperable” | External/interoperability | No mapper, client, endpoint or profile | `NOT_EVIDENCED` | REQ-12, REQ-13 | DEC-013, DEC-016 | CTRL-003-A / HAZ-GAS-003 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Do not use |
+| CLAIM-GAS2-036 | “A provider-neutral boundary is documented for future communications” | Architecture only | ADR-0017 defines authorization, recipient separation, minimization, conservative failures, threats and future tests | `DOCUMENTED_ONLY` | REQ-02, REQ-06 | DEC-003, DEC-005, DEC-013, DEC-014, DEC-015, DEC-016, DEC-017 | CTRL-004-A / HAZ-GAS-004 | `NOT_APPLICABLE` | `92eb7e9a37f2c46ee2209b7a30ad9b9ea45fddef` | Must retain `DOCUMENTED_ONLY`; no delivery, provider, consent, compliance or implementation claim |
 
 ## Presentation wording
 

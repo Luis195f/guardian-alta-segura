@@ -35,7 +35,7 @@ separado.
 | `INTEGRATE` | HCE/EHR | Sistema externo | Consumir o publicar solo mediante contrato y autorización institucional; no replicar la HCE |
 | `INTEGRATE` | Servicio clínico o de telemonitorización externo | Proveedor futuro no seleccionado | No asumir API, contrato, acceso, payload, finalidad, DPA, equivalencia semántica ni capacidad clínica |
 | `INTEGRATE` | Wearables | Fuente externa potencial | Ingerir solo datos y finalidades aprobados; no controlar el dispositivo |
-| `INTEGRATE` | Messaging | Canal externo | Integrar proveedor aprobado respetando permiso por canal/finalidad y evidencia de entrega |
+| `INTEGRATE` | Messaging | Canal externo futuro; `DOCUMENTED_ONLY / NO_GO` | Aplicar la [frontera documental neutral respecto del proveedor](../adr/0017-future-communications-boundary.md); los registros legales actuales no prueban entrega ni autorizan un adapter |
 | `INTEGRATE` | Identity provider | Autoridad institucional externa | Implementar `InstitutionalIdentityProvider`, validación de claims y mapeo aprobado; no gestionar credenciales propias |
 | `INTEGRATE` | RPM | Plataforma externa potencial | Consumir señales pertinentes bajo contrato; no recrear funciones genéricas de monitorización |
 | `NEVER BUILD` | HCE propia | `DO-NOT-BUILD` | Está fuera del intended purpose y duplicaría el sistema clínico de registro |
@@ -49,9 +49,9 @@ separado.
 
 ## Telefonía futura: capacidades separadas
 
-Una futura llamada al profesional y una futura llamada al paciente son capacidades diferentes y no equivalentes. Deben mantener separados propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo. Ningún aviso o compromiso puede iniciar automáticamente ninguna de las dos.
+Una futura llamada al profesional y una futura llamada al paciente son capacidades diferentes y no equivalentes. Deben mantener separados propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo. `Alert`, `CheckInOutcome`, `Task` y `Commitment` jamás pueden iniciar automáticamente ninguna de las dos.
 
-No se selecciona proveedor ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Ambas capacidades permanecen `FUTURE_ONLY / NO_GO`; este documento no autoriza ni implementa telefonía, voz automatizada o interfaces de llamada.
+No se selecciona proveedor ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Ambas capacidades permanecen `FUTURE_ONLY / NO_GO`; este documento no autoriza ni implementa telefonía, voz automatizada o interfaces de llamada. ADR-0017 es la fuente canónica para el contrato conceptual, minimización, fallos, amenazas y decisiones previas; tampoco autoriza implementación.
 
 ## Riesgo de duplicación por concepto propuesto
 
