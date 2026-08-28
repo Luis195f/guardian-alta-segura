@@ -104,6 +104,16 @@ Requires a named system owner, approved contract/profile/version, operations
 and scopes. Implement an anti-corruption adapter and contract tests; do not
 build a full FHIR server or speculative vendor connector.
 
+### CALL-E hackathon documentary exception
+
+[ADR-0019](../adr/0019-calle-hackathon-sandbox-boundary.md) permits only the C01
+documentary boundary for a future synthetic technical sandbox. It does not
+satisfy this policy's implementation gate, start C02/C10, approve a live call
+or change the provider-neutral ADR-0017 boundary. Public synthetic demo remains
+`LIVE OFF`; real clinical data, pilot and production remain `NO_GO`. DEC-019,
+provider terms, explicit per-call authorization and required future evidence
+must be reviewed separately. No dependency is added by this exception.
+
 ### Real pilot/production
 
 Requires a formal DEC-016 decision and all blockers for the approved scope.

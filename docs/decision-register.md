@@ -24,6 +24,17 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | DEC-016 | Gobierno institucional | Alcance, población, entorno, periodo, formación, soporte, rollback y continuidad de negocio del piloto | REQ-01 a REQ-14 | Gerencia del Hospital como Responsable del Tratamiento | Expediente de gate de Piloto Clínico completo | Pendiente | NO-GO para pacientes y datos reales |
 | DEC-017 | Protocolo/operación | Taxonomía, prioridades administrativas, SLA, tiempos objetivo, resultados de contacto y reglas de asignación de tareas | REQ-09 | Dirección de Enfermería | Configuración versionada, explicable y validada localmente | Pendiente | Prioridades, SLA y valores operativos definitivos no se codifican |
 | DEC-018 | Interoperabilidad/seguridad/privacidad | Versión FHIR, perfiles, terminologías, identificadores/namespaces, provenance, finalidad/base jurídica, seguridad, retención, autoridad semántica, reconciliación, errores y responsabilidad operativa de una posible importación HCE read-only | REQ-01, REQ-02, REQ-12, REQ-13, REQ-14 | Dirección TI, Responsable del Tratamiento y autoridades clínicas aplicables; decisión conjunta pendiente | Contrato y perfiles versionados, threat model, evaluaciones aplicables, responsabilidades y pruebas sintéticas aprobadas para un alcance exacto | Pendiente | FHIR runtime, perfiles definitivos, integración institucional, datos reales, writeback y claims de interoperabilidad/conformidad |
+| DEC-019 | Sandbox técnico externo; seguridad, privacidad y operación | Licencia/términos de 0.6.0, idempotencia/replay sin persistir request, exactamente un marcado, destino/recipientKind, regiones/idiomas, contención de voz, emergencia, retención/residencia y autorización por llamada | REQ-02, REQ-06, REQ-09, REQ-12, REQ-13 | Responsable del proyecto y revisores técnicos/jurídicos competentes por designar para sandbox; autoridades clínicas, TI, Responsable del Tratamiento y CSO futuros para cualquier uso real; ninguna acreditada por C01 | Contrato versionado y aclaraciones del proveedor, pruebas sintéticas de gates/fallos/minimización y revisión humana de alcance; no basta C00 estático | Pendiente | Incorporación/publicación C02 sin términos resueltos y cualquier ensayo live sin gates completos; nunca habilita datos clínicos reales, piloto ni producción |
+
+### Evidencia de apoyo a DEC-019
+
+La [frontera ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) y la revisión
+humana de C00 solo autorizan documentación C01. Los gates `DEVPOST_REGISTERED`,
+`CALL_E_ACCOUNT`, `EXTRA_CALLS_REQUEST` y `SUPPORTED_AUTHORIZED_NUMBER` están
+no verificados; no son afirmaciones personales. C01 no depende de un teléfono.
+DEC-003/005/010/011/013/014/015/016/017 mantienen su estado y autoridad; DEC-019
+no los sustituye. No se decide una versión distinta de 0.6.0 ni una región,
+retención, SLA o protocolo definitivo. No se acepta riesgo residual.
 
 ### Evidencia de apoyo a DEC-003 y comunicaciones futuras
 

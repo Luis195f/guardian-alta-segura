@@ -55,6 +55,15 @@ No se selecciona proveedor ni se presumen consentimiento, base jurídica, protoc
 
 ## Riesgo de duplicación por concepto propuesto
 
+La única excepción documental específica de proveedor es
+[ADR-0019](../adr/0019-calle-hackathon-sandbox-boundary.md): Patient Relay y
+Professional Relay son capacidades organizativas futuras separadas del core y
+entre sí. GAS conservaría intención, autorización, idempotencia, minimización y
+revisión; CALL-E sería transporte externo no confiable para decisiones clínicas.
+No hay adapter ni motor de voz propio. C01 no selecciona proveedor productivo,
+no cambia ADR-0017, no introduce IA en el core y no autoriza C02 ni llamadas.
+Demo pública sintética: `LIVE OFF`; datos reales, piloto y producción: `NO_GO`.
+
 | Concepto propuesto | Riesgo | Fuente de verdad o workflow existente | Recomendación |
 |---|---|---|---|
 | `EpisodeContract` | Alto | `DischargeEpisode`, `EpisodeTransition`, `EpisodeGovernancePolicy/View`, responsables, protocolo, avisos y tareas | No crear tabla ni agregado paralelo. Reutilizar la política/vista de gobernanza compuesta ya implementada. |

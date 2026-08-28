@@ -200,7 +200,14 @@ completa.
 
 ## 10. Resumen del Hazard Log
 
-El [Hazard Log inicial](hazard-log-initial.md) contiene 20 peligros abiertos:
+El [Hazard Log inicial](hazard-log-initial.md) identificó 20 peligros abiertos
+en el corte inicial. La ampliación documental C01 del 27-08-2026 añade
+HAZ-GAS-021–038 para el sandbox CALL-E futuro: 38 entradas abiertas en total,
+sin estimación ni aceptación. [ADR-0019](../../adr/0019-calle-hackathon-sandbox-boundary.md)
+no implementa comunicaciones ni modifica los argumentos de seguridad del
+baseline; C00 estático divergente no es evidencia clínica ni prueba live.
+DEC-019 y GAP-DCB-025 siguen pendientes/abiertos; GAP-DCB-023/024 no se reducen.
+El resumen del corte inicial se conserva:
 
 - 12 del baseline: wrong-patient/episode, omisión/duplicación, calidad/procedencia,
   autorización, historia/auditoría, automation bias de avisos, no respuesta,
@@ -361,7 +368,7 @@ inventaría una metodología local.
 
 Por tanto:
 
-- los 20 peligros permanecen `NOT_ESTIMATED`;
+- los 20 peligros iniciales y los 18 escenarios futuros C01 permanecen `NOT_ESTIMATED`;
 - no se ha evaluado aceptabilidad inicial o residual;
 - no se declara ningún peligro cerrado o control efectivo clínicamente;
 - no se ha realizado risk-benefit analysis;

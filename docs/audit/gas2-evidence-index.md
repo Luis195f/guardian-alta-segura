@@ -125,10 +125,251 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `docs/audit/gas2-claims-register.md` | `TRACEABILITY` | Canonical claim IDs, permitted status taxonomy and explicit REQ/DEC/control/hazard/test/SHA chain | A technical chain is not clinical, legal, regulatory or institutional proof |
 | `scripts/check-governance-evidence.mjs` | `CI` | Fails explicitly on unsupported claim status, broken REQ/DEC/control/hazard/test references, malformed SHA or broken local Markdown links | Validates repository references and taxonomy, not truth outside the inspected baseline |
 | `scripts/check-traceability.mjs` | `CI` | Single cross-platform entrypoint for requirement equivalence and governance-evidence validation | Aggregates deterministic repository checks only |
-| `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–18 authorities/status/blockers and P09/P12 decision-support references | All remain pending; P12 does not select FHIR version, profile, terminology, security model, provider or operation |
+| `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–19 authorities/status/blockers and P09/P12/C01 decision-support references | All remain pending; C01 only documents future sandbox gates, without selecting productive provider, approving terms or authorizing a call |
 | `docs/decisions/**` | `DECISION_SUPPORT_EVIDENCE` | Seven prepared packs and workshop/form evidence | No approval |
 | `docs/audit/gas2-final-prepilot-readiness-audit.md` — extensión P16A | `DOCUMENTATION` | Cinco niveles de readiness, matriz única de gates y protocolo de usabilidad exclusivamente sintética preparado para revisión humana | `READY_FOR_HUMAN_REVIEW` califica el paquete documental; no autoriza ejecución, participantes, piloto, datos reales o producción |
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
+
+<a id="call-e-c01--evidencia-documental-y-limites"></a>
+
+## CALL-E C01 — evidencia documental y límites
+
+Corte 2026-08-27. Base C01: `e1cf37f4088c30e03d8c47297359c1444fe1cbf4`;
+[CI base 31901762633](https://github.com/Luis195f/guardian-alta-segura/actions/runs/31901762633)
+verificado `completed/success` para ese SHA. El SHA es anclaje de inspección,
+no commit de C01 ni prueba de la integración. En ese corte del 27-08-2026, C01
+aún no se había commiteado ni publicado; la reconciliación posterior se registra
+separadamente más abajo y no altera el alcance de esta evidencia histórica.
+
+`C00_PREREQUISITE = SATISFIED_BY_HUMAN_REVIEW`;
+`C00_REVIEW = ACCEPTED_FOR_C01_DOCUMENTATION_ONLY`. Los estados estáticos
+`DIVERGENT`, live `NOT_RUN` y resultado del spike `DIVERGENT`, situados antes
+de los anexos, fueron aceptados por revisión humana del proyecto solo para C01.
+No se reproduce ni enlaza el informe privado/local, sus anexos, código o hashes.
+No hay llamada probada, validación clínica, cumplimiento o riesgo aceptado.
+
+### Reconocimiento y delta demostrado
+
+| Capacidad | Evidencia actual | Delta demostrado por C00 | Documento canónico previsto |
+| --- | --- | --- | --- |
+| Comunicaciones paciente/profesional | ADR-0017 y schema sin voz ni recipientKind; no adapter | Contrato Calls inspeccionado; no capacidad operativa probada | ADR-0019, enlace mínimo ADR-0017 y ownership |
+| Acción humana | Revisión/acción separadas en GAS; no confirmación de llamada | Nuevos gates de intención, preview, confirmación one-use y revisión aún por construir | ADR-0019; DEC-019 en decision register |
+| Recuperación/cancelación | Sin transporte externo | create separado de wait, Call.id durable y GET; no cancelación API; replay incierto | ADR-0019; HAZ-GAS-021/022 |
+| Destinatario/intentos | Sin destino operativo | XOR/cardinalidad local requeridos; singleton no limita attempts | ADR-0019; HAZ-GAS-024/025/028/032 |
+| Webhooks/resultados | Sin integración | Sin firma actual; resultValidation ausente; structuredResult nullable y sin autoridad clínica | ADR-0019; HAZ-GAS-023/030/031 |
+| Versión/regiones/términos | Sin paquete/configuración CALL-E | 0.6.0 inspeccionada, 0.7.0 no adoptada; ES observado, Chile no acreditado; términos pendientes | ADR-0019; DEC-019; HAZ-GAS-027/036/038 |
+| Privacidad/demo | Sintético, loopback, historial y logs minimizados | Payloads externos excluidos de persistencia; demo pública live OFF, no mecanismo runtime implementado | ADR-0019; system boundary; README; HAZ-GAS-029/037 |
+| Claims/hazards | 37 claims, 20 hazards previos; sin validación clínica | Una frontera documental y 18 escenarios de diseño, sin prueba live ni controles clínicos efectivos | CLAIM-GAS2-038; Hazard Log; GAP-DCB-025; GAS2-R-021 |
+
+No cambia ningún requisito canónico REQ-01–REQ-14. Markdown y CSV de requisitos
+permanecen intactos; no se añade una matriz paralela de requisitos. Los números
+de hazards y referencias del Safety Case se sincronizan sin emitirlo/aprobarlo.
+
+### Fuentes y fuerza de evidencia
+
+Son las fuentes públicas inspeccionadas por C00, con `verifiedAt=2026-08-27`
+(tabla regional: `2026-08-27T18:35:50.6934815+02:00`). C01 documenta esa
+observación aceptada; no repite el provider probe ni convierte URLs mutables en
+configuración aprobada. Una fase futura debe revalidar fuentes y discrepancias.
+
+| Fuente | Tipo / sostiene | Límite |
+| --- | --- | --- |
+| [Registry npm](https://registry.npmjs.org/@call-e%2Fcalle) y [tarball exacto 0.6.0](https://registry.npmjs.org/@call-e/calle/-/calle-0.6.0.tgz) | Inspección estática C00: versión y contrato del paquete | No versión estable oficial, licencia resuelta, instalación C01 ni comportamiento live |
+| [Calls](https://docs.heycall-e.com/calls) y [OpenAPI](https://docs.heycall-e.com/openapi/calle.openapi.yaml) | Contrato documentado de creación/consulta, idempotencia, resultados y ausencia de cancelación | Fuentes mutables; sin garantías probadas de TTL, concurrencia, marcado único o entrega |
+| [Webhooks](https://docs.heycall-e.com/webhooks) y [changelog](https://docs.heycall-e.com/changelog) | Entregas sin firma, contrato legado y Stop en Dashboard | Event-Id no autentica; helpers deprecados no verifican contrato actual; Dashboard no es Calls API |
+| [Errors](https://docs.heycall-e.com/errors) y [SDKs](https://docs.heycall-e.com/sdks) | Clasificación de errores y divergencias documentales | Calls failure_code no equivale a enum de Goal Runs; no inventar resultValidation o motivo de null |
+| [Regiones e idiomas](https://github.com/CALLE-AI/call-e-integrations#supported-regions-and-languages) | ES, prefijo +34, español/inglés, International; Chile no figuraba en el corte | No prueba cuenta, crédito, carrier, autorización de destino ni éxito; ningún número completo se incorpora |
+| `docs/adr/0019-calle-hackathon-sandbox-boundary.md` | `DOCUMENTATION`: frontera, decisiones derivadas y gates humanos futuros | Runtime/controles live `NOT_IMPLEMENTED`; demo pública `LIVE OFF`; piloto/producción `NO_GO` |
+| [Hazard Log](../clinical-safety/dcb0129/hazard-log-initial.md#ampliacion-c01--call-e-solo-diseno) | `DOCUMENTATION`: 18 escenarios nuevos HAZ-GAS-021–038, causas/controles/autoridades | Provisionales; sin estimación, aceptación, CSO ni verificación clínica |
+
+### Validación local C01
+
+Las referencias ADR se conservan como identificador/ruta, siguiendo las filas
+ADR-0017/0018 del índice. El fixture de tooling copia solo un subconjunto fijo
+de documentos, no los ADR; no se modifica ese fixture en C01. La comprobación
+adicional de enlaces, anchors y rutas documentales se ejecuta sobre el worktree
+completo para verificar también ADR-0019. Tooling por sí solo no acredita esa
+cobertura adicional.
+
+La suite actual prueba GAS sintético, no CALL-E. E2E queda `NOT_EXECUTED`
+porque el delta es exclusivamente documental: no cambian runtime, dependencias,
+configuración, scripts, fixtures ni tests. No se atribuye E2E PASS ni se sustituye
+la integración por las pruebas unitarias/tooling.
+
+| Comando / comprobación | Resultado real | Exit | Alcance / límite |
+| --- | --- | --- | --- |
+| `git fetch origin --prune` en la primera comprobación C01 | Falló por permisos; repetición autorizada correcta | 1 → 0 | Sin rebase ni adaptación de base |
+| `git ls-remote --heads origin refs/heads/docs/calle-hackathon-boundary-c01 refs/heads/main` | Solo main en la base exacta; C01 remoto ausente | 0 | Revalidación de reanudación y cierre |
+| `gh run view 31901762633 --repo Luis195f/guardian-alta-segura --json databaseId,headSha,status,conclusion,url` | CI base completed/success y SHA exacto | 0 tras fallo de permisos 1 | Consulta ya realizada en la fase inicial; no CI de un commit C01 |
+| `pnpm install --frozen-lockfile` | 409 paquetes reutilizados, 0 descargados; pnpm 11.7.0; sin cambios de lock | 1 por Corepack en sandbox → 0 autorizado | Solo dependencias existentes, no CALL-E |
+| `pnpm prisma:generate` | Prisma Client 6.19.0 generado | 1 por Corepack en sandbox → 0 autorizado | Sin cambio de schema/migración; no prueba conectividad DB |
+| `pnpm format:check` | Primer intento detectó README; corregido con Prettier; repetición PASS | 1 → 0 | `docs` está excluido por configuración existente; tablas/enlaces se comprueban adicionalmente |
+| `pnpm lint` | PASS | 0 | Sin cambios de reglas |
+| `pnpm typecheck` | PASS | 0 | Next typegen y TypeScript |
+| `pnpm test` | 401/401 unitarias PASS; 103/103 integración fallan, 12 archivos, por PostgreSQL inaccesible en loopback:55431 | 1 | No prueba regresión funcional ni comportamiento PostgreSQL; etapa tooling no alcanzada dentro del agregado |
+| `pnpm test:tooling` separado | Primer intento 25/26 por enlaces ADR fuera del fixture; convención documental corregida; repetición 26/26 PASS | 1 → 0 | Tests y fixture intactos; cobertura adicional de rutas verificada aparte |
+| `pnpm traceability:check` | PASS; REQ-01–14 equivalentes y 38 claims | 0 | Drift Markdown/CSV 0; no validación clínica |
+| `node scripts/check-governance-evidence.mjs` | PASS; 38 claims, taxonomía y referencias | 0 | Checker canónico, no modificado |
+| Comprobación adicional Node en memoria de enlaces/anchors/rutas/tablas y delta | PASS; 13 documentos, 62 enlaces locales, 4 anchors, 82 rutas literales, 38 hazards y 38 claims | 0 | Sin guardar scripts; sin revalidar fuentes públicas mutables de C00 |
+| `pnpm build` | PASS; compilación y 18/18 páginas estáticas | 0 | Variables sintéticas de proceso y telemetría desactivada; no despliegue |
+| `git diff --check` | PASS | 0 | Delta documental sin errores de whitespace |
+| `pnpm audit --prod --json` | 6 high + 2 moderate heredados; sin cambio de dependencias C01 | 1 | No se acepta ni remedia el riesgo en esta rama |
+| `pnpm test:e2e` | `NOT_EXECUTED` | — | Exención documental explícita; no PASS |
+| Comprobación de integridad C00 y stage en modo lectura | Checksum idéntico al inicio de reanudación; informe solo untracked; stage vacío | 0 | No se publica checksum, contenido ni ruta local |
+| Verificación de procesos/puerto al cierre | Cero procesos asociados a ruta C01, cero procesos Docker y cero listeners en 55431; sin `.env` | 0 | Sin matar procesos ni tocar recursos ajenos |
+
+Los fallos de entorno se repitieron con autorización cuando el sandbox impedía
+Corepack/Git/Docker. Un lote exploratorio de PowerShell tuvo un error de sintaxis;
+una lectura exploratoria apuntó a un nombre de seed inexistente; no se usaron
+como evidencia de PASS. El primer comprobador ad hoc contó referencias P10
+adicionales como duplicados de hazards: se corrigió para comprobar por separado
+resumen, detalle y matriz canónicos. El checker del repositorio no se alteró.
+
+### Bloqueo de PostgreSQL y recursos C01
+
+El daemon Docker no estaba disponible. `docker desktop start --detach` y el
+inicio directo autorizado de Docker Desktop con ventana oculta devolvieron 0,
+pero **no** acreditaron readiness: las consultas del daemon terminaron con
+exit 1. WSL mostró docker-desktop detenido. No se modificó Docker/WSL ni se
+intentó reparación, reset, reinstalación o eliminación de recursos ajenos.
+
+No se llegó a crear base, contenedor, red ni volumen C01; no se usó P15 ni otra
+base. La URL de tests apuntó exclusivamente al puerto local reservado 55431,
+comprobado libre. Base vacía PostgreSQL 16, despliegue de las 14 migraciones,
+seed y estado de migración: **NOT_EXECUTED / BLOCKED**. Los errores de la suite
+fueron de inicialización/conexión, sin evidencia de las invariantes DB.
+
+Limpieza: no hay recursos C01 creados que eliminar; todas las sesiones de
+comandos finalizaron, no quedan procesos C01 ni Docker y el puerto está libre.
+No se emitió ningún comando de creación, modificación o eliminación de recursos
+Docker/P15. El daemon inaccesible impidió inventariar sus recursos persistentes;
+no se afirma que no existan recursos ajenos. `node_modules` y `.next` son
+artefactos locales ignorados de validación, no servicios activos ni delta Git.
+
+Estado de salida: frontera CALL-E **DOCUMENTED**, integración **NOT_IMPLEMENTED**,
+validación completa C01 **BLOCKED** por PostgreSQL no disponible. Se conserva
+la rama original, HEAD en la base, stage vacío, upstream ausente y cero commits
+C01; únicamente 13 documentos cambiados. Cero llamadas, números completos,
+secretos añadidos o publicaciones. C00 intacto; ningún riesgo aceptado.
+Siguiente paso: recuperar Docker fuera de este delta y, con nueva revisión
+humana, repetir validación sobre PostgreSQL 16 vacío, sintético y desechable,
+con contenedor/red/puerto exclusivos y sin volumen persistente. No iniciar
+C02/C10 ni publicar C01.
+
+### Recuperación y revalidación C01 — 2026-08-27
+
+El fallo ambiental inicial se conserva íntegro en la subsección anterior. En
+esta reanudación, `docker version` y `docker info` confirmaron cliente y servidor:
+Docker Desktop 4.65.0, Engine 29.2.1 y contexto `desktop-linux`. La comprobación
+aislada inicial no tuvo permisos para leer la configuración ni el pipe de
+Docker; la repetición autorizada devolvió exit 0 y
+`DOCKER_SERVER_READY=29.2.1`. No se efectuó reparación, reset, reinstalación,
+prune ni modificación de Docker/WSL.
+
+Antes de crear recursos C01 se inventariaron el contenedor P15 detenido
+`gas-p15-postgres-1`, la red `gas-p15_default` y el volumen persistente
+`gas-p15_guardian_postgres_data`. No se iniciaron, detuvieron, conectaron,
+montaron ni utilizaron. El puerto 55431 estaba libre y no existían contenedores,
+redes ni volúmenes de la revalidación C01.
+
+Se creó el proyecto lógico exclusivo `gas-calle-c01-validation-20260827`, con
+la red `gas-calle-c01-validation-20260827-net` y el contenedor
+`gas-calle-c01-validation-20260827-postgres`. El contenedor publicó PostgreSQL
+solo en `127.0.0.1:55431`, utilizó credenciales locales sintéticas y montó
+`/var/lib/postgresql/data` mediante `tmpfs`; `docker inspect` mostró `Mounts=[]`,
+por lo que no se creó ni montó un volumen persistente.
+
+| Comando / comprobación de recuperación | Resultado observado | Exit | Alcance / límite |
+| --- | --- | ---: | --- |
+| `docker exec ... psql ... 'SHOW server_version;'` | PostgreSQL 16.14 | 0 | Instancia C01 temporal y exclusiva |
+| Consulta inicial de tablas en `public` | 0 | 0 | Base vacía antes de migraciones |
+| `pnpm prisma:generate` | Prisma Client 6.19.0 generado | 1 por Corepack en sandbox → 0 autorizado | Sin cambios de schema ni dependencias |
+| `pnpm db:migrate:deploy` | 14 migraciones encontradas y 14 aplicadas | 0 | La consulta posterior de `_prisma_migrations` confirmó 14 finalizadas y no revertidas; 51 tablas públicas resultantes |
+| `pnpm db:seed` | PASS | 0 | Seed canónico exclusivamente sintético; sin datos CALL-E ni reales |
+| `pnpm db:migrate:status` | `Database schema is up to date!`; 14 migraciones | 0 | Misma base temporal C01 |
+| Primera ejecución completa de `pnpm test` tras recuperar PostgreSQL | PASS: 401/401 unitarias, 103/103 integraciones y 26/26 tooling | 0 | GAS sintético; no prueba CALL-E ni sustituye E2E |
+| `pnpm audit --prod --json` previo a la evidencia final | 6 high + 2 moderate heredados; 0 critical/low/info | 1 | Grafo fijado e intacto; no aceptación ni remediación |
+
+La validación posterior a la primera edición de esta subsección produjo los
+resultados siguientes. La comprobación documental en memoria usó un matcher de
+ficheros literales más amplio que el comprobador inicial de 82 rutas y, por
+tanto, sus 97 ocurrencias no sustituyen ni reinterpretan aquel recuento; ambos
+validaron que sus respectivos targets existían.
+
+| Comando / comprobación final | Resultado observado | Exit | Alcance / límite |
+| --- | --- | ---: | --- |
+| `pnpm format:check` | PASS | 0 | Incluye esta evidencia canónica; `docs` conserva la exclusión existente de Prettier |
+| `pnpm lint` | PASS | 0 | Sin cambios de reglas ni runtime |
+| `pnpm typecheck` | PASS; Next typegen y TypeScript | 0 | Sin inferir comportamiento CALL-E |
+| Segunda ejecución completa de `pnpm test` | PASS: 401/401 unitarias, 103/103 integraciones y 26/26 tooling | 0 | PostgreSQL C01 sintético; tests, timeouts, retries, puertos, aserciones y configuración intactos |
+| `pnpm test:tooling` separado | PASS: 26/26 | 0 | Fixture y scripts intactos; no acredita por sí solo ADR-0019 |
+| `pnpm traceability:check` | PASS; REQ-01–14 equivalentes y 38 claims | 0 | `TRACEABILITY_DRIFT = 0`; no validación clínica |
+| `node scripts/check-governance-evidence.mjs` | PASS; 38 claims y referencias locales resueltas | 0 | Checker P11 canónico, no modificado |
+| Comprobación Node en memoria de enlaces, anchors, rutas, tablas y delta | PASS; 13 documentos, 62 enlaces locales, 4 anchors, 97 ocurrencias de rutas literales de fichero y 103 tablas; resumen/detalle/matriz con 38 hazards cada uno y 38 claims | 0 | Sin guardar scripts ni consultar fuentes públicas mutables; dos intentos previos con falsos positivos no se usan como PASS |
+| `pnpm build` | PASS; compilación y 18/18 páginas estáticas | 0 | Variables sintéticas de proceso, telemetría desactivada y sin despliegue |
+| `git diff --check` | PASS | 0 | Sin errores de whitespace; avisos informativos LF/CRLF no alteraron archivos |
+| `pnpm audit --prod --json` | 6 high + 2 moderate heredados; 0 critical/low/info | 1 | Dependencias y lockfile intactos; no aceptación ni remediación |
+| `pnpm test:e2e` | `NOT_EXECUTED` | — | Delta final exclusivamente documental; no se atribuye PASS |
+
+La limpieza eliminó únicamente el contenedor y la red C01 después de comprobar
+su etiqueta de propiedad. El almacenamiento `tmpfs` desapareció con el
+contenedor: quedaron cero contenedores, redes y volúmenes C01, cero procesos
+asociados al worktree y cero listeners en 55431. `.env` permanece ausente. La
+comparación estructurada del inventario P15 confirmó sin cambios su contenedor
+detenido, red, volumen, identificadores, estado, montajes y etiquetas. El
+informe local C00 conserva su SHA-256, sigue siendo el único untracked de C00 y
+su stage continúa vacío; no se publica su ruta, contenido ni checksum.
+
+El delta final continúa limitado a los 12 documentos modificados y ADR-0019
+nuevo: runtime, Prisma, dependencias, configuración, scripts, fixtures y tests
+permanecen intactos. Se mantienen `CALL_E_RUNTIME = NOT_IMPLEMENTED`,
+`LIVE_CALLS = NOT_EXECUTED`, `REAL_CLINICAL_PILOT = NO_GO`,
+`REAL_DATA_PRODUCTION = NO_GO`, `RESIDUAL_RISK_ACCEPTANCE = NONE` y
+`TRACEABILITY_DRIFT = 0`. Resultado contractual definitivo:
+`C01_RESULT = PASS`. En ese corte no se publicó C01 ni se inició C02/C10.
+
+### Advisories de dependencias existentes — C01
+
+`pnpm audit --prod --json` devolvió exit 1: **6 high + 2 moderate**, sin critical,
+low o info. Son hallazgos del grafo ya fijado; `package.json` y `pnpm-lock.yaml`
+permanecen idénticos a la base. Atribuibles a cambios de dependencias C01: cero;
+no equivale a aceptación ni prueba de que sean inexplotables. Se requiere una
+revisión posterior de dependencias, fuera del alcance documental C01.
+
+| Advisory | Paquete observado | Severidad reportada por audit |
+| --- | --- | --- |
+| [GHSA-38f7-945m-qr2g](https://github.com/advisories/GHSA-38f7-945m-qr2g) | effect 3.18.4 | high |
+| [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | postcss 8.4.31 | moderate |
+| [GHSA-f88m-g3jw-g9cj](https://github.com/advisories/GHSA-f88m-g3jw-g9cj) | sharp 0.34.5 | high |
+| [GHSA-6g55-p6wh-862q](https://github.com/advisories/GHSA-6g55-p6wh-862q) | postcss 8.4.31 | high |
+| [GHSA-fxqj-rqcc-2cmp](https://github.com/advisories/GHSA-fxqj-rqcc-2cmp) | postcss 8.4.31 | moderate |
+| [GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8) | nanoid 3.3.17 | high |
+| [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849) | postcss 8.4.31 | high |
+| [GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx) | deepmerge-ts 7.1.5 | high |
+
+### Reconciliación C01 sobre P16A — 2026-08-28
+
+El delta C01 se preservó primero en el commit local
+`94f90a00c8467555f90ed50dcf3f2a169a56cc2e` sobre la base antigua
+`e1cf37f4088c30e03d8c47297359c1444fe1cbf4`. Después se rebaseó su único commit
+sobre P16A, `a28cdb5e1300f61e76e09e1ca6938475d3c768cb`. El único fichero modificado por
+ambas líneas fue este índice; Git lo compuso sin conflicto textual y no apareció
+solapamiento fuera de él. La revisión humana posterior confirmó que las dos
+evidencias permanecen presentes y no duplicadas.
+
+La subsección P16A conserva abajo su fotografía de 37 claims y 5 high +
+2 moderate observados en aquel corte. Las subsecciones C01 conservan su estado
+posterior de 38 claims y 6 high + 2 moderate observados antes del rebase. Esos
+recuentos son históricos y no se sustituyen entre sí. La validación PostgreSQL
+C01 de 530/530 permanece como evidencia previa, no como ejecución post-rebase.
+El audit actual y el CI del commit reconciliado deben registrarse por separado;
+ningún advisory se acepta y los atribuibles a cambios de dependencias C01 son
+cero porque C01 no modifica `package.json` ni `pnpm-lock.yaml`.
+
+La publicación permitida tras esta reconciliación se limita a una rama y Draft
+PR para revisión humana. No marca Ready, no fusiona y no autoriza C02/C10,
+runtime CALL-E, llamadas, datos reales, piloto, producción ni aceptación de
+riesgo. La integración y E2E post-rebase quedan pendientes del CI remoto.
 
 ## Executed baseline evidence
 

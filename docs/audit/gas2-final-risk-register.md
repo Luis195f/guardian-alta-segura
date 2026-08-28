@@ -30,6 +30,11 @@ severity. Status values are `OPEN`, `MITIGATED_TECHNICALLY`,
 | GAS2-R-018 | Authorization | `MITIGATED_TECHNICALLY` | Current role/resource/responsibility checks; admin/support clinical deny | Limits role-only bypass in audited paths | Supports synthetic technical review | Productive IAM still requires DEC-013 |
 | GAS2-R-019 | Caregiver privacy | `MITIGATED_TECHNICALLY` | Episode scope, capabilities, section permission and revocation rechecked per request | Limits stale or over-broad caregiver access | Supports synthetic demo only | DEC-004/005/013 |
 | GAS2-R-020 | Documentation/claims | `ACCEPTANCE_REQUIRED` | Build-week “ready” labels are demo-scoped | Qualification may be lost when quoted externally | External presentation only conditionally ready | Use claims register in all presentation material |
+| GAS2-R-021 | External sandbox / privacy / safety | `BLOCKED_BY_DECISION` | [ADR-0019](../adr/0019-calle-hackathon-sandbox-boundary.md), C00 estático divergente, HAZ-GAS-021–038 y GAP-DCB-025 | Sin runtime ni llamadas; cancelación ausente, replay incierto, intentos múltiples, entrada no confiable, minimización y términos no resueltos | C01 solo documental; demo pública LIVE OFF; ensayo live condicionado y datos reales/piloto/producción NO_GO | DEC-019 y dependencias: revisión humana, aclaraciones del proveedor, licencia/términos antes de publicar C02, pruebas de gates y fallo; sin aceptación residual |
+
+Esta entrada consolida el efecto sobre readiness; el detalle de causas,
+secuencias, controles y autoridades reside solo en el Hazard Log canónico.
+No cierra ni reduce los riesgos anteriores; C00 no es validación clínica.
 
 ## Technical debt
 
