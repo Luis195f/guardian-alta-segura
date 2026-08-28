@@ -127,9 +127,48 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `scripts/check-traceability.mjs` | `CI` | Single cross-platform entrypoint for requirement equivalence and governance-evidence validation | Aggregates deterministic repository checks only |
 | `docs/decision-register.md` | `DOCUMENTATION` | DEC-001–18 authorities/status/blockers and P09/P12 decision-support references | All remain pending; P12 does not select FHIR version, profile, terminology, security model, provider or operation |
 | `docs/decisions/**` | `DECISION_SUPPORT_EVIDENCE` | Seven prepared packs and workshop/form evidence | No approval |
+| `docs/audit/gas2-final-prepilot-readiness-audit.md` — extensión P16A | `DOCUMENTATION` | Cinco niveles de readiness, matriz única de gates y protocolo de usabilidad exclusivamente sintética preparado para revisión humana | `READY_FOR_HUMAN_REVIEW` califica el paquete documental; no autoriza ejecución, participantes, piloto, datos reales o producción |
 | `README.md`, build-week demo docs and UI copy | `DOCUMENTATION` | Synthetic/no-clinical-use limitations | Presentation qualifiers must remain attached |
 
 ## Executed baseline evidence
+
+### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents
+
+Baseline inspected: `e1cf37f4088c30e03d8c47297359c1444fe1cbf4`;
+tree `d6a99c93fd415c5237c508e56b1b54204bb99ccb`; branch
+`docs/pilot-readiness-gates-16a`. CI run `31901762633` was
+`completed/success` for that exact SHA. P16A modifies only this index and the
+canonical readiness audit. It does not change runtime, Prisma, migrations,
+dependencies, lockfile, workflows, tests, scripts, flags or E2E configuration.
+
+| Command / evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; 409 reused, downloads 0, lockfile unchanged | 0 | Existing dependency graph |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.0 | 0 | No schema change |
+| Empty PostgreSQL 16 base | PASS; 16.10, public tables 0, tmpfs and mounts 0 | 0 | Isolated loopback container/network/project, port 55421 |
+| `pnpm db:migrate:deploy` | PASS; 14/14 migrations | 0 | No P16A migration |
+| `pnpm db:seed` | PASS | 0 | Canonical synthetic seed only |
+| `pnpm db:migrate:status` | PASS; schema up to date | 0 | Same isolated database |
+| `pnpm format:check` | PASS | 0 | P16A documents included |
+| `pnpm lint` | PASS | 0 | Static analysis |
+| `pnpm typecheck` | PASS | 0 | Next route types and TypeScript |
+| `pnpm test` | PASS; 401 unit + 103 integration + 26 tooling = 530/530 | 0 | Synthetic fixtures and PostgreSQL 16 |
+| `pnpm test:tooling` | PASS; 26/26 | 0 | Separate required invocation |
+| `pnpm traceability:check` | PASS; 37 claims and Markdown/CSV drift 0 | 0 | Repository taxonomy/references only |
+| P11 governance evidence checker | PASS; 37 claims and local references resolved | 0 | Does not validate external truth |
+| P16A local Markdown reference verification | PASS; one local reference, broken 0 | 0 | Two modified documents; no external URL validation |
+| `pnpm build` | PASS; 18 static pages generated | 0 | Local build, not deployment |
+| `git diff --check` | PASS | 0 | No whitespace errors |
+| `pnpm audit --prod` | EXPECTED NONZERO; inherited 5 high + 2 moderate; P16A attributable = 0 | 1 | No dependency or lockfile change |
+| `pnpm test:e2e` | `NOT_EXECUTED` | `NOT_APPLICABLE` | Exclusively documentary delta; no P16A E2E PASS claimed |
+| Isolated resource cleanup | PASS; container/network removed, P16A volumes 0, port 55421 free, `.env` absent | 0 | P15 container/network/volume remained unchanged |
+
+The P16A artifact is `READY_FOR_HUMAN_REVIEW` only as a synthetic-usability
+document package. It does not authorize participants or execution and does not
+change `REAL CLINICAL PILOT = NO_GO`, `REAL DATA / PRODUCTION = NO_GO`, any DEC,
+gap, hazard, risk or claim. Two initial unprivileged pnpm attempts were blocked
+by the runner's Corepack file permissions and passed unchanged in the permitted
+context; they are runner diagnostics rather than product gate failures.
 
 ### GAS2-P12 local execution — 2026-08-15 — read-only FHIR documentary boundary
 

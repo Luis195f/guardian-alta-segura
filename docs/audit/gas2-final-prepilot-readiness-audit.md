@@ -1,5 +1,341 @@
 # GAS 2.0 final prepilot readiness audit
 
+## Respuesta ejecutiva vigente — extensión GAS2-P16A
+
+La evidencia actual permite someter a revisión humana un paquete documental para
+una futura evaluación de usabilidad exclusivamente sintética. No autoriza
+reclutamiento, ejecución con pacientes, cuidadores o profesionales reales,
+tratamiento de datos reales, piloto clínico, despliegue institucional ni
+producción. El CI y el sandbox aportan evidencia técnica; no aportan validación
+clínica, efectividad, aceptación de usuarios reales, conformidad o aprobación.
+
+```text
+SYNTHETIC TECHNICAL BASELINE = PASS
+SYNTHETIC USABILITY PACKAGE = READY_FOR_HUMAN_REVIEW
+REAL CLINICAL PILOT = NO_GO
+REAL DATA / PRODUCTION = NO_GO
+RESIDUAL RISK ACCEPTANCE = NONE
+INSTITUTIONAL ENDORSEMENT = NONE
+TRACEABILITY DRIFT = 0
+```
+
+`READY_FOR_HUMAN_REVIEW` califica únicamente la completitud documental del
+protocolo P16A. No significa que una sesión de usabilidad esté autorizada, que el
+producto sea apto para uso clínico o que exista una autoridad designada para
+ejecutarla. `DEC-001–018`, `GAP-DCB-023`, `GAP-DCB-024` y todos los hazards
+permanecen abiertos o pendientes en sus registros canónicos.
+
+### Control de la extensión
+
+| Campo | Valor |
+| --- | --- |
+| Extensión | `GAS2-P16A-SYNTHETIC-USABILITY-READINESS-v1` |
+| Fecha | 2026-08-15 |
+| Repositorio | `Luis195f/guardian-alta-segura` |
+| Rama de trabajo | `docs/pilot-readiness-gates-16a` |
+| Baseline | `e1cf37f4088c30e03d8c47297359c1444fe1cbf4` |
+| Árbol baseline | `d6a99c93fd415c5237c508e56b1b54204bb99ccb` |
+| CI baseline | Run `31901762633`, `completed/success`, mismo SHA |
+| Naturaleza del delta | Exclusivamente documental |
+| Datos | Exclusivamente sintéticos; `REAL DATA = NO_GO` |
+| Resultado máximo del paquete | `READY_FOR_HUMAN_REVIEW` |
+| Autoridad de ejecución de usabilidad | `UNASSIGNED` |
+| Aprobación institucional | Ninguna |
+
+Esta extensión corrige la vigencia del audit canónico sin borrar su fotografía
+histórica. Cuando exista conflicto temporal, esta sección y el
+[evidence index](gas2-evidence-index.md) prevalecen para P16A; los registros de
+decisiones, gaps, hazards, riesgos y claims conservan su propia autoridad.
+
+### Evidencia fusionada reconocida
+
+| Fase | Evidencia fusionada | Qué permite sostener | Límite |
+| --- | --- | --- | --- |
+| X1 | PR #35 / `29a02ce` | Mantenimiento y neutralidad del repositorio público | Documentación; no usabilidad |
+| P07 | PR #36 / `eff2a6a` | Recorrido de check-in sintético endurecido | No valida contenido, cadencia o usuarios |
+| P08 | PR #37 / `bbe49b9` | Revisión humana idempotente y acción posterior separada | No prueba calidad ni oportunidad de la revisión |
+| P10 | PR #38 / `1b765ab` | Panel operativo read-only, minimizado y sin prioridad clínica | No prueba interpretación ni freshness clínica |
+| X3 | PR #39 / `82811c6` | Colecciones expuestas acotadas y estados de truncamiento | No prueba suficiencia de la información |
+| P13 | PR #41 / `cef7402` | Frontera de sandbox sintético endurecida | `CANONICAL SECURITY P13 = NOT EXECUTED`; no es validación productiva |
+| P14 | PR #42 / `7dbdc48` y PR #43 / `a66fb3e` | Corrección de denegación y cobertura E2E adversarial sintética | No es pentest ni validación clínica |
+| X2 | PR #44 / `13ae145` | Tooling crítico portable por contrato | Solo Windows fue ejecutado para P15 |
+| P15 | PR #45 / `5c6a0b6` | Demo sintética reproducible y smoke aislado | Local, loopback y sin usuarios reales |
+| P11 | PR #46 / `92eb7e9` | Taxonomía y referencias de governance evidence verificables | Valida referencias, no verdad externa |
+| P09 | PR #47 / `3be58f6` | Frontera futura de comunicaciones documentada | Sin entrega, proveedor o comunicación real |
+| P12 | PR #48 / `e1cf37f` | Frontera futura FHIR read-only documentada | Sin runtime, perfiles, integración o conformidad FHIR |
+
+Las filas anteriores son evidencia de repositorio y pruebas sintéticas ya
+fusionadas. Ninguna convierte una capacidad documentada o técnicamente probada
+en evidencia clínica o institucional.
+
+## Readiness separado por nivel
+
+| Nivel | Evidencia disponible | Estado P16A | Condición que mantiene el límite | Resultado máximo / siguiente acción |
+| --- | --- | --- | --- | --- |
+| Baseline técnico sintético | CI exacto de la base y ejecución local P16A: dependencias, Prisma, PostgreSQL 16, 14 migraciones, seed, 530 tests, checks y build | `PASS` | Evidencia limitada a comportamiento técnico sintético | Conservar baseline y tratar cualquier regresión futura como `NO_GO` |
+| Sandbox sintético | Runbook, manifiesto, seed, smoke P15 y seis aliases sintéticos | `PASS` para el sandbox ya ejecutado | Solo loopback, sin datos/personas reales; P16A no infiere E2E nuevo | Conservar límites y revisar el protocolo |
+| Evaluación de usabilidad sintética | Protocolo P16A, tareas por rol, métricas, errores críticos, accesibilidad, parada y formulario minimizado | `READY_FOR_HUMAN_REVIEW` | Ejecución, muestra, umbrales, participantes y autoridad no aprobados | Revisión humana del paquete; no ejecutar hasta decisión documentada |
+| Futuro piloto clínico | DEC-016 y decision packs como decision support | `NO_GO` | DEC-016 pendiente, datos/identidades reales bloqueados y dependencias abiertas | Autoridades competentes resuelven scope y gates; P16A no los resuelve |
+| Producción | No existe IAM, operación, continuidad, lifecycle ni integración productivos | `NO_GO` | Fuera de alcance y sin release/autoridad institucional | Requiere fases y autorizaciones futuras separadas |
+
+No se transfiere evidencia entre niveles. En particular, `PASS` técnico o de
+sandbox no permite inferir safety, eficacia, aceptabilidad, competencia,
+autorización de piloto o readiness productiva.
+
+## Matriz canónica única de gates P16A
+
+`EJECUTADA` identifica evidencia producida por un comando o recorrido ya
+realizado. `DOCUMENTAL` identifica un contrato preparado pero todavía no
+ejecutado con participantes. Ninguna fila cierra una DEC, gap, hazard o riesgo.
+
+| Gate | Requisito | Evidencia verificable | Autoridad futura | Estado | Bloqueo | Siguiente acción |
+| --- | --- | --- | --- | --- | --- | --- |
+| G0 — Baseline técnico sintético | Dependencias congeladas, Prisma generado, PostgreSQL 16 vacío, 14 migraciones, seed sintético, checks y build | `EJECUTADA`: CI base `31901762633` y ejecución local P16A registrada abajo y en el evidence index | Technical evidence owner: `UNASSIGNED` | `PASS` | El resultado no demuestra seguridad clínica ni readiness operativa | Conservar la evidencia y repetir ante cambios técnicos futuros |
+| G1 — Sandbox sintético | Recorrido local reproducible, seis roles, cero proveedores/datos reales y límites visibles | `EJECUTADA`: P15 smoke 1/1, E2E 74/74 y fingerprint registrados; CI actual sobre una base posterior sin cambios runtime tras P15 | Synthetic sandbox review owner: `UNASSIGNED` | `PASS` | Solo autoriza inspección sintética local; no autoriza participantes ni uso real | Mantener runbook, flags y boundary; usarlo únicamente si una ejecución futura es autorizada |
+| G2 — Paquete de usabilidad sintética | Protocolo revisable con roles, tareas, métricas, accesibilidad, errores, parada, hallazgos, desviaciones y decisión | `DOCUMENTAL`: secciones P16A de este audit; enlazadas desde el evidence index | Human-factors/usability decision owner: `UNASSIGNED` | `READY_FOR_HUMAN_REVIEW` | Muestra, umbrales, participantes, calendario, entorno y autoridad = `PENDING_LOCAL_DECISION`/`UNASSIGNED` | Revisión humana; registrar decisión y versión sin iniciar sesión por defecto |
+| G3 — Ejecución futura de usabilidad sintética | Aprobación del protocolo, moderación, entorno, participantes no clínicos o simulados, formación, privacidad y stop authority | `DOCUMENTAL`: checklist siguiente; no existe acta de aprobación o ejecución | Usability execution authority: `UNASSIGNED` | `BLOCKED` | No hay autoridad ni scope aprobados; no se permiten pacientes, cuidadores o profesionales reclutados como participantes reales | Designar autoridad competente y resolver cada `PENDING_LOCAL_DECISION`; otra rama/fase deberá registrar ejecución |
+| G4 — Piloto clínico real | DEC-016, scope exacto, dependencias, safety/privacy/security/regulatory/ethics, IAM, soporte y continuidad | `DOCUMENTAL`: DEC-016 y matriz institucional; sin aprobaciones | Gerencia del Hospital como Responsable del Tratamiento, sin sustituir autoridades dependientes | `NO_GO` | DEC-016 y decisiones aplicables pendientes; `REAL DATA = NO_GO` | Mantener bloqueado; decisión externa futura fuera de P16A |
+| G5 — Producción | Release productiva, operación, lifecycle, IAM, continuidad e integraciones aprobadas | No existe evidencia productiva | Production release authority: `UNASSIGNED` | `NO_GO` | Fuera de alcance; capacidades productivas ausentes | No iniciar desde P16A |
+
+## Protocolo preparado para revisión humana de usabilidad sintética
+
+### Propósito y frontera
+
+El propósito es permitir que una autoridad humana futura decida si un protocolo
+exclusivamente sintético está suficientemente definido para ejecutarse en otra
+fase. P16A no autoriza la ejecución. No se reclutan ni representan como
+participantes reales pacientes, cuidadores, profesionales o instituciones. Los
+roles se simulan mediante los aliases `demo-*` y los datos canónicos `SYNTH-*`.
+
+Quedan prohibidos durante cualquier ejecución futura derivada de este borrador:
+
+- datos, identidades, contactos, credenciales, organizaciones o historias reales;
+- exposición LAN, túnel, cloud, staging, proveedor o integración externa;
+- diagnóstico, scoring, predicción, priorización o decisión clínica automática;
+- 5C, evaluator, scheduler, worker, cron, webhook, notificaciones o comunicaciones;
+- habilitar `EXPLAINABLE_TRAFFIC_LIGHT` o presentar un aviso como riesgo;
+- números o destinos de crisis, FHIR operativo, SSO institucional o producción.
+
+### Condiciones previas de una futura ejecución
+
+Cada condición debe tener evidencia explícita o permanecer bloqueada:
+
+| Condición | Estado P16A | Evidencia futura requerida |
+| --- | --- | --- |
+| Versión del protocolo y baseline exactos | Preparados | SHA, árbol, versión del protocolo y diff documental |
+| Autoridad que aprueba la sesión | `UNASSIGNED` | Rol/función y referencia de decisión; sin nombres ni firmas en este paquete |
+| Propósito y población de participantes | `PENDING_LOCAL_DECISION` | Scope que excluya pacientes/cuidadores y uso asistencial reales |
+| Tamaño muestral, composición y criterios | `PENDING_LOCAL_DECISION` | Decisión humana justificada; P16A no propone cifras |
+| Entorno local sintético | Preparado documentalmente | `demo:verify`, flags false, loopback y fingerprint de la sesión |
+| Moderador, observador, accesibilidad y stop authority | `UNASSIGNED` | Funciones designadas y segregación acordada |
+| Material de tarea y formación | Preparado como borrador | Revisión de lenguaje, accesibilidad y límites por autoridad humana |
+| Umbrales de éxito o aceptación | `PENDING_LOCAL_DECISION` | Criterios versionados; no se permite derivarlos de CI |
+| Registro minimizado y ubicación | Preparado como plantilla | Revisión de privacidad; solo IDs sintéticos/seudónimos del estudio |
+| Incidencias, desviaciones y escalado | Preparado como contrato | Canal y funciones humanas designados; sin automatización |
+| Criterio de finalización y decisión posterior | `PENDING_LOCAL_DECISION` | Acta minimizada y referencia a evidencia; sin aprobar piloto real |
+
+Si falta cualquiera de las condiciones que la autoridad considere obligatoria,
+la ejecución permanece `BLOCKED`.
+
+### Roles y tareas representativas
+
+Las tareas se basan solo en superficies implementadas. “Completar” significa
+observar el comportamiento sintético solicitado; no significa corrección
+clínica, competencia profesional ni aceptación del producto.
+
+| Rol simulado | Tareas representativas | Observaciones clave / error crítico específico |
+| --- | --- | --- |
+| `demo-nurse` | Iniciar sesión; localizar `SYNTH-PATIENT-001`; interpretar estados y actualización desconocida; abrir aviso; revisar explicación y origen; confirmar que la revisión no crea tarea; crear y actualizar una tarea manual | Confundir aviso con riesgo/prioridad; asumir freshness; creer que review ejecutó una acción; actuar sobre episodio equivocado |
+| `demo-clinician` | Abrir episodio bajo responsabilidad; revisar Plan/check-in/avisos; generar preview SBAR; identificar procedencia, fallback y `signed=false` | Interpretar preview como completo, validado, firmado o enviado; inferir datos ausentes |
+| `demo-patient` | Acceder a `my-follow-up`; consultar Plan e historial; responder el check-in disponible; revisar y revocar autorización de cuidador | No distinguir atención real de demo; perder historial al “editar”; creer que la herramienta es un canal de urgencias |
+| `demo-caregiver` | Ver estado sin acceso; aceptar invitación local sintética si la tarea lo prepara; comprobar scope; enviar observación; verificar pérdida de acceso tras revocación | Acceder fuera de scope; creer que una observación genera aviso/acción; ver información no autorizada |
+| `demo-admin` | Consultar/versionar configuración demo y catálogo determinista; reconocer reglas draft y flag apagado | Interpretar `APPROVED` técnico o regla activa de mecánica como validación clínica; acceder a episodio clínico |
+| `demo-support` | Consultar health sanitizado y estado técnico; reconocer que no es DB readiness ni continuidad | Ver contenido asistencial; interpretar health 200 como readiness productiva; registrar contenido sensible en un incidente |
+
+### Métricas observables sin umbrales inventados
+
+Se captura observación bruta; la autoridad futura define muestra, agregación y
+criterios. No se calcula un score clínico o un aprobado automático.
+
+| Métrica | Registro permitido | Umbral P16A |
+| --- | --- | --- |
+| Resultado de tarea | `COMPLETED_UNASSISTED`, `COMPLETED_ASSISTED`, `NOT_COMPLETED`, `STOPPED` | `PENDING_LOCAL_DECISION` |
+| Tiempo por tarea | Duración observada con reloj de sesión, sin SLA | `PENDING_LOCAL_DECISION` |
+| Errores de interacción | Tipo, paso y recuperación observada | `PENDING_LOCAL_DECISION` |
+| Asistencia | Si hubo ayuda y categoría predefinida | `PENDING_LOCAL_DECISION` |
+| Comprensión de límites | Respuesta observable a prompts neutrales sobre sintético, revisión humana, crisis, SBAR y avisos | `PENDING_LOCAL_DECISION` |
+| Navegación | Destino esperado, desvíos y vuelta al flujo | `PENDING_LOCAL_DECISION` |
+| Accesibilidad | Teclado, foco, nombre/rol accesible, estados no solo por color, zoom/reflow y anuncio de errores | `PENDING_LOCAL_DECISION` |
+| Carga o confianza percibida | Solo escala o pregunta aprobada previamente | `PENDING_LOCAL_DECISION` |
+
+No se inventan frecuencia, plazo, SLA, RTO/RPO, tasa objetivo o muestra. Los
+resultados se presentan por tarea y rol simulado, con contexto y denominador,
+sin convertir una media en autorización.
+
+### Accesibilidad y comunicación de límites
+
+Una futura revisión debe observar, al menos:
+
+1. navegación completa mediante teclado y orden de foco comprensible;
+2. foco visible y retorno de foco tras diálogos, errores y cambio de vista;
+3. nombres, labels, instrucciones y estados accesibles para controles;
+4. error, vacío, truncamiento, actualización desconocida y denegación expresados
+   mediante texto, no solo color;
+5. reflow/zoom y lectura en viewport móvil sin ocultar acciones o límites;
+6. anuncio comprensible de cambios de estado y errores;
+7. persistencia de `DEMO SINTÉTICA · NO USO CLÍNICO` y comprensión de que
+   crisis no es accionable, SBAR no está firmado y avisos no son scoring;
+8. lenguaje no culpabilizador para ausencia, no respuesta y pendientes.
+
+Esta observación no autoriza afirmar WCAG ni accesibilidad certificada.
+
+### Errores críticos y criterios de parada
+
+Un error crítico es una observación que exige detener la tarea afectada y
+revisión humana. No es una severidad clínica ni una aceptación de riesgo.
+
+- dato, identidad, contacto, credencial o referencia institucional real;
+- acceso o mutación fuera de rol, episodio o scope sintético;
+- selección o presentación de paciente/episodio equivocado sin límite visible;
+- pérdida, sobrescritura o borrado de historia que debía conservarse;
+- aviso interpretado o presentado como diagnóstico, predicción, score, riesgo o
+  prioridad; o revisión que crea una actuación automáticamente;
+- Home Safety presentado como certificación, SBAR como firmado/enviado o crisis
+  como accionable;
+- soporte/admin expuestos a contenido asistencial no permitido;
+- activación de flags prohibidos, servicio externo, comunicación, scheduler,
+  worker, webhook, FHIR o identidad institucional;
+- captura o log de contenido sensible no minimizado;
+- fallo de entorno que invalide loopback, fingerprint, migraciones o el baseline.
+
+Ante cualquier criterio: el moderador detiene la tarea, preserva evidencia
+minimizada, evita reintentos destructivos, registra una incidencia o desviación
+y eleva revisión. Detener toda la sesión, continuar con tareas no afectadas o
+reanudarla son decisiones humanas de la stop authority `UNASSIGNED`; no existen
+umbrales automáticos ni auto-resume.
+
+### Formulario minimizado de hallazgo
+
+Solo admite identificadores sintéticos o seudónimos creados para el estudio
+sintético. No solicita nombre, email, teléfono, organización, puesto identificable,
+credencial, diagnóstico, nota clínica, historia, voz, imagen facial, IP u otra
+PHI/PII.
+
+| Campo | Valor permitido |
+| --- | --- |
+| `finding_id` | `SYNTH-UF-###` |
+| `protocol_version` / `baseline_sha` | Referencias técnicas |
+| `synthetic_session_id` | Seudónimo no reversible del estudio sintético |
+| `simulated_role` | Uno de los seis aliases/roles demo |
+| `task_id` / `step_id` | ID de tarea del protocolo |
+| `observed_at` | Timestamp técnico de sesión; sin geolocalización |
+| `result` | Outcome permitido de la tabla de métricas |
+| `category` | Navegación, comprensión, accesibilidad, autorización, integridad, boundary, error/empty/degraded u otra taxonomía aprobada |
+| `observation_minimized` | Descripción breve sin datos personales o clínicos; usar valores `SYNTH-*` |
+| `assistance` / `recovery` | Categorías predefinidas y resultado observado |
+| `critical_stop` | `YES`/`NO`; no es scoring clínico |
+| `related_refs` | REQ/DEC/HAZ/GAP/control/test aplicables |
+| `sanitized_evidence_ref` | Referencia a captura o log revisado; nunca secreto o payload sensible |
+| `deviation_id` / `incident_id` | ID sintético separado, si aplica |
+| `review_status` | `PENDING_HUMAN_REVIEW`, `CHANGES_REQUESTED`, `REVIEWED` |
+| `next_action` | Acción verificable, owner `UNASSIGNED` si falta y evidencia esperada |
+
+El formulario no incluye un campo de “riesgo aceptado” ni permite cerrar un
+hazard, gap o DEC. La narrativa libre se minimiza y se revisa antes de compartir.
+
+### Incidencias y desviaciones
+
+- Un hallazgo describe una observación de uso.
+- Una desviación registra que protocolo, rol, tarea, entorno o material no se
+  siguieron como estaban versionados.
+- Una incidencia registra un fallo de seguridad, privacidad, integridad,
+  disponibilidad o boundary que requiere el criterio de parada.
+
+Cada registro usa IDs sintéticos separados, conserva relación con baseline y
+tarea, y contiene solo hechos mínimos. Correlation IDs y logs técnicos no se
+copian como contenido clínico. La clasificación, escalado, reanudación y cierre
+requieren revisión humana; DEC-014 sigue pendiente y este protocolo no crea un
+workflow operativo de incidentes.
+
+### Revisión y decisión posterior
+
+La revisión humana debe comprobar completitud del dataset minimizado,
+desviaciones, incidencias, errores críticos, accesibilidad, patrones por tarea y
+límites del análisis. Debe declarar evidencia faltante y no transformar ausencia
+de hallazgos en seguridad demostrada.
+
+Resultados documentales permitidos para una revisión futura del protocolo o de
+una ejecución sintética: solicitar cambios, mantener bloqueado o autorizar otra
+actividad sintética con scope explícito. La nomenclatura y autoridad final son
+`PENDING_LOCAL_DECISION`; ninguna opción aprueba un piloto clínico, datos reales
+o producción. Toda acción posterior debe indicar owner, evidencia verificable y
+referencia de decisión. La autoridad permanece `UNASSIGNED` en P16A.
+
+## Plan de validación futura por nivel
+
+| Nivel | Evidencia permitida | Resultado máximo |
+| --- | --- | --- |
+| Técnica | Tests, build, migraciones y seguridad técnica | `PASS` o `NO_GO` |
+| Sandbox | Recorridos exclusivamente sintéticos | `PASS` o `NO_GO` |
+| Usabilidad sintética | Protocolo y paquete documental | `READY_FOR_HUMAN_REVIEW` o `BLOCKED` |
+| Piloto clínico futuro | Requiere decisiones y autorizaciones externas | `NO_GO` |
+| Producción | Fuera del alcance | `NO_GO` |
+
+El paso siguiente permitido por P16A es la revisión humana de este paquete. Una
+futura ejecución de usabilidad sintética requiere otro registro versionado de
+autoridad, scope, condiciones, resultados y limpieza. P16A no inicia P16B, X4 ni
+ninguna actividad con personas o datos reales.
+
+## Ejecución local P16A — evidencia técnica sintética
+
+La ejecución se realizó contra el SHA base `e1cf37f4088c30e03d8c47297359c1444fe1cbf4`
+con el delta documental sin stage. PostgreSQL 16.10 se inició en el contenedor
+efímero `gas2-p16a-postgres-20260815`, proyecto
+`gas2-p16a-validation-20260815`, red exclusiva y puerto loopback `55421`. La
+base comenzó con cero tablas públicas; `/var/lib/postgresql/data` fue `tmpfs` y
+`docker inspect` mostró cero mounts. No se creó volumen persistente.
+
+| Comando / evidencia | Resultado real | Exit | Límite |
+| --- | --- | ---: | --- |
+| `git fetch origin --prune` | PASS; `origin/main` permaneció en el SHA contractual | 0 | No publica P16A |
+| CI run `31901762633` | `completed/success`; mismo SHA base | 0 | CI técnico, no validación clínica |
+| `pnpm install --frozen-lockfile` | PASS; 409 paquetes reutilizados, downloads 0, lockfile sin cambios | 0 | Grafo heredado |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.0 | 0 | Schema sin cambios |
+| PostgreSQL 16 vacío | PASS; 16.10, cero tablas públicas, tmpfs, cero mounts | 0 | Base sintética local |
+| `pnpm db:migrate:deploy` | PASS; 14/14 migraciones | 0 | Sin migración P16A |
+| `pnpm db:seed` | PASS; seed canónico sintético | 0 | No datos reales |
+| `pnpm db:migrate:status` | PASS; schema al día | 0 | Misma base aislada |
+| `pnpm format:check` | PASS | 0 | Incluye documentos P16A |
+| `pnpm lint` | PASS | 0 | Análisis estático |
+| `pnpm typecheck` | PASS; route types y TypeScript | 0 | No prueba comportamiento |
+| `pnpm test` | PASS; 401 unit + 103 integration + 26 tooling = 530/530 | 0 | Fixtures sintéticos/PostgreSQL 16 |
+| `pnpm test:tooling` | PASS; 26/26 | 0 | Ejecutado también como gate separado |
+| `pnpm traceability:check` | PASS; REQ-01–14 equivalentes, 37 claims, drift Markdown/CSV 0 y referencias canónicas resueltas | 0 | No valida verdad externa |
+| `node scripts/check-governance-evidence.mjs` | PASS; 37 claims y referencias locales | 0 | Checker P11; no aprobación |
+| Referencias Markdown de los dos documentos P16A | PASS; una referencia local comprobada, rotas 0 | 0 | No valida URLs externas |
+| `pnpm build` | PASS; compilación y 18/18 páginas estáticas | 0 | Build local, no deployment |
+| `git diff --check` | PASS | 0 | Sin errores de whitespace |
+| `pnpm audit --prod` | EXPECTED NONZERO; 5 high + 2 moderate heredadas; atribuibles a P16A = 0 | 1 | Sin cambio de dependencias o lockfile |
+| `pnpm test:e2e` | `NOT_EXECUTED` | `NOT_APPLICABLE` | Delta final exclusivamente documental; no se declara PASS P16A |
+| Limpieza aislada | PASS; contenedor/red eliminados, volumen P16A inexistente, puerto 55421 libre y `.env` ausente | 0 | Recursos P15 preservados |
+
+Dos intentos iniciales no privilegiados de `pnpm install` y `pnpm typecheck`
+terminaron con exit 1 porque el sandbox impidió leer
+`Corepack/lastKnownGood.json`. Los mismos comandos se repitieron sin cambiar
+parámetros en el contexto permitido y pasaron; se trata de una restricción del
+runner, no de un resultado de producto. La consulta Docker inicial tuvo la misma
+restricción de acceso al named pipe y se repitió con permiso antes de crear
+recursos.
+
+El audit público de advisories cambió desde fotografías anteriores sin que P16A
+modificara dependencias: el resultado observado fue 5 high y 2 moderate. P16A no
+atribuye esa variación documental al código ni afirma remediación. E2E local no
+se ejecutó porque los únicos archivos modificados son este audit y el evidence
+index; las pruebas E2E fusionadas siguen siendo evidencia histórica, no un PASS
+de P16A.
+
+## Fotografía histórica preservada — audit original de 2026-07-28
+
 > Nota de vigencia: este informe conserva la fotografía técnica de su fecha. Para
 > la frontera Guardián Core / Clinical Rules y cualquier claim de aseguramiento
 > del circuito prevalecen `docs/system-assurance-boundary.md` y ADR-0015. La
