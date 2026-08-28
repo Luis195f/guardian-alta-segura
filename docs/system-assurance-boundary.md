@@ -88,6 +88,27 @@ seguridad clínica y CI verde no prueba eficacia, cumplimiento o readiness.
 
 ## Finalidad prevista separada
 
+### Excepción documental C01 del hackathon — 2026-08-27
+
+[ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) documenta únicamente
+una evaluación futura de CALL-E, sin modificar la aceptación limitada de 5B ni
+el Gate B. La cadena es: core GAS sintético → sandbox técnico CALL-E para
+hackathon → demo pública sintética con `LIVE OFF` → futuro piloto clínico
+`NO_GO` → producción/datos reales `NO_GO`.
+
+Patient Relay y Professional Relay serían continuidad organizativa; CALL-E no
+es autoridad clínica. No se introduce IA generativa en el MVP ni se implementa
+transporte: `CALL_E_RUNTIME = NOT_IMPLEMENTED`. Solo una acción humana explícita
+y nuevamente autorizada podría originar una llamada futura, separando preview,
+confirmación one-use, ejecución, resultado y revisión. Avisos, check-ins,
+no respuesta, tareas, compromisos y resultados externos no disparan llamadas.
+Los límites de irreversibilidad, minimización y decisiones pendientes están en
+ADR-0019; no quedan satisfechos por revisión documental ni por CI.
+
+La ampliación HAZ-GAS-021–038 y GAP-DCB-025 registra incertidumbre, no controles
+clínicos efectivos. No se autoriza C02/C10, piloto, publicación, producción ni
+aceptación de riesgo. El core, sus flags, modelo y requisitos no cambian.
+
 ### Guardián Core
 
 **Finalidad prevista propuesta:** organizar y verificar el circuito documental y

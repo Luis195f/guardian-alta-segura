@@ -36,6 +36,11 @@ resuelvan el contrato jurídico, clínico, técnico y operativo descrito aquí.
 
 ## Decisión
 
+La [excepción documental CALL-E del hackathon, ADR-0019](0019-calle-hackathon-sandbox-boundary.md)
+se limita a evaluar un sandbox técnico futuro con datos sintéticos y demo pública
+con live desactivado. No reemplaza esta frontera neutral ni selecciona proveedor
+productivo; no implementa ni autoriza llamadas, C02, piloto o producción.
+
 Se documenta una única frontera conceptual, neutral respecto del proveedor, para
 una fase futura. El estado funcional es `DOCUMENTED_ONLY`; `IMPLEMENTATION =
 NO_GO`.

@@ -144,6 +144,16 @@ Guardián es una capa de orquestación y trazabilidad. No se ha seleccionado nin
 
 Una futura llamada al profesional y una futura llamada al paciente serían capacidades diferentes y no equivalentes. Cada una necesitaría propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo propios. Ningún aviso o compromiso puede iniciarlas automáticamente. No hay proveedor, consentimiento, base jurídica, protocolo, horario, SLA o responsable seleccionados: ambas permanecen `FUTURE_ONLY / NO_GO` y no tienen interfaz ni implementación.
 
+### Excepción documental para el hackathon CALL-E
+
+Se ha documentado en [ADR-0019](docs/adr/0019-calle-hackathon-sandbox-boundary.md)
+una frontera acotada para evaluar una futura integración CALL-E exclusivamente
+en sandbox técnico del hackathon, con datos sintéticos, llamadas públicas
+desactivadas y revisión humana. La integración no está implementada y no
+autoriza uso clínico, piloto ni producción. No se ha seleccionado un proveedor
+productivo ni se modifica la frontera neutral de ADR-0017. Esta excepción no
+habilita llamadas ni exposición del runtime demo loopback a Internet.
+
 ## OpenAI Build Week 2026
 
 Guardián Alta Segura is a personal project developed independently. No healthcare institution, company, professional society, university, public body or research group currently sponsors, owns, co-develops, endorses, validates, integrates, deploys or authorizes this project.
