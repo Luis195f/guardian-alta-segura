@@ -371,6 +371,93 @@ PR para revisión humana. No marca Ready, no fusiona y no autoriza C02/C10,
 runtime CALL-E, llamadas, datos reales, piloto, producción ni aceptación de
 riesgo. La integración y E2E post-rebase quedan pendientes del CI remoto.
 
+<a id="call-e-c02-rest--adapter-deshabilitado"></a>
+
+## CALL-E C02 REST — adapter deshabilitado y sin entrypoint
+
+Corte contractual: 2026-08-29. Base y HEAD anclados en
+`8a539159427e1bf57f0c66092ecbd2d3ba0400f1`; `origin/main` idéntico antes de
+editar. El intento SDK previo terminó `BLOCKED_BY_LICENSE` sin delta: el paquete
+`@call-e/calle` permanece ausente de manifest y lockfile. La decisión humana
+posterior autorizó código original del proyecto contra REST oficial, no el SDK.
+
+### Evidencia primaria REST y snapshot efímero
+
+| Evidencia | Observación fechada | Límite |
+| --- | --- | --- |
+| [OpenAPI oficial CALL-E](https://docs.heycall-e.com/openapi/calle.openapi.yaml) | Descargado `2026-08-29T21:21:13.4674376+02:00`; 63 998 bytes; SHA-256 `ccd47cc490afa12ef75d01c6c95be5c39a5051f0185dade886a8635d0f105ca5`; OpenAPI 3.1.0, `info.version: 0.6.0` | Lectura estática; temporal eliminado; no vendorizado; no prueba live |
+| [Referencia oficial Calls](https://docs.heycall-e.com/api-reference/calls) | Bearer, creación y consulta de llamadas | Documentación mutable; el adapter se limita al OpenAPI verificado |
+| [Repositorio oficial de integraciones](https://github.com/CALLE-AI/call-e-integrations) | Base `https://api.heycall-e.com`; API como modo de integración | No se copia código ni se infieren capacidades fuera de Calls |
+| [Reglas oficiales del hackathon](https://call-e.devpost.com/rules) | Permiten proyectos que usen CALL-E API o SDK y exigen trabajo original/autorizado | No resuelven la licencia del paquete SDK ni autorizan llamadas/datos reales |
+| [Términos del servicio CALL-E](https://www.heycall-e.com/terms-of-service/) | Términos vigentes consultados el 29-08-2026; incluyen servicios/API y obligaciones del usuario | No se ofrece conclusión jurídica definitiva ni se infiere licencia del tarball |
+
+La superficie C02 confirmada es exclusivamente `POST /v1/calls` y
+`GET /v1/calls/{call_id}`. La creación requiere task y admite
+`recipients[].phones[]`, region/locale; C02 restringe cardinalidad a 1/1 y omite
+schema, metadata y webhook. La respuesta mínima requiere `id`; los estados
+allowlisted son queued, in_progress, completed, failed y canceled. El contrato
+global también documenta superficies fuera de alcance que no se usan.
+
+### Evidencia implementada
+
+| Control técnico | Implementación / prueba | Estado honesto |
+| --- | --- | --- |
+| Port neutral y orquestación | `src/application/ports/outbound-call.ts`; `src/application/outbound-call/execute-outbound-call.ts`; prueba de orden, replay, conflicto y concurrencia | `IMPLEMENTED_UNVALIDATED`; application no conoce URL, header ni schema CALL-E |
+| Adapter REST server-only | `src/infrastructure/call-transport/call-e-rest-adapter.ts`; config/runtime lazy y guard server-only en el mismo directorio | `IMPLEMENTED_DISABLED`; base fija, redirects rechazados, timeout de request máximo 30 s, respuesta máxima 64 KiB, flag default false y sin entrypoint |
+| Fingerprint protegido | `src/infrastructure/call-transport/keyed-call-fingerprint.ts` | HMAC-SHA-256 keyed server-only, clave mínima 32 bytes y comparación constante; no hash simple del teléfono |
+| Persistencia mínima | `prisma/schema.prisma`; migración `20260829000100_calle_rest_disabled_adapter`; `prisma-outbound-call-intent-store.ts` | Intención, idempotencyRef, fingerprint, providerRef, estado/código técnico, reconciliación y timestamps; eventos append-only, claim atómico y estados terminales no regresivos; sin payload/contenido |
+| Mapper y errores | Pruebas `call-e-rest-adapter.test.ts` | Allowlist; null = abstención; respuestas acotadas; cuerpos, mensajes y campos sensibles descartados |
+| Ausencia de superficies live | `scripts/check-calle-rest-boundary.mjs`; bloqueo global de dominios en `tests/support/block-call-e-network.ts` | SDK, helper de creación/espera, webhook, Goals, batch, UI/API/action y red real ausentes |
+
+No hay `providerRef` antes de una aceptación externa; por tanto la brecha entre
+POST aceptado y persistencia local no puede eliminarse transaccionalmente. El
+claim atómico impide un segundo POST local; si esa brecha falla queda
+`UNCERTAIN / REVIEW_REQUIRED`, sin recreación. Un recipient no prueba un único
+intento físico. El adapter no valida identidad, autorización, contenido de voz,
+retención del proveedor, comprensión, seguridad clínica o eficacia.
+
+La revisión de publicación del 30-08-2026 corrigió antes del commit cinco bordes
+fail-closed: redirects externos, límite de cuerpo de respuesta, comparación HMAC
+constante, máximos de polling y no regresión concurrente de estados terminales.
+No añadió rutas, dependencias, reintentos de POST ni capacidad live.
+
+### Validación C02
+
+Entorno PostgreSQL final exclusivo: contenedor
+`gas-calle-c02-publication-postgres`, red
+`gas-calle-c02-publication-net`, PostgreSQL 16.14, loopback 55432 y
+almacenamiento tmpfs sin volumen. `.env` permaneció ausente; los comandos
+recibieron exclusivamente configuración sintética efímera de proceso.
+
+| Comando/comprobación | Resultado | Exit | Nota |
+| --- | --- | --- | --- |
+| `pnpm install --frozen-lockfile` | Already up to date; pnpm 11.7.0 | 0 | Manifest/lock sin cambios ni SDK |
+| `pnpm prisma:generate` | Prisma Client 6.19.0 generado | 0 | Schema C02 válido |
+| `pnpm db:migrate:deploy` | 15/15 migraciones aplicadas desde base vacía | 0 | Incluye `20260829000100_calle_rest_disabled_adapter` |
+| `pnpm db:seed` | Seed ejecutado | 0 | Exclusivamente sintético |
+| `pnpm db:migrate:status` | Database schema is up to date | 0 | PostgreSQL 16.14 en 55432 |
+| `pnpm format:check` / `pnpm lint` / `pnpm typecheck` | PASS / PASS / PASS | 0 / 0 / 0 | Sin relajación de configuración |
+| `pnpm test` | 435 unitarias + 107 integración + 29 tooling = 571 PASS | 0 | Red CALL-E bloqueada; incluye límites, redirects, HMAC y estado terminal |
+| `pnpm traceability:check` | 14 requisitos, 38 claims y Markdown/CSV coherentes | 0 | Drift cero |
+| Governance y boundary checkers | PASS / PASS | 0 / 0 | SDK/entrypoint/superficies prohibidas ausentes |
+| `pnpm build` | Next 16.2.11; 18 páginas estáticas; sin ruta CALL-E | 0 | Runtime C02 no expuesto |
+| `pnpm test:e2e` final | 74/74 PASS; artefacto `status: passed`, cero fallos | 0 | Chromium y mobile Chromium; loopback; warning informativo NO_COLOR/FORCE_COLOR |
+| `pnpm audit --prod --json` | 6 high + 2 moderate + 0 critical | 1 | Baseline C01 exacto; cero dependencia/advisory atribuible a C02 |
+| Escaneo final de 386 archivos | 0 teléfonos E.164 completos; 0 asignaciones secretas CALL-E; 0 claves `sk-*` de alta confianza | 0 | La búsqueda inicial amplia confundía la cadena inglesa `risk-`; patrón refinado, cero secretos |
+
+El primer `prisma:generate` prevalidación y el primer Prettier dirigido devolvieron
+1 por límites locales no atribuibles al delta: Corepack no podía leer su estado
+fuera del sandbox, y Prettier no tiene parser para Prisma/`.env`. Se repitieron
+con el permiso mínimo, `prisma format` y targets compatibles, todos PASS. La
+prueba de integración inicial devolvió 1 porque su teardown intentó borrar el
+evento que el trigger append-only protege; se corrigió el aislamiento sin
+debilitar el trigger y pasó 3/3.
+
+El contenedor y la red C02 se eliminaron; no existieron volúmenes persistentes.
+Puerto 55432 quedó libre y `.env` recuperó su ausencia inicial. Ninguna suite
+contactó CALL-E. Cero claves, números reales, cuentas, créditos, webhooks,
+recursos o llamadas fueron usados.
+
 ## Executed baseline evidence
 
 ### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents

@@ -477,7 +477,7 @@ aceptabilidad aprobados. Por ello, para todos los peligros:
 
 <a id="ampliacion-c01--call-e-solo-diseno"></a>
 
-## Ampliación C01 — CALL-E solo diseño
+## Ampliación C01 y overlay C02 — CALL-E
 
 Corte 2026-08-27, base C01 `e1cf37f4088c30e03d8c47297359c1444fe1cbf4`.
 Añade HAZ-GAS-021–038 al mismo registro; no reemplaza ni cierra HAZ-GAS-001–020.
@@ -486,17 +486,23 @@ probabilidad, severidad, riesgo residual ni aceptación estimados/aprobados.
 Todos los daños son `PROVISIONAL / CSO REVIEW REQUIRED`; describen consecuencias
 previsibles si el sandbox se utilizara indebidamente, no daños observados en C00.
 
-Control actual común: no existe integración CALL-E en GAS ni se han ejecutado
-llamadas en C00/C01. Los controles nuevos CTRL-021-A–CTRL-038-A son restricciones
-**documentadas**, no mecanismos runtime verificados. Los CTRL-021-B–CTRL-038-B
-son controles requeridos `PLANNED / INSTITUTIONAL_PENDING`. Ninguno se transfiere
-a una institución. Las autoridades indicadas son propuestas y no acreditadas.
+El detalle HAZ-GAS-021–038 siguiente conserva el screening histórico C01 y sus
+frases “futuro/no implementado”. El overlay C02 del 29-08-2026 lo complementa:
+existe un adapter REST `IMPLEMENTED_DISABLED`, sin SDK, secreto, número,
+entrypoint o llamada. Claim atómico, GET de reconciliación, HMAC, cardinalidad
+1/1, mapper mínimo, errores sanitizados, flag off, bloqueo de red y checker de
+superficie son `IMPLEMENTED_UNVALIDATED`. Autoridad del destinatario,
+Patient/Professional Relay, preview/confirmación, voz/emergencia, retención y
+prueba live siguen `PLANNED / INSTITUTIONAL_PENDING`. Ningún control se transfiere
+a una institución; las autoridades son propuestas y no acreditadas.
 
 Evidencia común: [ADR-0019](../../adr/0019-calle-hackathon-sandbox-boundary.md),
 [síntesis C00 y fuentes fechadas](../../audit/gas2-evidence-index.md#call-e-c01--evidencia-documental-y-limites)
-y ausencia de CALL-E en código/dependencias de la base C01. C00 solo acredita
-inspección estática divergente; no existe prueba ejecutable de la futura
-integración. DEC-019 y GAP-DCB-025 permanecen pendientes/abiertos.
+y ausencia de CALL-E en código/dependencias de la base C01, más
+[evidencia C02 REST](../../audit/gas2-evidence-index.md#call-e-c02-rest--adapter-deshabilitado).
+C00 solo acredita inspección estática divergente; C02 acredita comportamiento
+local con fakes y PostgreSQL sintético, no proveedor live. DEC-019 y GAP-DCB-025
+permanecen pendientes/abiertos.
 
 ### HAZ-GAS-021 — Tarea aceptada sin cancelación
 
@@ -802,24 +808,24 @@ técnica, no validación clínica.
 | HAZ-GAS-018 | C018-A–F | CTRL-018-A–B | Commitment spec CE-17 | `PLANNED`; job/backlog/recovery | REQ-09/13/14; DEC-013/014/015/017 | TI/Ops + Enfermería | `OPEN / DESIGN` |
 | HAZ-GAS-019 | C019-A–E | CTRL-019-A–C | ADR-0012/0015; system boundary; CE-19 | Baseline no-auto-action; future tests planned | REQ-08/09; DEC-008/017 | Arquitectura + Médica | `OPEN / DESIGN` |
 | HAZ-GAS-020 | C020-A–F | CTRL-020-A–C | Commitment spec CE-01/02/03/14/20 | `PLANNED`; FK/idempotency/legacy | REQ-01/09/12/13; ADR-0015/0016 | Médica/Enfermería + Arquitectura | `OPEN / DESIGN` |
-| HAZ-GAS-021 | C021-A | CTRL-021-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-022 | C022-A | CTRL-022-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-023 | C023-A | CTRL-023-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-024 | C024-A | CTRL-024-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-025 | C025-A | CTRL-025-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-026 | C026-A | CTRL-026-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-027 | C027-A | CTRL-027-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-028 | C028-A | CTRL-028-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-029 | C029-A | CTRL-029-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-030 | C030-A | CTRL-030-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-031 | C031-A | CTRL-031-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-032 | C032-A | CTRL-032-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-033 | C033-A | CTRL-033-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-034 | C034-A | CTRL-034-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-035 | C035-A | CTRL-035-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-036 | C036-A | CTRL-036-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-037 | C037-A | CTRL-037-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
-| HAZ-GAS-038 | C038-A | CTRL-038-A/B | ADR-0019; síntesis C00 en evidence index | `NOT_IMPLEMENTED`; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / DESIGN` |
+| HAZ-GAS-021 | C021-A | CTRL-021-A/B | ADR-0019; C02 REST evidence index | Adapter disabled y ausencia de cancelación documentada; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-022 | C022-A | CTRL-022-A/B | ADR-0019; C02 REST evidence index | Claim/HMAC/providerRef-before-GET/reconciliación probados con fakes; brecha externa persiste | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-023 | C023-A | CTRL-023-A/B | ADR-0019; C02 REST evidence index | Webhooks excluidos por checker; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-024 | C024-A | CTRL-024-A/B | ADR-0019; C02 REST evidence index | Cardinalidad 1/1 y batch/fan-out ausentes, probados localmente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-025 | C025-A | CTRL-025-A/B | ADR-0019; C02 REST evidence index | No se promete intento físico único; garantía del proveedor pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-026 | C026-A | CTRL-026-A/B | ADR-0019; C02 REST evidence index | Errores allowlisted y sin retry/fallback probados con fakes | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-027 | C027-A | CTRL-027-A/B | ADR-0019; C02 REST evidence index | Region/locale explícitos y validación local; allowlist institucional pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-028 | C028-A | CTRL-028-A/B | ADR-0019; C02 REST evidence index | Sin inferencia de destino; autoridad/preview C03 no implementados | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-029 | C029-A | CTRL-029-A/B | ADR-0019; C02 REST evidence index | Mapper/persistencia/log sanitizados probados; retención externa pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-030 | C030-A | CTRL-030-A/B | ADR-0019; C02 REST evidence index | Solo estado técnico; sin acoplamiento a Task/episodio/commitment | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-031 | C031-A | CTRL-031-A/B | ADR-0019; C02 REST evidence index | Resultado null mapeado a abstención; no validación live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-032 | C032-A | CTRL-032-A/B | ADR-0019; C02 REST evidence index | Patient/Professional Relay y recipientKind excluidos de C02 | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-033 | C033-A | CTRL-033-A/B | ADR-0019; C02 REST evidence index | Task determinista; contención de voz no probada ni implementada | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-034 | C034-A | CTRL-034-A/B | ADR-0019; C02 REST evidence index | Task sintética allowlisted; comportamiento live no probado | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-035 | C035-A | CTRL-035-A/B | ADR-0019; C02 REST evidence index | Sin entrypoint; protocolo de emergencia no implementado | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-036 | C036-A | CTRL-036-A/B | ADR-0019; OpenAPI hash; checker C02 | Superficie REST fijada y divergencias excluidas; fuente sigue mutable | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-037 | C037-A | CTRL-037-A/B | ADR-0019; C02 REST evidence index | Flag off, fail-closed, server-only y sin entrypoint, probados localmente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-038 | C038-A | CTRL-038-A/B | ADR-0019; C02 REST evidence index | SDK ausente/prohibido; licencia no resuelta | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 
 ## Evidencia técnica P10 añadida sin cierre de peligros
 

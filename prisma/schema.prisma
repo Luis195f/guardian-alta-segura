@@ -276,6 +276,32 @@ enum CommitmentEventType {
   COMMITMENT_SUPERSEDED
 }
 
+enum OutboundCallIntentState {
+  RESERVED
+  POSTING
+  PROVIDER_ACCEPTED
+  POLLING
+  COMPLETED
+  FAILED
+  CANCELED
+  UNCERTAIN
+}
+
+enum OutboundCallReconciliationState {
+  NOT_REQUIRED
+  PENDING
+  RECONCILED
+  REVIEW_REQUIRED
+}
+
+enum OutboundCallIntentEventType {
+  RESERVED
+  POST_CLAIMED
+  PROVIDER_REF_STORED
+  SNAPSHOT_RECORDED
+  ERROR_RECORDED
+}
+
 model User {
   id                                  String                              @id @default(cuid())
   syntheticAlias                      String                              @unique @map("synthetic_alias") @db.VarChar(64)
@@ -1010,6 +1036,40 @@ model CommitmentEvent {
   @@unique([commitmentId, resultingRevision], map: "commitment_events_commitment_revision_key")
   @@index([commitmentId, occurredAt], map: "commitment_events_commitment_occurred_idx")
   @@map("commitment_events")
+}
+
+model OutboundCallIntent {
+  id                   String                          @id @default(cuid())
+  idempotencyRef       String                          @unique(map: "outbound_call_intents_idempotency_ref_key") @map("idempotency_ref") @db.VarChar(128)
+  protectedFingerprint String                          @map("protected_fingerprint") @db.Char(64)
+  providerRef          String?                         @unique(map: "outbound_call_intents_provider_ref_key") @map("provider_ref") @db.VarChar(128)
+  state                OutboundCallIntentState         @default(RESERVED)
+  technicalStatus      String?                         @map("technical_status") @db.VarChar(32)
+  reconciliationState  OutboundCallReconciliationState @default(NOT_REQUIRED) @map("reconciliation_state")
+  errorClass           String?                         @map("error_class") @db.VarChar(32)
+  errorCode            String?                         @map("error_code") @db.VarChar(64)
+  createdAt            DateTime                        @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                        @map("updated_at") @db.Timestamptz(3)
+  providerAcceptedAt   DateTime?                       @map("provider_accepted_at") @db.Timestamptz(3)
+  lastPolledAt         DateTime?                       @map("last_polled_at") @db.Timestamptz(3)
+  completedAt          DateTime?                       @map("completed_at") @db.Timestamptz(3)
+  events               OutboundCallIntentEvent[]
+
+  @@index([state, reconciliationState, updatedAt], map: "outbound_call_intents_state_reconciliation_updated_idx")
+  @@map("outbound_call_intents")
+}
+
+model OutboundCallIntentEvent {
+  id         String                      @id @default(cuid())
+  intentId   String                      @map("intent_id")
+  type       OutboundCallIntentEventType
+  fromState  OutboundCallIntentState?    @map("from_state")
+  toState    OutboundCallIntentState     @map("to_state")
+  occurredAt DateTime                    @map("occurred_at") @db.Timestamptz(3)
+  intent     OutboundCallIntent          @relation(fields: [intentId], references: [id], onDelete: Restrict, map: "outbound_call_intent_events_intent_fkey")
+
+  @@index([intentId, occurredAt], map: "outbound_call_intent_events_intent_occurred_idx")
+  @@map("outbound_call_intent_events")
 }
 
 model PolicyVersion {

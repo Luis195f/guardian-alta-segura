@@ -11,6 +11,7 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts", "prisma/**/*.test.mjs"],
     exclude: ["src/**/*.integration.test.ts"],
+    setupFiles: ["tests/support/block-call-e-network.ts"],
     mockReset: true,
     restoreMocks: true,
   },
