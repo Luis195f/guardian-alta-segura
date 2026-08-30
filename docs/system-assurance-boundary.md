@@ -88,26 +88,31 @@ seguridad clínica y CI verde no prueba eficacia, cumplimiento o readiness.
 
 ## Finalidad prevista separada
 
-### Excepción documental C01 del hackathon — 2026-08-27
+### Excepción C01/C02 del hackathon — 2026-08-27 a 2026-08-29
 
-[ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) documenta únicamente
-una evaluación futura de CALL-E, sin modificar la aceptación limitada de 5B ni
-el Gate B. La cadena es: core GAS sintético → sandbox técnico CALL-E para
+[ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) documenta la frontera
+y C02 implementa un adapter REST técnico desactivado, sin modificar la
+aceptación limitada de 5B ni el Gate B. La cadena es: core GAS sintético → sandbox técnico CALL-E para
 hackathon → demo pública sintética con `LIVE OFF` → futuro piloto clínico
 `NO_GO` → producción/datos reales `NO_GO`.
 
-Patient Relay y Professional Relay serían continuidad organizativa; CALL-E no
-es autoridad clínica. No se introduce IA generativa en el MVP ni se implementa
-transporte: `CALL_E_RUNTIME = NOT_IMPLEMENTED`. Solo una acción humana explícita
-y nuevamente autorizada podría originar una llamada futura, separando preview,
-confirmación one-use, ejecución, resultado y revisión. Avisos, check-ins,
-no respuesta, tareas, compromisos y resultados externos no disparan llamadas.
-Los límites de irreversibilidad, minimización y decisiones pendientes están en
-ADR-0019; no quedan satisfechos por revisión documental ni por CI.
+Patient Relay y Professional Relay serían continuidad organizativa y no forman
+parte de C02; CALL-E no es autoridad clínica. No se introduce IA generativa en
+el core. `CALL_E_RUNTIME = IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY` y
+`LIVE_ENTRYPOINT = ABSENT`: el adapter server-only usa un port neutral, flag
+apagado, configuración fail-closed, transporte inyectable, HMAC y persistencia
+técnica minimizada. No existe UI, endpoint, action, scheduler, worker o trigger.
+Avisos, check-ins, no respuesta, tareas, compromisos y resultados externos no
+disparan llamadas. Preview, confirmación one-use, autoridad del destinatario y
+revisión clínica siguen no implementados. Los límites de irreversibilidad,
+minimización y decisiones pendientes están en ADR-0019; las pruebas sintéticas
+no los convierten en control live validado.
 
-La ampliación HAZ-GAS-021–038 y GAP-DCB-025 registra incertidumbre, no controles
-clínicos efectivos. No se autoriza C02/C10, piloto, publicación, producción ni
-aceptación de riesgo. El core, sus flags, modelo y requisitos no cambian.
+La ampliación HAZ-GAS-021–038 y GAP-DCB-025 registra incertidumbre y distingue
+controles técnicos C02 `IMPLEMENTED_UNVALIDATED` de controles todavía
+`PLANNED`; no acredita controles clínicos efectivos. No se autoriza C03/C10,
+piloto, publicación, producción ni aceptación de riesgo. El core clínico y sus
+requisitos no cambian.
 
 ### Guardián Core
 

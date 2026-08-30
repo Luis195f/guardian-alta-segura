@@ -1,9 +1,9 @@
 # ADR-0019 — Excepción documental CALL-E para sandbox técnico del hackathon
 
-- Estado: `DOCUMENTED_ONLY / RUNTIME NOT_IMPLEMENTED`.
-- Fecha: 2026-08-27.
-- Alcance: C01 exclusivamente documental; no autoriza C02, C10, instalación,
-  configuración, llamadas, publicación, piloto ni producción.
+- Estado: `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`.
+- Fecha: 2026-08-27; pivot REST C02 autorizado el 2026-08-29.
+- Alcance: C01 documental y adapter REST técnico C02; no autoriza C03, C10,
+  llamadas, publicación, piloto ni producción.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
 - Prerrequisito: `C00_PREREQUISITE = SATISFIED_BY_HUMAN_REVIEW` y
@@ -13,9 +13,10 @@
 
 [ADR-0017](0017-future-communications-boundary.md) sigue siendo la frontera
 neutral y futura de comunicaciones. Los registros legales sintéticos de GAS no
-son una capacidad de entrega: `CommunicationChannel` no incluye voz,
-`CommunicationPermission` no distingue `recipientKind` y no existe adapter,
-credencial, UI ni ruta CALL-E. C01 no cambia esos hechos.
+son una capacidad de entrega: `CommunicationChannel` no incluye voz y
+`CommunicationPermission` no distingue `recipientKind`. C02 añade un port
+neutral y un adapter REST técnico server-only, sin credencial, UI, route handler,
+server action, scheduler, worker ni otro entrypoint ejecutable.
 
 C00 fue una inspección estática local del contrato de `@call-e/calle@0.6.0` y
 fuentes públicas. Sus resultados contractuales son `STATIC_PROVIDER_PROBE =
@@ -30,6 +31,25 @@ Las observaciones de versión y contrato siguientes corresponden al corte de
 C00 del 27-08-2026, no a una garantía sobre versiones o documentación futuras.
 Las referencias públicas y sus límites se conservan en el
 [evidence index canónico](../audit/gas2-evidence-index.md#call-e-c01--evidencia-documental-y-limites).
+
+### Pivot C02 a REST oficial
+
+El primer intento C02 de incorporar `@call-e/calle@0.6.0` terminó
+`BLOCKED_BY_LICENSE`: el tarball exacto no declaraba licencia ni incluía
+`LICENSE`, y no se demostró permiso inequívoco para publicarlo como dependencia.
+Esa conclusión histórica se conserva; la posible respuesta del proveedor sobre
+licencia es un track paralelo. El SDK, su tarball y su código permanecen fuera
+de `package.json`, lockfile y repositorio.
+
+La decisión humana C02 del 29-08-2026 autoriza únicamente código original del
+proyecto contra la API REST pública oficial. Se verificó estáticamente el
+OpenAPI oficial 3.1.0, `info.version: 0.6.0`, descargado temporalmente desde
+`https://docs.heycall-e.com/openapi/calle.openapi.yaml`: 63 998 bytes, SHA-256
+`ccd47cc490afa12ef75d01c6c95be5c39a5051f0185dade886a8635d0f105ca5`,
+consulta `2026-08-29T21:21:13.4674376+02:00`. El temporal se eliminó y no se
+vendorizó. La superficie implementada se limita a `POST /v1/calls` y
+`GET /v1/calls/{call_id}` con Bearer e `Idempotency-Key`; Goals, MCP, events,
+batch, CLI, SDK y webhooks quedan excluidos.
 
 ## Decisión y niveles de frontera
 
@@ -47,7 +67,7 @@ autorización de avanzar entre ellos.
 | Nivel | Alcance permitido por C01 | Gate que permanece |
 | --- | --- | --- |
 | Core GAS sintético | Documentación sobre el core existente, sin modificarlo | Sin IA generativa, ML, scoring probabilístico, chatbot terapéutico, geolocalización, wearables o FHIR clínico productivo |
-| Sandbox técnico CALL-E | Documentar una evaluación futura aislada del proveedor | Runtime `NOT_IMPLEMENTED`; otra autorización humana y evidencia específica antes de C02 o cualquier llamada |
+| Sandbox técnico CALL-E | Port neutral, adapter REST server-only, persistencia técnica mínima y pruebas con transporte falso | `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`; otra autorización humana y evidencia separada antes de cualquier llamada |
 | Demo pública sintética | Describir la frontera y sus limitaciones | `LIVE OFF`; ninguna llamada real, secreto o número completo; no habilita exposición del runtime demo loopback a Internet |
 | Futuro piloto clínico | Ninguno | `NO_GO`; DEC-016 y todas las decisiones aplicables pendientes |
 | Producción y datos reales | Ninguno | `NO_GO`; evaluación y autorización independientes del hackathon |
@@ -91,7 +111,7 @@ vencimientos y cualquier resultado del proveedor tienen prohibido iniciar
 llamadas automáticamente. No hay scheduler, worker, batch, fan-out, fallback de
 canal ni segunda llamada automática por fallo, ausencia o incertidumbre.
 
-## Gates humanos y ciclo futuro, no implementado
+## Gates humanos y ciclo live futuro, no implementado
 
 Los gates `DEVPOST_REGISTERED`, `CALL_E_ACCOUNT`, `EXTRA_CALLS_REQUEST` y
 `SUPPORTED_AUTHORIZED_NUMBER` están **NO VERIFICADOS**. No son afirmaciones
@@ -119,51 +139,50 @@ con coherencia transaccional local. El efecto externo no puede incluirse en una
 transacción PostgreSQL: fallos entre aceptación y persistencia requieren
 reconciliación, no suponer rollback de la llamada.
 
-## Decisiones técnicas derivadas de C00
+## Decisiones técnicas derivadas de C00 y del OpenAPI REST C02
 
 ### Versión y licencia
 
-`@call-e/calle@0.6.0` es únicamente el **candidato exacto para C02**, la versión
-inspeccionada; no se declara “versión estable oficial”. No se instala en C01.
-No se usarán `latest`, `beta`, caret ni rangos; `0.7.0` no está adoptada. Cambiar
-versión exige decisión humana y nuevo provider probe. Licencia y términos del
-paquete distribuido permanecen pendientes **antes de publicar C02**; existencia
-en un registry no concede por sí sola derechos de incorporación o distribución.
+`@call-e/calle@0.6.0` permanece **prohibido** mientras su cobertura de licencia
+y permiso de publicación no se aclaren. No se instala, copia, distribuye ni
+vendoriza; no se usan `latest`, `beta`, `0.7.0`, deep imports ni código interno.
+Una reevaluación del SDK exige una fase y decisión humana separadas. C02 usa
+`fetch` de plataforma contra el contrato REST oficial verificado; esto no
+resuelve por inferencia la licencia del SDK ni constituye interpretación
+jurídica definitiva de los términos del servicio.
 
 ### Intención, idempotencia y reconciliación
 
 ```text
-persistir intención + idempotency key + fingerprint
-→ create
-→ persistir Call.id inmediatamente como providerRef
-→ waitForResult
-→ get ante timeout o incertidumbre
-→ revisión humana
+reservar intención + idempotencyRef + fingerprint HMAC server-only
+→ POST /v1/calls con Idempotency-Key
+→ validar id y estado mínimos
+→ persistir call.id inmediatamente como providerRef
+→ polling por GET /v1/calls/{call_id}
+→ GET final ante timeout o incertidumbre posterior
+→ estado técnico minimizado; revisión humana futura
 ```
 
-No usar `createAndWait` en una futura ruta live: no permite persistir el ID
-intermedio antes de esperar. `providerRef` identifica `Call.id`, no un ID de
-intento físico. Nunca crear una segunda tarea para reconciliar incertidumbre.
-Si no se conoce `Call.id`, solo cabría replay de la **misma idempotency key y
-mismo request** bajo un contrato futuro probado y con gates vigentes. Sin ese
-contrato, queda bloqueado para revisión humana. TTL, scope, carreras y garantías
-del proveedor no están probados; no se heredan de Goal Runs.
+El adapter no implementa el helper SDK de creación y espera. `providerRef`
+identifica `call.id`, no un intento físico. La reserva y el claim local atómico
+permiten como máximo un POST por `idempotencyRef` y fingerprint: misma referencia
+con fingerprint distinto es conflicto; timeout, conexión incierta o fallo tras
+POST nunca provocan otro POST. Sin `providerRef` queda revisión futura, no una
+recreación. TTL, scope y garantías del proveedor no se presumen.
 
-Nunca interpretar timeout como “no hubo llamada”. La prohibición de persistir
-teléfono/prompt exige diseñar en otra fase cómo verificar o reconstruir el mismo
-request sin guardarlo: referencias opacas, plantilla versionada y entrada efímera
-autorizada son candidatos, no una solución aprobada. Si no puede demostrarse la
-igualdad sin conservar datos prohibidos, no se hace replay. Un fingerprint de
-teléfono de baja entropía no garantiza anonimización; derivación, protección y
-no reversibilidad por soporte quedan pendientes.
+Nunca interpretar timeout como “no hubo llamada”. El fingerprint se deriva con
+HMAC-SHA-256 y clave server-only de al menos 32 bytes sobre la entrada canónica;
+no se guarda un hash simple enumerable del teléfono. Se conservan solo la
+referencia de idempotencia, fingerprint protegido, `providerRef`, estados/códigos
+técnicos y timestamps mínimos. La brecha entre aceptación externa y persistencia
+local no queda eliminada: un fallo en ese punto marca incertidumbre y revisión.
 
 ### Destinatario e intentos
 
-Preferir `recipient` singular con `phone` singular. Exigir validación local
-futura XOR de `recipient/recipients` y de `phone/phones`, y cardinalidad
-normalizada máxima de **un destinatario y un teléfono por intención**. Denegar
-arrays vacíos, formas ambiguas y destinatarios inferidos del prompt. Batch y
-fan-out quedan prohibidos.
+El REST verificado requiere `recipients`; C02 construye exactamente un elemento
+con `phones` de exactamente un elemento, `region` y `locale` explícitos. Deniega
+arrays vacíos, cardinalidad mayor de uno, propiedades adicionales, task fuera de
+allowlist, E.164 inválido y destino inferido. Batch y fan-out quedan prohibidos.
 
 Un destinatario no equivale a un único marcado físico: `attempts` puede contener
 múltiples intentos y no existe `maxAttempts` en el contrato inspeccionado. El
@@ -237,8 +256,8 @@ autoriza, solo se procesarían de forma efímera y minimizada en servidor.
 UI, logs, auditoría y evidencias solo pueden mostrar teléfono enmascarado, si
 es necesario mostrarlo; el valor enmascarado no amplía la allowlist persistente.
 Soporte no puede acceder a notas clínicas ni resolver referencias a destinos.
-`CALLE_API_KEY` permanecerá server-only, fuera del browser, base de datos, logs,
-fixtures, screenshots y Git. C01 no crea ni busca la clave.
+`CALL_E_API_KEY` permanecerá server-only, fuera del browser, base de datos, logs,
+fixtures, screenshots y Git. C02 no crea, solicita ni usa una clave real.
 
 La retención, residencia, subencargados y uso de datos por CALL-E siguen sin
 resolver. No persistir un payload en GAS no prueba que el proveedor no lo
@@ -268,21 +287,23 @@ sandbox en el [registro canónico](../decision-register.md), sin resolver
 DEC-003/005/010/011/013/014/015/016/017. GAP-DCB-025 conserva la falta de
 verificación del proveedor y controles; GAP-DCB-023/024 no se reducen.
 
-Una fase posterior autorizada necesitaría pruebas negativas de gates y
-revocación, consumo one-use concurrente, persistencia antes/después del efecto
-externo, timeout sin ID y con ID, replay exacto, XOR/cardinalidad, aislamiento
-paciente/profesional, resultados nulos/malformados, sanitización de todos los
-sinks, no automatización, prompt injection y demo con live desactivado. Ese plan
-está `NOT_IMPLEMENTED`; las suites actuales de GAS no lo validan.
+C02 implementa y prueba con transporte falso: flag apagado, configuración
+fail-closed, payload 1/1, allowlist, HMAC, claim concurrente, `providerRef` antes
+del primer GET, reconciliación GET, cero segundo POST, mapper mínimo, abstención,
+errores sanitizados, red bloqueada y superficies prohibidas ausentes. Son
+controles `IMPLEMENTED_UNVALIDATED`: no prueban proveedor live, número de intentos
+físicos, contención de voz, autorización de destinatario, eficacia clínica ni
+operación. Preview, confirmación one-use, Patient/Professional Relay, revocación,
+prompt injection y cualquier entrypoint quedan para fases separadas.
 
 ## Claim máximo permitido
 
-> Se ha documentado una frontera acotada para evaluar una futura integración
-> CALL-E exclusivamente en sandbox técnico del hackathon, con datos sintéticos,
-> llamadas públicas desactivadas y revisión humana. La integración no está
-> implementada y no autoriza uso clínico, piloto ni producción.
+> Se ha implementado un adapter REST server-only y desactivado para una futura
+> evaluación CALL-E exclusivamente sintética. No existe entrypoint live, no se
+> incorporó el SDK y no se ejecutaron llamadas. No autoriza uso clínico, piloto
+> ni producción.
 
-`CALL_E_RUNTIME = NOT_IMPLEMENTED`, `LIVE_CALLS = NOT_EXECUTED`,
+`CALL_E_RUNTIME = IMPLEMENTED_DISABLED`, `LIVE_ENTRYPOINT = ABSENT`,
+`LIVE_CALLS = NOT_EXECUTED`,
 `REAL_CLINICAL_PILOT = NO_GO`, `REAL_DATA_PRODUCTION = NO_GO` y
-`RESIDUAL_RISK_ACCEPTANCE = NONE`. C01 se detiene para revisión humana sin
-publicar ni comenzar C02/C10.
+`RESIDUAL_RISK_ACCEPTANCE = NONE`. C02 no se publica ni inicia C03/C10.

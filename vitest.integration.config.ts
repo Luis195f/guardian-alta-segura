@@ -16,6 +16,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.integration.test.ts"],
+    setupFiles: ["tests/support/block-call-e-network.ts"],
     fileParallelism: false,
     maxWorkers: 1,
     sequence: { concurrent: false },

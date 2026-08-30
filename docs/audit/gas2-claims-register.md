@@ -63,21 +63,22 @@ release signature, timestamp, regulatory proof or acceptance of residual risk.
 | CLAIM-GAS2-031 | “AEMPS/CEIm approved” | External/regulatory | No approval evidence | `NOT_EVIDENCED` | REQ-01–REQ-14 | DEC-016 | CTRL-008-A / HAZ-GAS-008 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Do not use |
 | CLAIM-GAS2-032 | “Real-pilot ready” | External/pilot | DEC-016 pending and `REAL PILOT = NO_GO` | `PENDING_DECISION` | REQ-01–REQ-14 | DEC-016 | CTRL-010-A / HAZ-GAS-010 | `NOT_APPLICABLE` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Do not use; real pilot remains NO_GO |
 | CLAIM-GAS2-033 | “Production ready” | External/release | Productive IAM, observability, continuity and lifecycle absent | `NOT_EVIDENCED` | REQ-02, REQ-12, REQ-13, REQ-14 | DEC-005, DEC-013, DEC-014, DEC-015, DEC-016 | CTRL-011-A / HAZ-GAS-011 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Do not use |
-| CLAIM-GAS2-034 | “Real external integration” | External/interoperability | No adapter or approved external contract | `NOT_EVIDENCED` | REQ-12, REQ-13 | DEC-013, DEC-014, DEC-016 | CTRL-011-A / HAZ-GAS-011 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Say conditional boundary only |
+| CLAIM-GAS2-034 | “Real external integration” | External/interoperability | Adapter REST desactivado y sin entrypoint; no contrato operativo aprobado ni prueba live | `NOT_EVIDENCED` | REQ-12, REQ-13 | DEC-013, DEC-014, DEC-016 | CTRL-011-A / HAZ-GAS-011 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Say conditional boundary only; no real-integration claim |
 | CLAIM-GAS2-035 | “FHIR interoperable” | External/interoperability | No mapper, client, endpoint or profile | `NOT_EVIDENCED` | REQ-12, REQ-13 | DEC-013, DEC-016 | CTRL-003-A / HAZ-GAS-003 | `NOT_EVIDENCED` | `5c6a0b61d341b573c3dac9b0a12c0d229fdd288b` | Do not use |
 | CLAIM-GAS2-036 | “A provider-neutral boundary is documented for future communications” | Architecture only | ADR-0017 defines authorization, recipient separation, minimization, conservative failures, threats and future tests | `DOCUMENTED_ONLY` | REQ-02, REQ-06 | DEC-003, DEC-005, DEC-013, DEC-014, DEC-015, DEC-016, DEC-017 | CTRL-004-A / HAZ-GAS-004 | `NOT_APPLICABLE` | `92eb7e9a37f2c46ee2209b7a30ad9b9ea45fddef` | Must retain `DOCUMENTED_ONLY`; no delivery, provider, consent, compliance or implementation claim |
 | CLAIM-GAS2-037 | “A future read-only FHIR anti-corruption boundary is documented” | Architecture only | ADR-0018 defines an inbound-only conceptual boundary, candidate mappings, pending decisions, conservative failures, threats and a future test plan | `DOCUMENTED_ONLY` | REQ-01, REQ-02, REQ-12, REQ-13, REQ-14 | DEC-003, DEC-005, DEC-013, DEC-014, DEC-015, DEC-016, DEC-018 | CTRL-003-A / HAZ-GAS-003 | `NOT_APPLICABLE` | `3be58f6566a00293bc3ad33f8f520286b6727bf0` | Must retain `DOCUMENTED_ONLY`; no runtime, profile, mapping approval, writeback, interoperability or conformance claim |
-| CLAIM-GAS2-038 | “Se ha documentado una frontera acotada para evaluar una futura integración CALL-E exclusivamente en sandbox técnico del hackathon, con datos sintéticos, llamadas públicas desactivadas y revisión humana. La integración no está implementada y no autoriza uso clínico, piloto ni producción.” | Architecture / synthetic hackathon only | ADR-0019 y síntesis estática C00 aceptada solo para documentación; integración no implementada | `DOCUMENTED_ONLY` | REQ-02, REQ-06, REQ-09, REQ-12, REQ-13 | DEC-003, DEC-005, DEC-013, DEC-014, DEC-015, DEC-016, DEC-017, DEC-019 | CTRL-021-A / HAZ-GAS-021; CTRL-037-A / HAZ-GAS-037 | `NOT_APPLICABLE` | `e1cf37f4088c30e03d8c47297359c1444fe1cbf4` | Retener texto completo; solo boundary documental, sin live, implementación, validación o aceptación residual |
+| CLAIM-GAS2-038 | “Se ha implementado un adapter REST server-only y desactivado para una futura evaluación CALL-E exclusivamente sintética. No existe entrypoint live, no se incorporó el SDK y no se ejecutaron llamadas. No autoriza uso clínico, piloto ni producción.” | Architecture / synthetic hackathon only | ADR-0019; port neutral, adapter REST, HMAC, persistencia técnica y pruebas con transporte falso; runtime desactivado y sin entrypoint | `IMPLEMENTED_AND_TESTED` | REQ-02, REQ-06, REQ-09, REQ-12, REQ-13 | DEC-003, DEC-005, DEC-013, DEC-014, DEC-015, DEC-016, DEC-017, DEC-019 | CTRL-022-B / HAZ-GAS-022; CTRL-029-B / HAZ-GAS-029; CTRL-037-B / HAZ-GAS-037 | `src/application/outbound-call/execute-outbound-call.test.ts`; `src/infrastructure/call-transport/call-e-rest-adapter.test.ts`; `src/infrastructure/persistence/outbound-call-intent.integration.test.ts`; `scripts/check-calle-rest-boundary.test.mjs` | `8a539159427e1bf57f0c66092ecbd2d3ba0400f1` | Claim limitado al delta C02 sin commit sobre esta base; `IMPLEMENTED_UNVALIDATED`, sin live, validación clínica, publicación o aceptación residual |
 
-## C01 — alcance del nuevo claim documental
+## C01/C02 — alcance del claim CALL-E
 
 CLAIM-GAS2-038 solo permite el texto completo de ADR-0019. El SHA de su fila
-identifica la base inspeccionada, no un commit de C01 ni evidencia clínica;
-C01 queda sin commit y requiere revisión humana. La verificación del checker
-comprueba referencias y taxonomía, no demuestra comportamiento CALL-E. Los
-claims previos conservan su scope/baseline; no se declara proveedor productivo,
-integración implementada, llamada probada ni cumplimiento RGPD/MDR/AI Act o
-DCB0129/DCB0160. No se acepta riesgo residual.
+identifica la base anclada; el delta C02 permanece sin commit, por lo que las
+rutas de prueba son la evidencia ejecutable local y no evidencia clínica ni
+live. La verificación del checker comprueba referencias/taxonomía y las suites
+prueban fakes, bloqueo de red y persistencia sintética; ninguna demuestra una
+llamada, eficacia del proveedor o control de intentos físicos. No se declara
+proveedor productivo, piloto, conformidad RGPD/MDR/AI Act/DCB0129/DCB0160 ni se
+acepta riesgo residual.
 
 ## Presentation wording
 
