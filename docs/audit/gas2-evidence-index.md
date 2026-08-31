@@ -29,8 +29,8 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 
 | Source | Type | Supports | Limitation |
 | --- | --- | --- | --- |
-| `prisma/schema.prisma` | `CODE` | 50 models, 35 enums, 128 `RESTRICT` relations | Schema alone does not prove deployed state |
-| `prisma/migrations/**` | `DATABASE_CONSTRAINT` | 14-version history, FKs, uniques and triggers | Does not approve lifecycle policy |
+| `prisma/schema.prisma` | `CODE` | 54 models, 42 enums, 136 `RESTRICT` relations | Schema alone does not prove deployed state |
+| `prisma/migrations/**` | `DATABASE_CONSTRAINT` | 17-version history, FKs, uniques and triggers | Does not approve lifecycle policy |
 | `20260715000100_platform_foundation` | `DATABASE_CONSTRAINT` | Immutable audit events | Retention/access procedure absent |
 | `20260716000100_consent_legal_basis` | `DATABASE_CONSTRAINT` | Append-only legal history | Legal applicability pending |
 | `20260716000200_discharge_episode` | `DATABASE_CONSTRAINT` | Episode/patient no-delete and transition history | Closure policy pending |
@@ -40,7 +40,7 @@ evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 | `20260720000100_nursing_workqueue_tasks` plus reconciliation migrations | `DATABASE_CONSTRAINT` | Task/Event chain and reviewed-alert link | Institutional task policy pending |
 | `20260721000100_caregiver_access_revocation` | `DATABASE_CONSTRAINT` | Cross-reference integrity, revocation locks and history | Legal/IAM policy pending |
 | `20260721000200_home_safety_and_sbar` | `DATABASE_CONSTRAINT` | Append-only Home Safety | Demo template only |
-| `pnpm db:migrate:status` | `CI` | 14 migrations expected; execution evidence recorded below | Local synthetic DB only |
+| `pnpm db:migrate:status` | `CI` | 17 migrations expected; execution evidence recorded below | Local synthetic DB only |
 
 ## Episode governance
 
@@ -159,7 +159,7 @@ No hay llamada probada, validación clínica, cumplimiento o riesgo aceptado.
 | Webhooks/resultados | Sin integración | Sin firma actual; resultValidation ausente; structuredResult nullable y sin autoridad clínica | ADR-0019; HAZ-GAS-023/030/031 |
 | Versión/regiones/términos | Sin paquete/configuración CALL-E | 0.6.0 inspeccionada, 0.7.0 no adoptada; ES observado, Chile no acreditado; términos pendientes | ADR-0019; DEC-019; HAZ-GAS-027/036/038 |
 | Privacidad/demo | Sintético, loopback, historial y logs minimizados | Payloads externos excluidos de persistencia; demo pública live OFF, no mecanismo runtime implementado | ADR-0019; system boundary; README; HAZ-GAS-029/037 |
-| Claims/hazards | 37 claims, 20 hazards previos; sin validación clínica | Una frontera documental y 18 escenarios de diseño, sin prueba live ni controles clínicos efectivos | CLAIM-GAS2-038; Hazard Log; GAP-DCB-025; GAS2-R-021 |
+| Claims/hazards | 39 claims, 20 hazards previos; sin validación clínica | Una frontera documental, controles C02/C03 `IMPLEMENTED_UNVALIDATED` y 18 escenarios abiertos, sin prueba live ni controles clínicos efectivos | CLAIM-GAS2-038/039; Hazard Log; GAP-DCB-025; GAS2-R-021 |
 
 No cambia ningún requisito canónico REQ-01–REQ-14. Markdown y CSV de requisitos
 permanecen intactos; no se añade una matriz paralela de requisitos. Los números
@@ -457,6 +457,64 @@ El contenedor y la red C02 se eliminaron; no existieron volúmenes persistentes.
 Puerto 55432 quedó libre y `.env` recuperó su ausencia inicial. Ninguna suite
 contactó CALL-E. Cero claves, números reales, cuentas, créditos, webhooks,
 recursos o llamadas fueron usados.
+
+<a id="call-e-c03--continuity-relay-core-interno"></a>
+
+## CALL-E C03 — Continuity Relay core interno y desactivado
+
+Corte contractual: 2026-08-30. Base, HEAD y `origin/main` anclados en
+`893cb8b0b555d59128369d965d3b908d942ae414`; PR C02 #51 merged y run
+33328317143/job 99302289540 `completed/success` para ese SHA. C03 permaneció sin
+upstream, rama remota, commit o stage antes de editar.
+
+| Control C03 | Implementación / prueba | Límite honesto |
+| --- | --- | --- |
+| Tipos y parejas | `src/domain/relay/continuity-relay.ts`; tests negativos de cruce | Solo PATIENT + PATIENT_CALLBACK_OFFER y PROFESSIONAL + PROFESSIONAL_REVIEW_REQUEST |
+| Autoridad server-side | Port `continuity-relay.ts`; adapter `UnavailableRelayAuthorityResolver`; actor por `RelayActorContext` | El modelo no contiene voz/region/locale/Line Region/attestation canónicos; runtime deny-all, fakes solo test-only |
+| Preview | `ContinuityRelayService.preview`; policy obligatoria sin default productivo | Cero red/CALL-E; mask, referencias opacas, task contract, fingerprint, revision y expiración sintética; el aviso de no cancelación está presente solo en el contrato sintético de preview, sin UI |
+| Confirmación | CSPRNG 256-bit, SHA-256 del token, HMAC del binding y CAS PostgreSQL | Token nunca en claro en DB/audit; consumo previo al executor; policy/attestation productivas `PENDING_LOCAL_DECISION` |
+| Lifecycle | `RelayAttempt/RelayEvent`; migraciones `20260830000100_continuity_relay_core` y `20260830000200_continuity_relay_review_guards` | Solo estados técnicos y revisión registrada; eventos por estado únicos y atribución de revisión inmutable; no duplica payload/estado CALL-E ni otorga autoridad clínica |
+| Composición C02 | Executor inyectado después del consumo; `OutboundCallIntent/Event` sigue siendo fuente del transporte | Runtime C02 sigue disabled; sin entrypoint, llamada, retry POST, webhook, batch o fan-out |
+| Privacidad/auditoría | columnas allowlisted, triggers append-only y AuditEvent minimizado | Sin teléfono, mask, token, prompt, transcript, summary, evidence, payload, metadata o contenido clínico |
+
+La comprobación con PostgreSQL 16 desechable en loopback 55433 aplicó 17/17
+migraciones desde vacío, ejecutó el seed sintético y confirmó schema al día. La
+primera ejecución dirigida descubrió un fixture de 7 días incompatible con la
+regla canónica 30/60/90; se corrigió a 30 sin relajar el dominio y la repetición
+pasó 9/9.
+
+La revisión final de publicación rechazó `taskRef` en las solicitudes públicas
+de preview y confirmación: el cliente solo aporta `episodeRef` opaco y cualquier
+contexto de tarea profesional se deriva de la autoridad server-side, se persiste
+minimizado y se revalida desde ese snapshot. La prueba unitaria adicional cubre
+derivación profesional y rechazo del override. La misma revisión confirmó que la
+frase ajena del informe previo no estaba en el delta C03 y precisó que el aviso
+de no cancelación está presente solo en el contrato sintético de preview, sin UI.
+
+### Validación C03
+
+| Comando/comprobación | Resultado real | Exit | Nota |
+| --- | --- | --- | --- |
+| `pnpm install --frozen-lockfile` | Already up to date; pnpm 11.7.0 | 0 | Manifest/lock sin cambios; SDK ausente |
+| `pnpm prisma:generate` | Prisma Client 6.19.0 generado | 0 | Schema C03 válido |
+| `pnpm db:migrate:deploy` | 17/17 migraciones desde base vacía | 0 | Incluye el core `20260830000100_continuity_relay_core` y el hardening aditivo `20260830000200_continuity_relay_review_guards` |
+| `pnpm db:seed` / `pnpm db:migrate:status` | Seed sintético / schema al día | 0 / 0 | PostgreSQL 16 en loopback 55433 y tmpfs |
+| Prisma migrate diff DB→schema | No difference detected | 0 | La primera invocación usó una opción 6.19 inexistente; la repetición con sintaxis soportada pasó |
+| `pnpm format:check` / `pnpm lint` / `pnpm typecheck` | PASS / PASS / PASS | 0 / 0 / 0 | Fallos intermedios de formato y firmas test-only corregidos sin relajar configuración |
+| `pnpm test` | 450 unitarias + 116 integración + 29 tooling = 595 PASS | 0 | Incluye 24 unit dirigidas y 9 integración C03; red CALL-E bloqueada |
+| `pnpm test:tooling` | 29/29 PASS | 0 | Checker rechaza SDK, superficies y entrypoint Relay/CALL-E |
+| Trazabilidad / governance / CALL-E boundary | 14 requisitos, 39 claims, referencias resueltas y boundary PASS | 0 / 0 / 0 | Drift Markdown/CSV cero; HAZ-GAS-021–038 continúan abiertos |
+| Referencias Markdown locales | Todos los targets bajo `docs` resueltos | 0 | Comprobación read-only de enlaces relativos |
+| `pnpm build` | Next 16.2.11; 18 páginas estáticas | 0 | Sin ruta Relay/CALL-E |
+| `pnpm test:e2e` | Repetición final limpia: 74/74 PASS en 6.6 min | 0 | Una repetición intermedia sobre la DB ya mutada dio 73/74 por orden de auditorías heredado; se recreó solo `guardian_c03`, se reaplicaron 17/17 + seed y pasó sin cambiar pruebas ni configuración; warning NO_COLOR/FORCE_COLOR informativo |
+| `git diff --check` | PASS | 0 | Solo warnings informativos LF/CRLF de autocrlf |
+| `pnpm audit --prod --json` | 6 high + 2 moderate + 0 critical | 1 | Baseline C02 exacto; manifest/lock intactos, cero advisory atribuible a C03 |
+| Escaneo final de 411 archivos versionados o nuevos | 0 E.164 completos; 0 secretos reales o no clasificados; 0 claves `sk-*` de alta confianza; 0 columnas prohibidas en schema, SQL y DB aplicada | 0 | Dos emails `.invalid` heredados en tests y credenciales C02 explícitamente sintéticas; cero dato real |
+
+No se usó ni creó `.env`. Ninguna suite dispuso de credencial o entrypoint y el
+bloqueo global de dominios CALL-E permaneció activo. No hubo número completo,
+cuenta, crédito, llamada, request ni tráfico real CALL-E. La limpieza final del
+contenedor/red/puerto C03 se confirma en el informe de entrega.
 
 ## Executed baseline evidence
 

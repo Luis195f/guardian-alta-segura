@@ -70,7 +70,7 @@ export function checkCallERestBoundary({
 
   for (const file of filesBelow(path.join(repositoryRoot, "src", "app"))) {
     const source = readFileSync(file, "utf8");
-    if (/call-e-rest|outbound-call/iu.test(source)) {
+    if (/call-e-rest|outbound-call|continuity-relay/iu.test(source)) {
       failures.push(`Live CALL-E entrypoint found in ${path.relative(repositoryRoot, file)}`);
     }
   }
@@ -81,6 +81,9 @@ export function checkCallERestBoundary({
     "src/infrastructure/call-transport/call-e-rest-runtime.ts",
     "src/infrastructure/call-transport/keyed-call-fingerprint.ts",
     "src/infrastructure/persistence/prisma-outbound-call-intent-store.ts",
+    "src/infrastructure/persistence/prisma-continuity-relay-store.ts",
+    "src/infrastructure/relay/hmac-relay-secret-protector.ts",
+    "src/infrastructure/relay/unavailable-relay-authority.ts",
   ];
   for (const relative of requiredServerFiles) {
     const file = path.join(repositoryRoot, relative);

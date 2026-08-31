@@ -37,6 +37,9 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "home-safety-read",
     "home-safety-write",
     "sbar-preview-generate",
+    "continuity-relay-preview",
+    "continuity-relay-confirm",
+    "continuity-relay-review",
   ],
   clinician: [
     "authenticated-session",
@@ -58,6 +61,9 @@ const allowedByRole: Readonly<Record<Role, readonly ProtectedResource[]>> = {
     "home-safety-read",
     "home-safety-write",
     "sbar-preview-generate",
+    "continuity-relay-preview",
+    "continuity-relay-confirm",
+    "continuity-relay-review",
   ],
   patient: [
     "authenticated-session",

@@ -2,8 +2,9 @@
 
 - Estado: `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`.
 - Fecha: 2026-08-27; pivot REST C02 autorizado el 2026-08-29.
-- Alcance: C01 documental y adapter REST técnico C02; no autoriza C03, C10,
-  llamadas, publicación, piloto ni producción.
+- Alcance: C01 documental, adapter REST técnico C02 y core interno C03; solo
+  permite publicación técnica en rama y Draft PR, sin autorizar C04, C05, C10,
+  llamadas, Ready/merge, piloto ni producción.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
 - Prerrequisito: `C00_PREREQUISITE = SATISFIED_BY_HUMAN_REVIEW` y
@@ -17,6 +18,13 @@ son una capacidad de entrega: `CommunicationChannel` no incluye voz y
 `CommunicationPermission` no distingue `recipientKind`. C02 añade un port
 neutral y un adapter REST técnico server-only, sin credencial, UI, route handler,
 server action, scheduler, worker ni otro entrypoint ejecutable.
+
+C03 añade únicamente el core interno tipado y desactivado de Continuity Relay.
+El modelo canónico no contiene teléfono de voz autorizado, región, locale, Line
+Region ni attestation institucional. Por ello el adapter de autoridad disponible
+en runtime deniega siempre; solo las pruebas inyectan una policy y autoridad
+sintéticas marcadas test-only. No se añade teléfono, canal de voz o permiso
+inferido a `Patient`, `CommunicationPermission`, episodio o tarea.
 
 C00 fue una inspección estática local del contrato de `@call-e/calle@0.6.0` y
 fuentes públicas. Sus resultados contractuales son `STATIC_PROVIDER_PROBE =
@@ -75,7 +83,8 @@ autorización de avanzar entre ellos.
 La excepción no modifica el alcance clínico de GAS: no diagnostica, no predice
 suicidio, no calcula riesgo individual, no prescribe ni modifica tratamientos,
 no deriva, no cierra episodios y no sustituye juicio profesional. No autoriza
-datos reales ni la publicación de esta rama. Plan de Seguridad e historia
+datos reales; publicar la rama como Draft PR aporta revisión técnica, no una
+autorización operativa, clínica o institucional. Plan de Seguridad e historia
 siguen append-only; Domicilio Seguro sigue siendo informativo; SBAR sigue
 manual o determinista, sin datos inventados ni firma automática; el semáforo
 permanece desactivado por defecto. Los recursos de crisis siguen sin destino
@@ -90,7 +99,8 @@ prompts como control. No se construye un motor de voz propio.
 ## Patient Relay y Professional Relay
 
 Son capacidades futuras de continuidad organizativa, distintas y no
-equivalentes. Los nombres no describen funciones ya implementadas.
+equivalentes. C03 tipa sus dos parejas internas, pero los nombres no describen
+Patient Relay C04 ni Professional Relay C05 ya implementados.
 
 | Dimensión | Patient Relay | Professional Relay |
 | --- | --- | --- |
@@ -111,7 +121,40 @@ vencimientos y cualquier resultado del proveedor tienen prohibido iniciar
 llamadas automáticamente. No hay scheduler, worker, batch, fan-out, fallback de
 canal ni segunda llamada automática por fallo, ausencia o incertidumbre.
 
-## Gates humanos y ciclo live futuro, no implementado
+## Core C03 de preview y confirmación, interno y no live
+
+C03 implementa `RelayRecipientKind = PATIENT | PROFESSIONAL` y
+`RelayPurpose = PATIENT_CALLBACK_OFFER | PROFESSIONAL_REVIEW_REQUEST`. Solo
+acepta las parejas homónimas. El cliente no aporta destino, teléfono, región,
+locale, Line Region, identidad, task o prompt libre. El port de autoridad recibe
+actor autenticado y referencias opacas de episodio/tarea, y debe resolver una
+relación canónica actual, específica y única; la implementación productiva
+permanece deny-all porque esa fuente no existe en el modelo.
+
+El preview no usa CALL-E ni red. Expone destino enmascarado, contexto opaco,
+configuración derivada, contrato de task allowlisted/versionado, aviso de
+crédito sin consulta de saldo/precio, ausencia de cancelación API, attestation,
+fingerprint protegido, revisión, expiración de una policy obligatoria y
+`providerContacted=false`. No existe TTL productivo por defecto;
+`PENDING_LOCAL_DECISION` permanece abierto y las pruebas usan cinco minutos
+solo bajo `TEST_ONLY_SYNTHETIC_RELAY_POLICY`.
+
+La confirmación usa 256 bits CSPRNG, persiste solo SHA-256 del token de alta
+entropía y vincula mediante HMAC server-only actor, target, tipo, finalidad,
+episodio/tarea, destino efímero, región/locale/Line Region, task contract,
+attestation y revisión. Revalida actor, RBAC, scope, autoridad, asignación,
+attestation, target, fingerprint y revisión; un compare-and-set PostgreSQL
+consume una vez antes de componer con C02. Replay, expiración, revocación,
+cambio o carrera fallan sin POST.
+
+`RelayAttempt/RelayEvent` representan solo
+`PREVIEWED → CONFIRMED → PROVIDER_CREATED → RESULT_* → HUMAN_REVIEWED`.
+`OutboundCallIntent/Event` conserva la fuente técnica del transporte y
+`AuditEvent` la auditoría de seguridad. `PROVIDER_CREATED` exige un
+`providerRef` ya persistido; `HUMAN_REVIEWED` registra actor y timestamp y no
+significa aprobación clínica, validez del resultado o cierre de riesgo.
+
+## Gates humanos y ciclo live futuro
 
 Los gates `DEVPOST_REGISTERED`, `CALL_E_ACCOUNT`, `EXTRA_CALLS_REQUEST` y
 `SUPPORTED_AUTHORIZED_NUMBER` están **NO VERIFICADOS**. No son afirmaciones
@@ -120,7 +163,8 @@ un número, no lo solicita y no inspecciona secretos ni cuentas privadas.
 
 Una eventual llamada requiere separadamente cuenta, crédito, API key server-only,
 región soportada, número propio o autorizado, propósito sintético, preview,
-masked target, acknowledgement explícito de no cancelación, confirmación
+masked target, acknowledgement explícito de no cancelación presente únicamente
+en el contrato sintético interno de preview —no existe UI—, confirmación
 one-use y autorización humana expresa **para esa llamada**. La aprobación de
 C01, una cuenta o una confirmación anterior no satisfacen ese conjunto.
 
@@ -293,8 +337,11 @@ del primer GET, reconciliación GET, cero segundo POST, mapper mínimo, abstenci
 errores sanitizados, red bloqueada y superficies prohibidas ausentes. Son
 controles `IMPLEMENTED_UNVALIDATED`: no prueban proveedor live, número de intentos
 físicos, contención de voz, autorización de destinatario, eficacia clínica ni
-operación. Preview, confirmación one-use, Patient/Professional Relay, revocación,
-prompt injection y cualquier entrypoint quedan para fases separadas.
+operación. C03 prueba preview, confirmación one-use, revalidación, lifecycle y
+persistencia minimizada del core interno, pero no implementa la fuente real de
+autoridad, Patient/Professional Relay completos, contención de voz, policy
+productiva ni ningún entrypoint. Esos elementos quedan para decisiones y fases
+separadas.
 
 ## Claim máximo permitido
 
@@ -303,7 +350,13 @@ prompt injection y cualquier entrypoint quedan para fases separadas.
 > incorporó el SDK y no se ejecutaron llamadas. No autoriza uso clínico, piloto
 > ni producción.
 
+> Se ha implementado y probado un core interno C03 de autoridad tipada, preview
+> sin red, confirmación one-use y lifecycle auditable usando únicamente policies,
+> destinos y transporte sintéticos. La resolución productiva de destinatario
+> permanece deny-all y no existen relays completos ni entrypoint.
+
 `CALL_E_RUNTIME = IMPLEMENTED_DISABLED`, `LIVE_ENTRYPOINT = ABSENT`,
 `LIVE_CALLS = NOT_EXECUTED`,
 `REAL_CLINICAL_PILOT = NO_GO`, `REAL_DATA_PRODUCTION = NO_GO` y
-`RESIDUAL_RISK_ACCEPTANCE = NONE`. C02 no se publica ni inicia C03/C10.
+`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C03 se limita a rama y
+Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C04/C05/C10.
