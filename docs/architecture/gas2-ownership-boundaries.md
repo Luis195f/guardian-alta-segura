@@ -51,17 +51,18 @@ separado.
 
 Una futura llamada al profesional y una futura llamada al paciente son capacidades diferentes y no equivalentes. Deben mantener separados propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo. `Alert`, `CheckInOutcome`, `Task` y `Commitment` jamás pueden iniciar automáticamente ninguna de las dos.
 
-No se selecciona proveedor ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Ambas capacidades permanecen `FUTURE_ONLY / NO_GO`; este documento no autoriza ni implementa telefonía, voz automatizada o interfaces de llamada. ADR-0017 es la fuente canónica para el contrato conceptual, minimización, fallos, amenazas y decisiones previas; tampoco autoriza implementación.
+No se selecciona proveedor productivo ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Patient Relay C04 y Professional Relay C05 permanecen `FUTURE_ONLY / NO_GO`; C03 implementa solo autoridad tipada y lifecycle interno, sin telefonía, voz automatizada o interfaz de llamada. ADR-0017 conserva el contrato conceptual y ADR-0019 la excepción técnica sintética; ninguna autoriza uso real.
 
 ## Riesgo de duplicación por concepto propuesto
 
 La única excepción documental específica de proveedor es
 [ADR-0019](../adr/0019-calle-hackathon-sandbox-boundary.md): Patient Relay y
 Professional Relay son capacidades organizativas futuras separadas del core y
-entre sí. GAS conservaría intención, autorización, idempotencia, minimización y
-revisión; CALL-E sería transporte externo no confiable para decisiones clínicas.
-No hay adapter ni motor de voz propio. C01 no selecciona proveedor productivo,
-no cambia ADR-0017, no introduce IA en el core y no autoriza C02 ni llamadas.
+entre sí. GAS conserva intención, autorización, idempotencia, minimización y
+revisión; CALL-E sigue siendo transporte externo no confiable para decisiones
+clínicas. C02 aporta el adapter REST desactivado y C03 el core interno; no hay
+motor de voz propio, resolver real de destinatario ni entrypoint. C03 no cambia
+ADR-0017, no introduce IA en el core y no autoriza llamadas.
 Demo pública sintética: `LIVE OFF`; datos reales, piloto y producción: `NO_GO`.
 
 | Concepto propuesto | Riesgo | Fuente de verdad o workflow existente | Recomendación |
@@ -74,6 +75,7 @@ Demo pública sintética: `LIVE OFF`; datos reales, piloto y producción: `NO_GO
 | `ProcessAnomaly` | Medio | Ventanas/outcomes de check-in, tareas y timestamps | No implementar antes de aprobar ADR-0015. Después, limitar a ausencia de evidencia registral sobre compromisos explícitos; nunca inferir incumplimiento o significado clínico. |
 | `ConsentScope` | Muy alto | `PolicyVersion`, registros legales, `RevocationEvent` y `CaregiverAuthorizationScope` | Reutilizar decisiones legales por finalidad. No colapsar consentimiento, base legal y autorización de cuidador en una tabla genérica. |
 | `AuditLog` | Crítico | `AuditEvent`, `CaregiverAccessAudit` e historias de dominio | No crear. Añadir vistas/consultas autorizadas sobre la evidencia existente. |
+| `RelayAttempt` | Medio si duplica transporte; bajo en C03 acotado | `OutboundCallIntent/Event` conserva transporte; `AuditEvent` conserva auditoría | Mantener solo binding de autoridad, confirmación one-use y lifecycle humano. No copiar provider payload, teléfono, prompt o estado técnico detallado. |
 | `ConnectorRegistration` | Bajo en responsabilidad, alto si se especula | `IdentityProvider` y adaptador local demuestran el patrón, pero no hay registro equivalente | Definir contrato solo al seleccionar un conector. No crear catálogo persistente hasta necesitar estado operativo o rotación de configuración. |
 
 ## Qué puede ser una proyección y no una tabla

@@ -1,0 +1,327 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+
+import { beforeAll, describe, expect, it } from "vitest";
+
+import type { CreateRelayPreviewRecordInput } from "@/application/ports/continuity-relay";
+import type { OutboundCallSnapshot } from "@/application/ports/outbound-call";
+import { PrismaContinuityRelayStore } from "@/infrastructure/persistence/prisma-continuity-relay-store";
+import { PrismaOutboundCallIntentStore } from "@/infrastructure/persistence/prisma-outbound-call-intent-store";
+import { prisma } from "@/infrastructure/persistence/prisma";
+
+const relayStore = new PrismaContinuityRelayStore();
+const outboundStore = new PrismaOutboundCallIntentStore();
+const CORRELATION_ID = "018f673a-4e35-7060-99b5-7bc6feba3a97";
+const NOW = new Date("2026-08-30T10:00:00.000Z");
+
+let actorRef = "";
+let episodeRef = "";
+
+function hex(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function idempotencyRef(): string {
+  return `relay_${randomBytes(24).toString("base64url")}`;
+}
+
+function previewInput(
+  overrides: Partial<CreateRelayPreviewRecordInput> = {},
+): CreateRelayPreviewRecordInput {
+  const nonce = randomUUID();
+  return {
+    recipientKind: "PATIENT",
+    purpose: "PATIENT_CALLBACK_OFFER",
+    episodeRef,
+    taskRef: null,
+    targetRef: `synthetic-target-${nonce}`,
+    actorRef,
+    actorRole: "nurse",
+    authorityFingerprint: hex(`fingerprint-${nonce}`),
+    confirmationDigest: hex(`high-entropy-token-${nonce}`),
+    idempotencyRef: idempotencyRef(),
+    attestationVersion: "test-attestation-v1",
+    revision: "episode-v1",
+    expiresAt: new Date(NOW.getTime() + 5 * 60_000),
+    createdAt: NOW,
+    correlationId: CORRELATION_ID,
+    ...overrides,
+  };
+}
+
+function consumeInput(
+  record: Awaited<ReturnType<typeof relayStore.createPreview>>,
+  overrides: Partial<Parameters<typeof relayStore.consumeConfirmation>[0]> = {},
+): Parameters<typeof relayStore.consumeConfirmation>[0] {
+  return {
+    attemptRef: record.id,
+    confirmationDigest: record.confirmationDigest,
+    actorRef: record.actorRef,
+    actorRole: "nurse",
+    recipientKind: record.recipientKind,
+    purpose: record.purpose,
+    context: { episodeRef: record.episodeRef, taskRef: record.taskRef },
+    targetRef: record.targetRef,
+    authorityFingerprint: record.authorityFingerprint,
+    attestationVersion: record.attestationVersion,
+    revision: record.revision,
+    correlationId: CORRELATION_ID,
+    now: new Date(NOW.getTime() + 1_000),
+    ...overrides,
+  };
+}
+
+function snapshot(
+  providerRef: string,
+  status: OutboundCallSnapshot["status"],
+): OutboundCallSnapshot {
+  return {
+    providerRef,
+    status,
+    structuredResult: "ABSTAINED",
+    providerCreatedAt: NOW,
+    providerCompletedAt: status === "COMPLETED" ? new Date(NOW.getTime() + 3_000) : null,
+  };
+}
+
+beforeAll(async () => {
+  const suffix = randomUUID();
+  const nurse = await prisma.user.create({
+    data: {
+      syntheticAlias: `relay-nurse-${suffix}`,
+      displayLabel: "SINTÉTICO / NO USO CLÍNICO — Relay nurse",
+      isSynthetic: true,
+      roleAssignments: { create: { role: "nurse" } },
+    },
+  });
+  const clinician = await prisma.user.create({
+    data: {
+      syntheticAlias: `relay-clinician-${suffix}`,
+      displayLabel: "SINTÉTICO / NO USO CLÍNICO — Relay clinician",
+      isSynthetic: true,
+      roleAssignments: { create: { role: "clinician" } },
+    },
+  });
+  const patient = await prisma.patient.create({
+    data: {
+      externalPseudonymousId: `relay-patient-${suffix}`,
+      isSynthetic: true,
+      createdById: nurse.id,
+    },
+  });
+  const protocol = await prisma.checkInProtocolVersion.create({
+    data: {
+      protocolKey: `relay-test-${suffix}`,
+      versionNumber: 1,
+      title: "SINTÉTICO / TEST ONLY — Relay protocol",
+      state: "SYNTHETIC_DEMO",
+      isSyntheticFixture: true,
+      createdById: nurse.id,
+    },
+  });
+  const episode = await prisma.dischargeEpisode.create({
+    data: {
+      patientId: patient.id,
+      dischargeDate: new Date("2026-08-30T00:00:00.000Z"),
+      programLengthDays: 30,
+      responsibleNurseId: nurse.id,
+      responsibleClinicianId: clinician.id,
+      createdById: nurse.id,
+      checkInProtocolVersionId: protocol.id,
+    },
+  });
+  actorRef = nurse.id;
+  episodeRef = episode.id;
+});
+
+describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
+  it("grants exactly one atomic consumer and rejects replay under concurrency", async () => {
+    const record = await relayStore.createPreview(previewInput());
+    const input = consumeInput(record);
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => relayStore.consumeConfirmation(input)),
+    );
+    expect(results.filter((result) => result !== null)).toHaveLength(1);
+    await expect(relayStore.consumeConfirmation(input)).resolves.toBeNull();
+    expect(
+      await prisma.relayEvent.count({ where: { attemptRef: record.id, toState: "CONFIRMED" } }),
+    ).toBe(1);
+    expect(
+      await prisma.auditEvent.count({
+        where: { resourceId: record.id, action: "RELAY_CONFIRMATION_CONSUMED" },
+      }),
+    ).toBe(1);
+  });
+
+  it.each([
+    [
+      "wrong actor",
+      (record: Awaited<ReturnType<typeof relayStore.createPreview>>) => {
+        void record;
+        return { actorRef: "wrong-opaque-actor" };
+      },
+    ],
+    [
+      "crossed purpose",
+      () => ({
+        recipientKind: "PROFESSIONAL" as const,
+        purpose: "PROFESSIONAL_REVIEW_REQUEST" as const,
+      }),
+    ],
+    ["changed target", () => ({ targetRef: "synthetic-target-modified" })],
+    ["stale revision", () => ({ revision: "episode-v2" })],
+    ["expired", () => ({ now: new Date(NOW.getTime() + 10 * 60_000) })],
+  ])("rejects %s without consuming", async (_label, mutate) => {
+    const record = await relayStore.createPreview(previewInput());
+    await expect(
+      relayStore.consumeConfirmation(consumeInput(record, mutate(record))),
+    ).resolves.toBeNull();
+    await expect(relayStore.getById(record.id)).resolves.toMatchObject({
+      lifecycleState: "PREVIEWED",
+      consumedAt: null,
+    });
+  });
+
+  it("rejects a revoked preview atomically", async () => {
+    const record = await relayStore.createPreview(previewInput());
+    await prisma.relayAttempt.update({
+      where: { id: record.id },
+      data: { revokedAt: new Date(NOW.getTime() + 500), updatedAt: new Date(NOW.getTime() + 500) },
+    });
+    await expect(relayStore.consumeConfirmation(consumeInput(record))).resolves.toBeNull();
+  });
+
+  it("requires persisted providerRef, preserves terminal state, and records one human review", async () => {
+    const preview = await relayStore.createPreview(previewInput());
+    const confirmed = await relayStore.consumeConfirmation(consumeInput(preview));
+    if (!confirmed) throw new Error("Synthetic confirmation was not consumed");
+    const reserved = await outboundStore.reserve({
+      idempotencyRef: confirmed.idempotencyRef,
+      protectedFingerprint: hex(`outbound-${confirmed.id}`),
+      now: new Date(NOW.getTime() + 2_000),
+    });
+    const withoutProvider = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: reserved,
+      now: new Date(NOW.getTime() + 2_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(withoutProvider.lifecycleState).toBe("CONFIRMED");
+    expect(await outboundStore.claimPost(reserved.id, new Date(NOW.getTime() + 2_000))).toBe(true);
+    const providerRef = `synthetic-provider-${randomUUID()}`;
+    const queued = await outboundStore.persistProviderRef({
+      intentId: reserved.id,
+      providerRef,
+      snapshot: snapshot(providerRef, "QUEUED"),
+      now: new Date(NOW.getTime() + 2_000),
+    });
+    const providerCreated = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: queued,
+      now: new Date(NOW.getTime() + 2_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(providerCreated.lifecycleState).toBe("PROVIDER_CREATED");
+
+    const completed = await outboundStore.recordSnapshot({
+      intentId: reserved.id,
+      snapshot: snapshot(providerRef, "COMPLETED"),
+      reconciliationState: "RECONCILED",
+      now: new Date(NOW.getTime() + 3_000),
+    });
+    const result = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: completed,
+      now: new Date(NOW.getTime() + 3_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(result.lifecycleState).toBe("RESULT_COMPLETED");
+    const stale = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: queued,
+      now: new Date(NOW.getTime() + 4_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(stale.lifecycleState).toBe("RESULT_COMPLETED");
+
+    const reviewed = await relayStore.recordHumanReview({
+      attemptRef: confirmed.id,
+      reviewerRef: actorRef,
+      reviewerRole: "nurse",
+      correlationId: CORRELATION_ID,
+      now: new Date(NOW.getTime() + 5_000),
+    });
+    expect(reviewed).toMatchObject({ lifecycleState: "HUMAN_REVIEWED", reviewedByRef: actorRef });
+    await expect(
+      relayStore.recordHumanReview({
+        attemptRef: confirmed.id,
+        reviewerRef: actorRef,
+        reviewerRole: "nurse",
+        correlationId: CORRELATION_ID,
+        now: new Date(NOW.getTime() + 6_000),
+      }),
+    ).resolves.toBeNull();
+
+    await expect(
+      prisma.relayAttempt.update({
+        where: { id: confirmed.id },
+        data: { lifecycleState: "CONFIRMED", reviewedByRef: null, reviewedAt: null },
+      }),
+    ).rejects.toThrow();
+    const event = await prisma.relayEvent.findFirstOrThrow({ where: { attemptRef: confirmed.id } });
+    await expect(
+      prisma.relayEvent.update({ where: { id: event.id }, data: { occurredAt: new Date() } }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.relayEvent.create({
+        data: {
+          attemptRef: confirmed.id,
+          fromState: "RESULT_COMPLETED",
+          toState: "HUMAN_REVIEWED",
+          actorRef,
+          occurredAt: new Date(NOW.getTime() + 7_000),
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.relayAttempt.update({
+        where: { id: confirmed.id },
+        data: { reviewedByRef: actorRef, reviewedAt: new Date(NOW.getTime() + 7_000) },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("persists no phone, token, visible target, prompt, clinical content, or provider payload columns", async () => {
+    const columns = await prisma.$queryRaw<Array<{ table_name: string; column_name: string }>>`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name IN ('relay_attempts', 'relay_events')
+      ORDER BY table_name, column_name
+    `;
+    const serializedColumns = JSON.stringify(columns.map(({ column_name }) => column_name));
+    for (const prohibited of [
+      "phone",
+      "token",
+      "masked",
+      "prompt",
+      "task_contract",
+      "transcript",
+      "summary",
+      "evidence",
+      "recording",
+      "payload",
+      "headers",
+      "api_key",
+      "metadata",
+      "clinical",
+      "name",
+      "attempts",
+    ]) {
+      expect(serializedColumns).not.toContain(prohibited);
+    }
+    const latest = await prisma.relayAttempt.findFirstOrThrow({ orderBy: { createdAt: "desc" } });
+    expect(JSON.stringify(latest)).not.toContain("high-entropy-token");
+    expect(JSON.stringify(latest)).not.toContain(SYNTHETIC_PHONE_SENTINEL);
+  });
+});
+
+const SYNTHETIC_PHONE_SENTINEL = ["+", "34", "600", "000", "001"].join("");

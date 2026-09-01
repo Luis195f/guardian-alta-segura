@@ -31,6 +31,9 @@ export const PROTECTED_RESOURCES = [
   "home-safety-read",
   "home-safety-write",
   "sbar-preview-generate",
+  "continuity-relay-preview",
+  "continuity-relay-confirm",
+  "continuity-relay-review",
 ] as const;
 
 export type ProtectedResource = (typeof PROTECTED_RESOURCES)[number];
@@ -65,6 +68,9 @@ const allowedRoles: Readonly<Record<ProtectedResource, readonly Role[]>> = {
   "home-safety-read": ["nurse", "clinician"],
   "home-safety-write": ["nurse", "clinician"],
   "sbar-preview-generate": ["nurse", "clinician"],
+  "continuity-relay-preview": ["nurse", "clinician"],
+  "continuity-relay-confirm": ["nurse", "clinician"],
+  "continuity-relay-review": ["nurse", "clinician"],
 };
 
 export interface AuthorizationDecision {

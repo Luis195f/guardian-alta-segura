@@ -31,12 +31,17 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 La [frontera ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) conserva el
 intento SDK `BLOCKED_BY_LICENSE` y registra el pivot humano a REST oficial. C02
 implementa solo un adapter desactivado, sin dependencia SDK, secreto, número,
-cuenta, entrypoint o llamada. Los gates `DEVPOST_REGISTERED`, `CALL_E_ACCOUNT`,
+cuenta, entrypoint o llamada. C03 añade un core interno tipado, preview sin red,
+confirmación one-use, revalidación y lifecycle auditable con autoridad/policy
+sintéticas en tests; el resolver runtime permanece deny-all porque no existe una
+fuente canónica de contacto de voz o attestation. Los gates `DEVPOST_REGISTERED`, `CALL_E_ACCOUNT`,
 `EXTRA_CALLS_REQUEST` y `SUPPORTED_AUTHORIZED_NUMBER` siguen no verificados.
 DEC-003/005/010/011/013/014/015/016/017 mantienen su estado y autoridad; DEC-019
 no los sustituye. El HMAC, claim atómico, GET de reconciliación, mapper y
-sanitización son `IMPLEMENTED_UNVALIDATED`; no deciden destinatario, región,
-retención, SLA o protocolo definitivo. No se acepta riesgo residual.
+sanitización y controles C03 son `IMPLEMENTED_UNVALIDATED`; no deciden el
+destinatario real, región/locale/Line Region, TTL productivo, retención, SLA o
+protocolo definitivo. Patient Relay C04 y Professional Relay C05 siguen no
+implementados. DEC-019 permanece `Pendiente` y no se acepta riesgo residual.
 
 ### Evidencia de apoyo a DEC-003 y comunicaciones futuras
 
