@@ -24,6 +24,7 @@ import type {
 import type { OutboundCallIntentRecord } from "@/application/ports/outbound-call";
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { isValidRelayPair, RELAY_NO_CANCEL_NOTICE } from "@/domain/relay/continuity-relay";
+import { SYNTHETIC_PATIENT_RELAY_RESULT } from "@/domain/relay/patient-relay-contract";
 import { HmacRelaySecretProtector } from "@/infrastructure/relay/hmac-relay-secret-protector";
 import {
   UnavailableRelayAttestationVerifier,
@@ -121,6 +122,8 @@ class MemoryAttemptStore implements RelayAttemptStore {
       lifecycleState: "PREVIEWED",
       attestationVersion: input.attestationVersion,
       revision: input.revision,
+      resultValidity: null,
+      technicalResult: null,
       expiresAt: input.expiresAt,
       consumedAt: null,
       revokedAt: null,
@@ -212,6 +215,13 @@ class MemoryAttemptStore implements RelayAttemptStore {
         outboundCallIntentRef: input.outboundIntent.id,
         updatedAt: input.now,
       };
+      if (input.syntheticExecution) {
+        this.audits.push({
+          action: "RELAY_SYNTHETIC_EXECUTION_RECORDED",
+          actorRef: null,
+          attemptRef: current.id,
+        });
+      }
       this.audits.push({
         action: "RELAY_PROVIDER_REF_CREATED",
         actorRef: null,
@@ -228,6 +238,8 @@ class MemoryAttemptStore implements RelayAttemptStore {
       current = {
         ...current,
         lifecycleState: results[input.outboundIntent.state as keyof typeof results],
+        resultValidity: input.resultValidity,
+        technicalResult: input.technicalResult,
         updatedAt: input.now,
       };
       this.audits.push({
@@ -297,11 +309,16 @@ function createHarness(clock = { value: FIXED_NOW }) {
   const authority = new MutableAuthority();
   const attestations = new MutableAttestation();
   const attempts = new MemoryAttemptStore();
+  const execution = { rawTechnicalResult: SYNTHETIC_PATIENT_RELAY_RESULT as unknown };
   const outbound: RelayOutboundExecutor = {
     execute: vi.fn(async (input) => {
       const attempt = [...attempts.records.values()][0];
       expect(attempt?.lifecycleState).toBe("CONFIRMED");
-      return outboundIntent(input.idempotencyRef);
+      return {
+        outboundIntent: outboundIntent(input.idempotencyRef),
+        rawTechnicalResult: execution.rawTechnicalResult,
+        syntheticExecution: true,
+      };
     }),
   };
   const service = new ContinuityRelayService(
@@ -314,7 +331,7 @@ function createHarness(clock = { value: FIXED_NOW }) {
     outbound,
     () => new Date(clock.value),
   );
-  return { service, actors, authority, attestations, attempts, outbound, clock };
+  return { service, actors, authority, attestations, attempts, outbound, execution, clock };
 }
 
 async function previewAndConfirmation(harness = createHarness()) {
@@ -424,10 +441,31 @@ describe("Continuity Relay typed authority core", () => {
     expect(harness.attempts.audits.map(({ action }) => action)).toEqual([
       "RELAY_PREVIEW_ISSUED",
       "RELAY_CONFIRMATION_CONSUMED",
+      "RELAY_SYNTHETIC_EXECUTION_RECORDED",
       "RELAY_PROVIDER_REF_CREATED",
       "RELAY_TECHNICAL_RESULT_AVAILABLE",
     ]);
   });
+
+  it.each([
+    ["missing", null, "MISSING"],
+    ["invalid", { ...SYNTHETIC_PATIENT_RELAY_RESULT, free_text: "prohibited" }, "INVALID"],
+  ])(
+    "keeps a %s result reviewable without inventing a negative answer",
+    async (_label, value, validity) => {
+      const base = createHarness();
+      base.execution.rawTechnicalResult = value;
+      const harness = await previewAndConfirmation(base);
+      await expect(harness.service.confirm(harness.confirmation)).resolves.toMatchObject({
+        lifecycleState: "RESULT_COMPLETED",
+      });
+      expect(harness.attempts.records.get("attempt-1")).toMatchObject({
+        resultValidity: validity,
+        technicalResult: null,
+        lifecycleState: "RESULT_COMPLETED",
+      });
+    },
+  );
 
   it("allows exactly one consumer under concurrent confirmation and rejects replay", async () => {
     const harness = await previewAndConfirmation();

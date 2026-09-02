@@ -2,8 +2,9 @@
 
 - Estado: `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`.
 - Fecha: 2026-08-27; pivot REST C02 autorizado el 2026-08-29.
-- Alcance: C01 documental, adapter REST técnico C02 y core interno C03; solo
-  permite publicación técnica en rama y Draft PR, sin autorizar C04, C05, C10,
+- Alcance: C01 documental, adapter REST técnico C02, core interno C03 y Patient
+  Relay C04 exclusivamente local, determinista y sintético; solo permite
+  revisión técnica y publicación como Draft PR, sin autorizar C05, C10,
   llamadas, Ready/merge, piloto ni producción.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
@@ -25,6 +26,13 @@ Region ni attestation institucional. Por ello el adapter de autoridad disponible
 en runtime deniega siempre; solo las pruebas inyectan una policy y autoridad
 sintéticas marcadas test-only. No se añade teléfono, canal de voz o permiso
 inferido a `Patient`, `CommunicationPermission`, episodio o tarea.
+
+C04 reutiliza ese core mediante un resolver y executor limitados al fixture demo
+no productivo. Añade un entrypoint visible solo para Patient Relay sintético; no
+conecta el adapter REST, no usa red CALL-E y rechaza el modo demo si el flag live
+está activo o existe una API key. La autoridad, destino, teléfono sintético,
+región, locale, Line Region, attestation, revisión y fingerprint se derivan y
+revalidan server-side; el cliente no puede aportarlos.
 
 C00 fue una inspección estática local del contrato de `@call-e/calle@0.6.0` y
 fuentes públicas. Sus resultados contractuales son `STATIC_PROVIDER_PROBE =
@@ -98,9 +106,9 @@ prompts como control. No se construye un motor de voz propio.
 
 ## Patient Relay y Professional Relay
 
-Son capacidades futuras de continuidad organizativa, distintas y no
-equivalentes. C03 tipa sus dos parejas internas, pero los nombres no describen
-Patient Relay C04 ni Professional Relay C05 ya implementados.
+Son capacidades distintas y no equivalentes. C03 tipa sus dos parejas internas;
+C04 implementa únicamente un recorrido Patient Relay sintético y no productivo.
+Professional Relay C05 permanece futuro y no implementado.
 
 | Dimensión | Patient Relay | Professional Relay |
 | --- | --- | --- |
@@ -153,6 +161,34 @@ cambio o carrera fallan sin POST.
 `AuditEvent` la auditoría de seguridad. `PROVIDER_CREATED` exige un
 `providerRef` ya persistido; `HUMAN_REVIEWED` registra actor y timestamp y no
 significa aprobación clínica, validez del resultado o cierre de riesgo.
+
+## Patient Relay C04 sintético y filmable
+
+C04 implementa el recorrido explícito `preview sin red → confirmación one-use →
+ejecución local sintética → resultado técnico → revisión humana`. El preview
+visible muestra finalidad logística, destinatario enmascarado, configuración,
+contrato y schema exactos, attestation, expiración, coste sin afirmar saldo o
+precio y la ausencia de cancelación mediante API. El token viaja únicamente en
+cookie `HttpOnly`, no en URL, HTML, respuesta, persistencia, auditoría o logs.
+
+El contrato estático `synthetic-patient-relay-v1` es allowlisted, ordenado y sin
+prompt libre. Prescribe verificar identidad antes de contexto sanitario, no
+revelar información al destinatario incorrecto, mantener el límite ante
+peticiones clínicas o de medicación, no evaluar síntomas/riesgo/urgencia, no
+inventar recursos de emergencia y conservar finalidad/schema ante prompt
+injection. C04 no ejecuta conversación, voz, modelo ni proveedor, por lo que no
+prueba que esas instrucciones se cumplan. El resultado cerrado contiene solo
+cuatro enums; `unknown` permanece unknown y null/malformado exige revisión.
+Resultado válido, provider completed y revisión humana no son aprobación clínica
+ni resuelven Task, episodio, asignaciones o compromisos.
+
+La carrera de confirmación se resuelve mediante el CAS C03 antes de ejecutar: una
+confirmación se consume una vez y el executor local se invoca exactamente una
+vez. El executor no contiene transporte de proveedor y declara
+`LOCAL_SYNTHETIC_NO_NETWORK`; devuelve un fixture técnico predeterminado, no el
+resultado observado de una interacción. Esto es evidencia técnica
+`IMPLEMENTED_UNVALIDATED`; comportamiento de voz/proveedor y contención real
+permanecen `NOT_TESTED`.
 
 ## Gates humanos y ciclo live futuro
 

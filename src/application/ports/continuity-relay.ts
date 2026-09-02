@@ -10,6 +10,9 @@ import type {
   RelayRecipientKind,
   RelayTechnicalDisposition,
 } from "@/domain/relay/continuity-relay";
+import type { PatientRelayTechnicalResult } from "@/domain/relay/patient-relay-contract";
+
+export type RelayResultValidity = "VALID" | "INVALID" | "MISSING";
 
 export interface RelayContextRef {
   readonly episodeRef: string;
@@ -110,6 +113,8 @@ export interface RelayAttemptRecord extends RelayContextRef {
   readonly lifecycleState: RelayLifecycleState;
   readonly attestationVersion: string;
   readonly revision: string;
+  readonly resultValidity: RelayResultValidity | null;
+  readonly technicalResult: PatientRelayTechnicalResult | null;
   readonly expiresAt: Date;
   readonly consumedAt: Date | null;
   readonly revokedAt: Date | null;
@@ -128,6 +133,8 @@ export interface CreateRelayPreviewRecordInput extends Omit<
   | "revokedAt"
   | "reviewedByRef"
   | "reviewedAt"
+  | "resultValidity"
+  | "technicalResult"
   | "updatedAt"
 > {
   readonly actorRole: "nurse" | "clinician";
@@ -164,6 +171,9 @@ export interface RelayAttemptStore {
   recordOutboundState(input: {
     readonly attemptRef: string;
     readonly outboundIntent: OutboundCallIntentRecord;
+    readonly resultValidity: RelayResultValidity;
+    readonly technicalResult: PatientRelayTechnicalResult | null;
+    readonly syntheticExecution: boolean;
     readonly now: Date;
     readonly correlationId: string;
   }): Promise<RelayAttemptRecord>;
@@ -187,7 +197,11 @@ export interface RelayOutboundExecutor {
       },
     ];
     readonly idempotencyRef: string;
-  }): Promise<OutboundCallIntentRecord>;
+  }): Promise<{
+    readonly outboundIntent: OutboundCallIntentRecord;
+    readonly rawTechnicalResult: unknown;
+    readonly syntheticExecution: boolean;
+  }>;
 }
 
 export interface RelayPreview {

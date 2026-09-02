@@ -4,6 +4,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "UNAVAILABLE"
   | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
@@ -25,5 +26,6 @@ export const errors = {
   notFound: () => new AppError("NOT_FOUND", 404, "Recurso no encontrado."),
   conflict: () =>
     new AppError("CONFLICT", 409, "La operación entra en conflicto con el estado actual."),
+  unavailable: () => new AppError("UNAVAILABLE", 503, "La capacidad sintética no está disponible."),
   rateLimited: () => new AppError("RATE_LIMITED", 429, "Demasiados intentos. Inténtalo más tarde."),
 };

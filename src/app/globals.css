@@ -1316,6 +1316,80 @@ footer {
   text-decoration: underline;
 }
 
+.patient-relay {
+  max-width: 68rem;
+}
+
+.relay-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relay-stepper li,
+.relay-stage {
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--surface-soft);
+  padding: 1rem;
+}
+
+.relay-stage {
+  margin-top: 1rem;
+}
+
+.relay-facts,
+.relay-schema,
+.relay-result {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.relay-facts div,
+.relay-schema div,
+.relay-result div {
+  border-left: 0.2rem solid var(--line);
+  padding-left: 0.65rem;
+}
+
+.relay-facts dt,
+.relay-schema dt,
+.relay-result dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.relay-facts dd,
+.relay-schema dd,
+.relay-result dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.relay-warning,
+.relay-error,
+.relay-contained {
+  border-left: 0.3rem solid var(--warning);
+  background: #fff7ed;
+  padding: 0.8rem 1rem;
+}
+
+.relay-contained {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.relay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .review-list,
 .configuration-list {
   display: grid;
@@ -1443,6 +1517,13 @@ footer {
 
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .relay-stepper,
+  .relay-facts,
+  .relay-schema,
+  .relay-result {
+    grid-template-columns: 1fr;
   }
 
   .admin-grid {

@@ -1,4 +1,10 @@
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  RelayBoundaryEvent as PrismaRelayBoundaryEvent,
+  RelayCallbackPreference as PrismaRelayCallbackPreference,
+  RelayContactStatus as PrismaRelayContactStatus,
+  RelayIdentityStatus as PrismaRelayIdentityStatus,
+} from "@prisma/client";
 
 import type {
   CreateRelayPreviewRecordInput,
@@ -6,6 +12,12 @@ import type {
   RelayAttemptStore,
 } from "@/application/ports/continuity-relay";
 import type { OutboundCallIntentState } from "@/application/ports/outbound-call";
+import type {
+  PatientRelayBoundaryEvent,
+  PatientRelayCallbackPreference,
+  PatientRelayContactStatus,
+  PatientRelayIdentityStatus,
+} from "@/domain/relay/patient-relay-contract";
 import {
   isRelayResultState,
   relayResultState,
@@ -32,6 +44,11 @@ const attemptSelect = {
   lifecycleState: true,
   attestationVersion: true,
   revision: true,
+  resultValidity: true,
+  identityStatus: true,
+  contactStatus: true,
+  callbackPreference: true,
+  boundaryEvent: true,
   expiresAt: true,
   consumedAt: true,
   revokedAt: true,
@@ -44,11 +61,27 @@ const attemptSelect = {
 type PrismaAttempt = Prisma.RelayAttemptGetPayload<{ select: typeof attemptSelect }>;
 
 function toAttempt(attempt: PrismaAttempt): RelayAttemptRecord {
+  const technicalResult =
+    attempt.resultValidity === "VALID" &&
+    attempt.identityStatus &&
+    attempt.contactStatus &&
+    attempt.callbackPreference &&
+    attempt.boundaryEvent
+      ? {
+          identity_status: attempt.identityStatus.toLowerCase() as PatientRelayIdentityStatus,
+          contact_status: attempt.contactStatus.toLowerCase() as PatientRelayContactStatus,
+          callback_preference:
+            attempt.callbackPreference.toLowerCase() as PatientRelayCallbackPreference,
+          boundary_event: attempt.boundaryEvent.toLowerCase() as PatientRelayBoundaryEvent,
+        }
+      : null;
   return {
     ...attempt,
     recipientKind: attempt.recipientKind,
     purpose: attempt.purpose,
     lifecycleState: attempt.lifecycleState,
+    resultValidity: attempt.resultValidity,
+    technicalResult,
   };
 }
 
@@ -66,6 +99,37 @@ function resultDisposition(state: OutboundCallIntentState): RelayTechnicalDispos
       return null;
   }
 }
+
+const identityStatusToPrisma: Readonly<
+  Record<PatientRelayIdentityStatus, PrismaRelayIdentityStatus>
+> = {
+  intended_recipient: PrismaRelayIdentityStatus.INTENDED_RECIPIENT,
+  wrong_recipient: PrismaRelayIdentityStatus.WRONG_RECIPIENT,
+  unknown: PrismaRelayIdentityStatus.UNKNOWN,
+};
+
+const contactStatusToPrisma: Readonly<Record<PatientRelayContactStatus, PrismaRelayContactStatus>> =
+  {
+    reached: PrismaRelayContactStatus.REACHED,
+    not_reached: PrismaRelayContactStatus.NOT_REACHED,
+    unknown: PrismaRelayContactStatus.UNKNOWN,
+  };
+
+const callbackPreferenceToPrisma: Readonly<
+  Record<PatientRelayCallbackPreference, PrismaRelayCallbackPreference>
+> = {
+  requested: PrismaRelayCallbackPreference.REQUESTED,
+  not_requested: PrismaRelayCallbackPreference.NOT_REQUESTED,
+  unknown: PrismaRelayCallbackPreference.UNKNOWN,
+};
+
+const boundaryEventToPrisma: Readonly<Record<PatientRelayBoundaryEvent, PrismaRelayBoundaryEvent>> =
+  {
+    none: PrismaRelayBoundaryEvent.NONE,
+    out_of_scope_request: PrismaRelayBoundaryEvent.OUT_OF_SCOPE_REQUEST,
+    emergency_statement: PrismaRelayBoundaryEvent.EMERGENCY_STATEMENT,
+    unknown: PrismaRelayBoundaryEvent.UNKNOWN,
+  };
 
 export class PrismaContinuityRelayStore implements RelayAttemptStore {
   async createPreview(input: CreateRelayPreviewRecordInput): Promise<RelayAttemptRecord> {
@@ -263,6 +327,20 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
             occurredAt: input.now,
           },
         });
+        if (input.syntheticExecution) {
+          await transaction.auditEvent.create({
+            data: {
+              actorUserId: null,
+              actorRole: null,
+              action: "RELAY_SYNTHETIC_EXECUTION_RECORDED",
+              resourceType: "RelayAttempt",
+              resourceId: attempt.id,
+              outcome: "SUCCESS",
+              correlationId: input.correlationId,
+              createdAt: input.now,
+            },
+          });
+        }
         await transaction.auditEvent.create({
           data: {
             actorUserId: null,
@@ -286,7 +364,23 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
         const nextState = relayResultState(disposition);
         const updated = await transaction.relayAttempt.updateMany({
           where: { id: attempt.id, lifecycleState: "PROVIDER_CREATED" },
-          data: { lifecycleState: nextState, updatedAt: input.now },
+          data: {
+            lifecycleState: nextState,
+            resultValidity: input.resultValidity,
+            identityStatus: input.technicalResult
+              ? identityStatusToPrisma[input.technicalResult.identity_status]
+              : null,
+            contactStatus: input.technicalResult
+              ? contactStatusToPrisma[input.technicalResult.contact_status]
+              : null,
+            callbackPreference: input.technicalResult
+              ? callbackPreferenceToPrisma[input.technicalResult.callback_preference]
+              : null,
+            boundaryEvent: input.technicalResult
+              ? boundaryEventToPrisma[input.technicalResult.boundary_event]
+              : null,
+            updatedAt: input.now,
+          },
         });
         if (updated.count !== 1) throw new Error("Relay result transition conflict");
         await transaction.relayEvent.create({

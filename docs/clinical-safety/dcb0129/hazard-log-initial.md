@@ -487,21 +487,24 @@ Todos los daños son `PROVISIONAL / CSO REVIEW REQUIRED`; describen consecuencia
 previsibles si el sandbox se utilizara indebidamente, no daños observados en C00.
 
 El detalle HAZ-GAS-021–038 siguiente conserva el screening histórico C01 y sus
-frases “futuro/no implementado”. El overlay C02 del 29-08-2026 lo complementa:
+frases “futuro/no implementado”. Los overlays C02–C04 lo complementan:
 existe un adapter REST `IMPLEMENTED_DISABLED`, sin SDK, secreto, número,
 entrypoint o llamada. Claim atómico, GET de reconciliación, HMAC, cardinalidad
 1/1, mapper mínimo, errores sanitizados, flag off, bloqueo de red y checker de
-superficie son `IMPLEMENTED_UNVALIDATED`. Autoridad del destinatario,
-Patient/Professional Relay, preview/confirmación, voz/emergencia, retención y
-prueba live siguen `PLANNED / INSTITUTIONAL_PENDING`. Ningún control se transfiere
+superficie son `IMPLEMENTED_UNVALIDATED`. Patient Relay C04 existe solo
+local/sintético; Professional Relay, autoridad de destinatario
+real, voz/proveedor, retención y prueba live siguen
+`PLANNED / INSTITUTIONAL_PENDING`. Ningún control se transfiere
 a una institución; las autoridades son propuestas y no acreditadas.
 
 Evidencia común: [ADR-0019](../../adr/0019-calle-hackathon-sandbox-boundary.md),
 [síntesis C00 y fuentes fechadas](../../audit/gas2-evidence-index.md#call-e-c01--evidencia-documental-y-limites)
 y ausencia de CALL-E en código/dependencias de la base C01, más
-[evidencia C02 REST](../../audit/gas2-evidence-index.md#call-e-c02-rest--adapter-deshabilitado).
-C00 solo acredita inspección estática divergente; C02 acredita comportamiento
-local con fakes y PostgreSQL sintético, no proveedor live. DEC-019 y GAP-DCB-025
+[evidencia C02 REST](../../audit/gas2-evidence-index.md#call-e-c02-rest--adapter-deshabilitado),
+[core C03](../../audit/gas2-evidence-index.md#call-e-c03--continuity-relay-core-interno)
+y [Patient Relay C04](../../audit/gas2-evidence-index.md#call-e-c04--patient-relay-sintetico).
+C00 solo acredita inspección estática divergente; C02–C04 acreditan comportamiento
+local con fakes, executor sin red y PostgreSQL sintético, no proveedor live. DEC-019 y GAP-DCB-025
 permanecen pendientes/abiertos.
 
 ### HAZ-GAS-021 — Tarea aceptada sin cancelación
@@ -512,10 +515,10 @@ permanecen pendientes/abiertos.
 | Causa | `C021-A`: La Calls API inspeccionada no permite cancelar; canceled o Stop del Dashboard se confunden con control del cliente. |
 | Estado peligroso / secuencia | se confirma → proveedor acepta → se intenta revocar/abortar → la llamada puede continuar. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Contacto no deseado, exposición o interferencia con seguimiento si se reutiliza fuera del sandbox. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-021-A`: C03 incluye el aviso explícito de ausencia de cancelación API únicamente en el contrato sintético interno de preview antes del token one-use; no existe UI; frontera sintética y live off (`IMPLEMENTED_UNVALIDATED`, no control live probado). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-021-A`: C04 muestra el aviso explícito de ausencia de cancelación API antes de la confirmación one-use; frontera sintética y live off (`IMPLEMENTED_UNVALIDATED`, no control live probado). |
 | Controles requeridos | `CTRL-021-B` (`PLANNED / INSTITUTIONAL_PENDING`): Advertencia y acknowledgement de irreversibilidad antes de confirmación one-use; bloquear nuevos intentos tras revocación sin prometer cancelar el aceptado. |
 | Evidencia | ADR-0019, sección «Cancelación e irreversibilidad», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Unit C03 verifica que el aviso está presente en el contrato sintético de preview, no que sea visible en una UI; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Unit y E2E C04 verifican que el aviso está presente y visible en preview; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; no prueban cancelación o voz live; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Arquitectura, responsable técnico del sandbox y CSO futuro; proveedor debe aclarar capacidades; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-022 — Timeout o conexión incierta seguida de duplicación
@@ -529,7 +532,7 @@ permanecen pendientes/abiertos.
 | Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-022-A`: C02 limita POST por intención/fingerprint y C03 consume confirmación por CAS antes de componer; incertidumbre no crea otra intención (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-022-B` (`PLANNED / INSTITUTIONAL_PENDING`): Persistir intención/key/fingerprint antes de create y Call.id inmediatamente; GET si hay ID; sin ID, solo replay de misma clave/request bajo contrato probado; si no puede reconstruirse sin persistencia prohibida, revisión humana sin replay. |
 | Evidencia | ADR-0019, sección «Intención, idempotencia y reconciliación», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | C02 prueba cero segundo POST y C03 prueba consumo concurrente/replay; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; brecha externa, estimación y aceptación siguen no demostradas. |
+| Prueba / estado | C02 prueba cero segundo POST, C03 consumo concurrente/replay y C04 una única ejecución local ante carrera; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; brecha externa, estimación y aceptación siguen no demostradas. |
 | Autoridad pendiente | Arquitectura y responsable técnico del sandbox; proveedor para TTL/scope/carreras; CSO futuro; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-023 — Webhook no autenticado
@@ -543,7 +546,7 @@ permanecen pendientes/abiertos.
 | Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-023-A`: frontera sintética, live público desactivado y prohibición de uso clínico en ADR-0019 (`DOCUMENTED`, no control live probado). |
 | Controles requeridos | `CTRL-023-B` (`PLANNED / INSTITUTIONAL_PENDING`): No implementar webhooks en C02; cualquier diseño posterior valida binding y reconcilia por GET autenticado antes de efecto sensible; resultado nunca autoriza actuación clínica. |
 | Evidencia | ADR-0019, sección «Webhooks», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Checker C02/C04 mantiene webhooks excluidos; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; autenticidad live, severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Seguridad/TI y responsable del contrato del proveedor, propuestos; CSO futuro; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-024 — Fan-out o destinatarios múltiples
@@ -596,7 +599,7 @@ permanecen pendientes/abiertos.
 | Causa | `C027-A`: Allowlist mutable o supuestos de locale, país o línea no comprobados. |
 | Estado peligroso / secuencia | configuración obsoleta/incorrecta → rechazo o interacción incomprensible → falsa constancia de contacto. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Comunicación no comprendida, retraso y falsa confianza. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-027-A`: C03 obliga a derivar region/locale/Line Region desde el port server-side y los liga al HMAC; el resolver real y allowlist institucional siguen ausentes (`IMPLEMENTED_UNVALIDATED`). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-027-A`: C03 obliga a derivar region/locale/Line Region server-side y ligarlos al HMAC; C04 usa valores fijos sintéticos visibles. El resolver real y allowlist institucional siguen ausentes (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-027-B` (`PLANNED / INSTITUTIONAL_PENDING`): Fuente y verifiedAt, allowlist versionada y selección humana; negar región/idioma no acreditados; soporte de ES no demuestra autorización de número ni éxito. |
 | Evidencia | ADR-0019, sección «Regiones, idiomas y línea», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
 | Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
@@ -610,7 +613,7 @@ permanecen pendientes/abiertos.
 | Causa | `C028-A`: Número mal asociado, reutilizado, erróneo o sin autorización vigente. |
 | Estado peligroso / secuencia | preview o binding incorrecto → tarea aceptada → responde otra persona. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Exposición y contacto indebido; falta de contacto con destinatario previsto. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-028-A`: C03 prohíbe target/phone cliente, exige resolver canónico único, preview enmascarado, binding HMAC y revalidación; el resolver runtime deny-all evita inventar autoridad (`IMPLEMENTED_UNVALIDATED`). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-028-A`: C03 prohíbe target/phone cliente, exige resolver canónico único, preview enmascarado, binding HMAC y revalidación; C04 añade un resolver limitado al fixture demo y presenta `identity_status=wrong_recipient` predeterminado. No hubo conversación ni se verificó divulgación real. El resolver no sintético sigue deny-all (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-028-B` (`PLANNED / INSTITUTIONAL_PENDING`): Destino propio/autorizado, binding de intención/tipo/finalidad, preview enmascarado y revalidación justo antes de ejecutar; no inferir identidad desde respuesta o posesión de teléfono. |
 | Evidencia | ADR-0019, sección «Core C03 de preview y confirmación, interno y no live»; unit e integration C03; C00 `DIVERGENT / LIVE NOT_RUN`. |
 | Prueba / estado | Target modificado, assignment revocado, actor/revisión obsoletos y expiración fallan sin executor; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; autoridad real no demostrada. |
@@ -624,10 +627,10 @@ permanecen pendientes/abiertos.
 | Causa | `C029-A`: Persistencia/logging crudo, errores verbosos, capturas o retención del proveedor. |
 | Estado peligroso / secuencia | request/respuesta → log/base/ticket/captura → acceso o difusión no autorizada. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Divulgación de contacto o contenido sensible; posible daño personal si se introducen datos reales. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-029-A`: C02 minimiza transporte y C03 persiste solo referencias/digest/HMAC/lifecycle; teléfono, token claro, mask, prompt, resultado y payload quedan fuera (`IMPLEMENTED_UNVALIDATED`). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-029-A`: C02 minimiza transporte; C03/C04 persisten referencias, digest/HMAC, lifecycle y cuatro enums normalizados. Teléfono, token claro, mask, task contract, resultado crudo, prompt, transcript, summary, evidence y payload quedan fuera (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-029-B` (`PLANNED / INSTITUTIONAL_PENDING`): Allowlist persistente estricta; procesamiento efímero, sanitización y teléfono solo enmascarado; CALLE_API_KEY server-only; comprobar retención/residencia del proveedor y no reversibilidad por soporte. |
 | Evidencia | ADR-0019, sección «Privacidad y minimización», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Schema/SQL, integración y E2E C04 verifican persistencia/audit/UI minimizados; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; retención externa, severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Responsable del Tratamiento, privacidad y seguridad/TI, propuestos; DEC-005/013/014; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-030 — Resultado CALL-E confundido con estado o autoridad GAS
@@ -638,10 +641,10 @@ permanecen pendientes/abiertos.
 | Causa | `C030-A`: taskCompleted/confidence/evidence/summary presentados como confirmación clínica. |
 | Estado peligroso / secuencia | resultado externo → cierre de Task/episodio o nueva comunicación → omisión de revisión. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Abandono de seguimiento o actuación inapropiada. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-030-A`: C03 separa lifecycle Relay de transporte C02, limita `RESULT_*` a disposición técnica y exige evento humano separado; no muta Task/episodio/compromiso (`IMPLEMENTED_UNVALIDATED`). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-030-A`: C03/C04 separan lifecycle/resultado Relay del transporte C02, distinguen resultado técnico de revisión humana y no mutan Task, RoleAssignment, episodio o compromiso (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-030-B` (`PLANNED / INSTITUTIONAL_PENDING`): Separar estado técnico y revisión humana; ningún resultado cierra, deriva, resuelve episodios o activa comunicaciones; proveedor no confiable para decisiones clínicas. |
 | Evidencia | ADR-0019, sección «Resultados y errores», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Integration y E2E C04 verifican estado técnico separado, revisión y conteos invariantes de Task/RoleAssignment; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Arquitectura y autoridades clínicas/CSO futuros; DEC-017; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-031 — structuredResult nulo interpretado incorrectamente
@@ -652,10 +655,10 @@ permanecen pendientes/abiertos.
 | Causa | `C031-A`: Campo nullable sin resultValidation; se inventa el motivo del null. |
 | Estado peligroso / secuencia | resultado null → se infiere éxito, rechazo, no respuesta o ausencia de riesgo → decisión errónea. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Seguimiento omitido o innecesario por falsa interpretación. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-031-A`: frontera sintética, live público desactivado y prohibición de uso clínico en ADR-0019 (`DOCUMENTED`, no control live probado). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-031-A`: C04 clasifica null como `MISSING`, malformado como `INVALID`, exige revisión humana y conserva cada enum `unknown` sin convertirlo en no (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-031-B` (`PLANNED / INSTITUTIONAL_PENDING`): Mostrar incertidumbre técnica sin atribuir causa; no inventar resultValidation ni mapear null a significado clínico; revisión humana y pruebas de nulos/malformados futuras. |
 | Evidencia | ADR-0019, sección «Resultados y errores», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Unit C04 cubre null, malformado, schema cerrado y unknown; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; no validación live; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Arquitectura, responsable del sandbox y CSO futuro; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-032 — recipientKind paciente/profesional incorrecto
@@ -669,7 +672,7 @@ permanecen pendientes/abiertos.
 | Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-032-A`: C03 define exactamente PATIENT/PATIENT_CALLBACK_OFFER y PROFESSIONAL/PROFESSIONAL_REVIEW_REQUEST, rechaza cruces y liga tipo/finalidad a token/HMAC/evento (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-032-B` (`PLANNED / INSTITUTIONAL_PENDING`): Separar Patient Relay/Professional Relay por tipo, propósito, permiso, destino, plantilla y auditoría; rechazo de mismatch; no ampliar a cuidadores; pruebas negativas de cruce. |
 | Evidencia | ADR-0019, sección «Patient Relay y Professional Relay», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Unit C03 prueba las dos parejas y cruces negativos; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; C04/C05 y autoridad institucional no implementados. |
+| Prueba / estado | Unit C03 prueba parejas/cruces y E2E C04 fuerza PATIENT/PATIENT_CALLBACK_OFFER sin overrides cliente; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; C05 y autoridad institucional no implementados. |
 | Autoridad pendiente | Identidad/TI, privacidad y autoridades clínicas futuras; DEC-003/013/017; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-033 — Voice prompt injection
@@ -680,10 +683,10 @@ permanecen pendientes/abiertos.
 | Causa | `C033-A`: El interlocutor o contenido externo intenta alterar instrucciones y límites. |
 | Estado peligroso / secuencia | voz no confiable → desvío de propósito o solicitud de herramientas/datos → salida fuera de alcance. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Divulgación, asesoramiento indebido o contacto posterior no autorizado. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-033-A`: frontera sintética, live público desactivado y prohibición de uso clínico en ADR-0019 (`DOCUMENTED`, no control live probado). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-033-A`: contrato C04 determinista indica ignorar voice prompt injection y conservar finalidad/schema (`IMPLEMENTED_UNVALIDATED`, no control de voz live probado). |
 | Controles requeridos | `CTRL-033-B` (`PLANNED / INSTITUTIONAL_PENDING`): No dar autoridad a voz/resultados; sin herramientas clínicas ni nuevos destinos; límites independientes del prompt y revisión humana; pruebas adversariales sintéticas pendientes. |
 | Evidencia | ADR-0019, sección «Peticiones fuera de alcance y emergencia», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Unit C04 verifica la instrucción allowlisted y ausencia de prompt libre; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; voz live, severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Seguridad, arquitectura y responsable del sandbox, propuestos; CSO futuro; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-034 — Petición clínica, farmacológica, legal o financiera fuera de alcance
@@ -694,10 +697,10 @@ permanecen pendientes/abiertos.
 | Causa | `C034-A`: Interlocutor pide consejo, prescripción, trámite o decisión ajena al propósito sintético. |
 | Estado peligroso / secuencia | petición inesperada → proveedor responde o actúa como experto → se confía en esa salida. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Decisión inapropiada o retraso en consulta a una persona competente. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-034-A`: frontera sintética, live público desactivado y prohibición de uso clínico en ADR-0019 (`DOCUMENTED`, no control live probado). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-034-A`: el contrato estático C04 prescribe mantener el límite ante petición clínica o farmacológica; UI/E2E presentan `boundary_event=out_of_scope_request` predeterminado. No hubo conversación ni respuesta de agente que permita verificar el control (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-034-B` (`PLANNED / INSTITUTIONAL_PENDING`): Prohibir asesoramiento/actuación; limitar plantillas/finalidad, abstención y procedimiento humano; pruebas de rechazo pendientes; prompts no prueban contención. |
 | Evidencia | ADR-0019, sección «Peticiones fuera de alcance y emergencia», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Unit prueba el contrato estático y E2E la presentación/persistencia del fixture; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; comportamiento de voz/proveedor y contención real `NOT_TESTED`; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Responsable de contenido, autoridades competentes y CSO futuros; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-035 — Declaración de emergencia durante una llamada
@@ -708,10 +711,10 @@ permanecen pendientes/abiertos.
 | Causa | `C035-A`: Escenario no previsto, recursos oficiales pendientes y tarea potencialmente irreversible. |
 | Estado peligroso / secuencia | interlocutor declara emergencia → bot ofrece falsa respuesta o ruta inventada → ayuda adecuada se retrasa. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Retraso de atención o falsa seguridad; descripción provisional sin estimación. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-035-A`: frontera sintética, live público desactivado y prohibición de uso clínico en ADR-0019 (`DOCUMENTED`, no control live probado). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-035-A`: contrato C04 prohíbe evaluar/triage, aclara que no es emergencias y remite solo a canales locales oficialmente aprobados sin inventar número/jurisdicción (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-035-B` (`PLANNED / INSTITUTIONAL_PENDING`): No scoring, diagnóstico, triage, derivación ni marcado automático; no inventar destinos; protocolo humano previo y recursos solo tras DEC-010/011; sin ellos, ensayo live bloqueado; no prometer cancelación. |
 | Evidencia | ADR-0019, sección «Peticiones fuera de alcance y emergencia», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Unit C04 verifica el texto allowlisted sin número o destino; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; protocolo/localización live no validados; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Dirección Médica/TI y CSO futuro, propuestos; DEC-010/011; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-036 — Documentación, SDK, OpenAPI, registry o allowlist divergentes
@@ -736,10 +739,10 @@ permanecen pendientes/abiertos.
 | Causa | `C037-A`: Configuración o credenciales habilitan ejecución real en una presentación. |
 | Estado peligroso / secuencia | se muestra demo → acción o trigger produce llamada real → alcance/autorización excedidos. |
 | Daño potencial | `PROVISIONAL / CSO REVIEW REQUIRED`: Contacto no deseado y divulgación; falsa atribución de capacidad clínica. |
-| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-037-A`: frontera sintética, live público desactivado y prohibición de uso clínico en ADR-0019 (`DOCUMENTED`, no control live probado). |
+| Controles actuales | Sin runtime/llamadas CALL-E. `CTRL-037-A`: C04 solo crea el runtime demo local si `DEMO_MODE` no productivo está activo y rechaza `CALL_E_REST_ENABLED=true` o cualquier API key; executor sin transporte/provider (`IMPLEMENTED_UNVALIDATED`). |
 | Controles requeridos | `CTRL-037-B` (`PLANNED / INSTITUTIONAL_PENDING`): Demo pública LIVE OFF; sin secretos/números completos; futura separación y denegación server-side verificables; no exponer runtime loopback a Internet ni inferir control de un flag todavía inexistente. |
 | Evidencia | ADR-0019, sección «Decisión y niveles de frontera», y evidencia común C01 anterior; C00 `DIVERGENT / LIVE NOT_RUN`. |
-| Prueba / estado | Prueba futura específica `NOT_IMPLEMENTED`; `OPEN / CSO_REVIEW_REQUIRED`; severidad/probabilidad/riesgos `NOT_ESTIMATED`; aceptación `NOT_DEMONSTRATED`. |
+| Prueba / estado | Boundary checker, unit y E2E C04 prueban la excepción sintética exacta y la ausencia de red; `OPEN / IMPLEMENTED_UNVALIDATED / CSO_REVIEW_REQUIRED`; configuración desplegada y live no probados; aceptación `NOT_DEMONSTRATED`. |
 | Autoridad pendiente | Responsable del sandbox y seguridad/TI, propuestos; DEC-016 sigue NO_GO; DEC-019. Ningún propietario institucional designado ni aceptación de riesgo. |
 
 ### HAZ-GAS-038 — Licencia o términos no resueltos antes de incorporar dependencia
@@ -808,23 +811,23 @@ técnica, no validación clínica.
 | HAZ-GAS-018 | C018-A–F | CTRL-018-A–B | Commitment spec CE-17 | `PLANNED`; job/backlog/recovery | REQ-09/13/14; DEC-013/014/015/017 | TI/Ops + Enfermería | `OPEN / DESIGN` |
 | HAZ-GAS-019 | C019-A–E | CTRL-019-A–C | ADR-0012/0015; system boundary; CE-19 | Baseline no-auto-action; future tests planned | REQ-08/09; DEC-008/017 | Arquitectura + Médica | `OPEN / DESIGN` |
 | HAZ-GAS-020 | C020-A–F | CTRL-020-A–C | Commitment spec CE-01/02/03/14/20 | `PLANNED`; FK/idempotency/legacy | REQ-01/09/12/13; ADR-0015/0016 | Médica/Enfermería + Arquitectura | `OPEN / DESIGN` |
-| HAZ-GAS-021 | C021-A | CTRL-021-A/B | ADR-0019; C02/C03 evidence index | Adapter disabled y aviso C03 de no cancelación probados; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-022 | C022-A | CTRL-022-A/B | ADR-0019; C02/C03 evidence index | Claim/HMAC/providerRef-before-GET/reconciliación y consumo one-use probados; brecha externa persiste | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-021 | C021-A | CTRL-021-A/B | ADR-0019; C02/C03/C04 evidence index | Adapter disabled y aviso visible C04 de no cancelación probados; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-022 | C022-A | CTRL-022-A/B | ADR-0019; C02/C03/C04 evidence index | Claim/HMAC/reconciliación, CAS one-use y una ejecución local ante carrera probados; brecha externa persiste | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 | HAZ-GAS-023 | C023-A | CTRL-023-A/B | ADR-0019; C02 REST evidence index | Webhooks excluidos por checker; no prueba live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 | HAZ-GAS-024 | C024-A | CTRL-024-A/B | ADR-0019; C02 REST evidence index | Cardinalidad 1/1 y batch/fan-out ausentes, probados localmente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 | HAZ-GAS-025 | C025-A | CTRL-025-A/B | ADR-0019; C02 REST evidence index | No se promete intento físico único; garantía del proveedor pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
 | HAZ-GAS-026 | C026-A | CTRL-026-A/B | ADR-0019; C02 REST evidence index | Errores allowlisted y sin retry/fallback probados con fakes | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-027 | C027-A | CTRL-027-A/B | ADR-0019; C02/C03 evidence index | Region/locale/Line Region server-side ligados al HMAC; fuente/allowlist institucional pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-028 | C028-A | CTRL-028-A/B | ADR-0019; C03 evidence index | Target cliente prohibido, preview/binding/revalidación probados; resolver real deny-all y autoridad institucional pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-029 | C029-A | CTRL-029-A/B | ADR-0019; C02/C03 evidence index | Persistencia/audit allowlisted y escaneo de columnas probados; retención externa pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-030 | C030-A | CTRL-030-A/B | ADR-0019; C02/C03 evidence index | Lifecycle técnico separado y revisión humana registrada; sin acoplamiento a Task/episodio/commitment | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-031 | C031-A | CTRL-031-A/B | ADR-0019; C02 REST evidence index | Resultado null mapeado a abstención; no validación live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-032 | C032-A | CTRL-032-A/B | ADR-0019; C03 evidence index | recipientKind/purpose y cruces probados en core; Patient/Professional Relay completos no implementados | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-033 | C033-A | CTRL-033-A/B | ADR-0019; C02 REST evidence index | Task determinista; contención de voz no probada ni implementada | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
-| HAZ-GAS-034 | C034-A | CTRL-034-A/B | ADR-0019; C02 REST evidence index | Task sintética allowlisted; comportamiento live no probado | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
-| HAZ-GAS-035 | C035-A | CTRL-035-A/B | ADR-0019; C02 REST evidence index | Sin entrypoint; protocolo de emergencia no implementado | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / PLANNED` |
+| HAZ-GAS-027 | C027-A | CTRL-027-A/B | ADR-0019; C02/C03/C04 evidence index | Configuración C04 sintética visible y ligada al HMAC; fuente/allowlist institucional pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-028 | C028-A | CTRL-028-A/B | ADR-0019; C03/C04 evidence index | Overrides cliente y revalidación probados; se presenta un fixture wrong_recipient, no una conversación; resolver real deny-all | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-029 | C029-A | CTRL-029-A/B | ADR-0019; C02/C03/C04 evidence index | Persistencia/audit/UI allowlisted y escaneo de columnas probados; retención externa pendiente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-030 | C030-A | CTRL-030-A/B | ADR-0019; C02/C03/C04 evidence index | Resultado técnico/revisión separados; Task/RoleAssignment/episodio sin mutación | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-031 | C031-A | CTRL-031-A/B | ADR-0019; C04 evidence index | Null/malformado se abstiene y unknown no se convierte en no; no validación live | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-032 | C032-A | CTRL-032-A/B | ADR-0019; C03/C04 evidence index | Patient Relay fuerza su pareja exacta; Professional Relay y autoridad real ausentes | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-033 | C033-A | CTRL-033-A/B | ADR-0019; C04 evidence index | Contrato estático prescribe conservar finalidad/schema ante injection; voz/proveedor `NOT_TESTED` | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-034 | C034-A | CTRL-034-A/B | ADR-0019; C04 evidence index | Contrato estático y fixture out_of_scope_request probados; contención de voz/proveedor `NOT_TESTED` | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-035 | C035-A | CTRL-035-A/B | ADR-0019; C04 evidence index | Contrato sin triage ni recurso inventado; protocolo/emergencia live no validado | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 | HAZ-GAS-036 | C036-A | CTRL-036-A/B | ADR-0019; OpenAPI hash; checker C02 | Superficie REST fijada y divergencias excluidas; fuente sigue mutable | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
-| HAZ-GAS-037 | C037-A | CTRL-037-A/B | ADR-0019; C02 REST evidence index | Flag off, fail-closed, server-only y sin entrypoint, probados localmente | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
+| HAZ-GAS-037 | C037-A | CTRL-037-A/B | ADR-0019; C02/C04 evidence index | Flag live off, runtime sintético fail-closed y executor sin proveedor probados | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 | HAZ-GAS-038 | C038-A | CTRL-038-A/B | ADR-0019; C02 REST evidence index | SDK ausente/prohibido; licencia no resuelta | REQ-02/06/09/12/13; ADR-0017/0019; DEC-019 | Autoridades propuestas en la entrada, pendientes | `OPEN / IMPLEMENTED_UNVALIDATED` |
 
 ## Evidencia técnica P10 añadida sin cierre de peligros

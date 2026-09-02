@@ -23,6 +23,7 @@ import {
   type RelayPurpose,
   type RelayRecipientKind,
 } from "@/domain/relay/continuity-relay";
+import { parsePatientRelayTechnicalResult } from "@/domain/relay/patient-relay-contract";
 
 const RECIPIENT_KINDS: readonly RelayRecipientKind[] = ["PATIENT", "PROFESSIONAL"];
 const PURPOSES: readonly RelayPurpose[] = ["PATIENT_CALLBACK_OFFER", "PROFESSIONAL_REVIEW_REQUEST"];
@@ -399,7 +400,7 @@ export class ContinuityRelayService {
       throw new RelayConflictError("confirmation_already_consumed");
     }
 
-    const outboundIntent = await this.outbound.execute({
+    const execution = await this.outbound.execute({
       taskKey: taskContract.outboundTaskKey,
       recipients: [
         {
@@ -410,9 +411,18 @@ export class ContinuityRelayService {
       ],
       idempotencyRef: consumed.idempotencyRef,
     });
+    const technicalResult = parsePatientRelayTechnicalResult(execution.rawTechnicalResult);
+    const resultValidity = technicalResult
+      ? "VALID"
+      : execution.rawTechnicalResult === null || execution.rawTechnicalResult === undefined
+        ? "MISSING"
+        : "INVALID";
     const recorded = await this.attempts.recordOutboundState({
       attemptRef: attempt.id,
-      outboundIntent,
+      outboundIntent: execution.outboundIntent,
+      resultValidity,
+      technicalResult,
+      syntheticExecution: execution.syntheticExecution,
       now: this.now(),
       correlationId: input.correlationId,
     });
