@@ -171,20 +171,24 @@ contrato y schema exactos, attestation, expiración, coste sin afirmar saldo o
 precio y la ausencia de cancelación mediante API. El token viaja únicamente en
 cookie `HttpOnly`, no en URL, HTML, respuesta, persistencia, auditoría o logs.
 
-El contrato `synthetic-patient-relay-v1` es allowlisted, ordenado y sin prompt
-libre. Verifica identidad antes de contexto sanitario, evita toda revelación al
-destinatario incorrecto, mantiene el límite ante peticiones clínicas o de
-medicación, no evalúa síntomas/riesgo/urgencia, no inventa recursos de emergencia
-y conserva finalidad/schema ante prompt injection. El resultado cerrado contiene
-solo cuatro enums; `unknown` permanece unknown y null/malformado exige revisión.
+El contrato estático `synthetic-patient-relay-v1` es allowlisted, ordenado y sin
+prompt libre. Prescribe verificar identidad antes de contexto sanitario, no
+revelar información al destinatario incorrecto, mantener el límite ante
+peticiones clínicas o de medicación, no evaluar síntomas/riesgo/urgencia, no
+inventar recursos de emergencia y conservar finalidad/schema ante prompt
+injection. C04 no ejecuta conversación, voz, modelo ni proveedor, por lo que no
+prueba que esas instrucciones se cumplan. El resultado cerrado contiene solo
+cuatro enums; `unknown` permanece unknown y null/malformado exige revisión.
 Resultado válido, provider completed y revisión humana no son aprobación clínica
 ni resuelven Task, episodio, asignaciones o compromisos.
 
 La carrera de confirmación se resuelve mediante el CAS C03 antes de ejecutar: una
 confirmación se consume una vez y el executor local se invoca exactamente una
 vez. El executor no contiene transporte de proveedor y declara
-`LOCAL_SYNTHETIC_NO_NETWORK`. Esto es evidencia técnica
-`IMPLEMENTED_UNVALIDATED`, no control de voz ni proveedor live.
+`LOCAL_SYNTHETIC_NO_NETWORK`; devuelve un fixture técnico predeterminado, no el
+resultado observado de una interacción. Esto es evidencia técnica
+`IMPLEMENTED_UNVALIDATED`; comportamiento de voz/proveedor y contención real
+permanecen `NOT_TESTED`.
 
 ## Gates humanos y ciclo live futuro
 

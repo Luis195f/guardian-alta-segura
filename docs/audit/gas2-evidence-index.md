@@ -518,7 +518,7 @@ contenedor/red/puerto C03 se confirma en el informe de entrega.
 
 <a id="call-e-c04--patient-relay-sintetico"></a>
 
-## CALL-E C04 — Patient Relay sintético y contención temprana
+## CALL-E C04 — Patient Relay y fixture técnico sintéticos
 
 Corte contractual: 2026-09-01; revisión independiente final: 2026-09-02. Base,
 HEAD y `origin/main` anclados en
@@ -531,9 +531,9 @@ upstream, rama remota, commit o stage antes de editar.
 | --- | --- | --- |
 | Entrada y autoridad | API demo bajo el episodio, sesión/RBAC/scope existentes y `SyntheticDemoPatientRelayAuthority`; solicitudes con cuerpo cerrado | Solo fixture demo marcado sintético; `UnavailableRelayAuthorityResolver` continúa deny-all para runtime no sintético; no autoridad institucional |
 | Preview y confirmación | UI `PatientRelayPanel`, preview C03 sin executor/red, token solo en cookie HttpOnly, SameSite Strict y path del Relay exacto; CAS one-use | Sin saldo/precio ni cancelación API; confirmación no autoriza llamada real |
-| Task contract | `synthetic-patient-relay-v1`, allowlist ordenada sin texto clínico ni prompt libre | Control determinista local; no prueba contención de voz o proveedor live |
-| Result schema | Cuatro enums obligatorios, `additionalProperties=false`; null/malformado se abstiene y `unknown` permanece unknown | Estado técnico, no decisión clínica; completed no equivale a resultado válido |
-| Ejecución | `LocalSyntheticPatientRelayProvider`, sin `fetch` ni adapter CALL-E; checker limita la excepción a cinco rutas exactas y rechaza transporte; carrera concurrente prueba una ejecución | Determinista y local; no número real, cuenta, crédito, proveedor o red CALL-E |
+| Task contract | `synthetic-patient-relay-v1`, allowlist estática ordenada sin texto clínico ni prompt libre | Especifica límites esperados; no ejecuta ni prueba conversación, voz, modelo o proveedor |
+| Result schema | Cuatro enums obligatorios, `additionalProperties=false`; null/malformado se abstiene y `unknown` permanece unknown | Fixture técnico predeterminado y normalizado, no observación conversacional ni decisión clínica; completed no equivale a resultado válido |
+| Ejecución | `LocalSyntheticPatientRelayProvider`, sin `fetch` ni adapter CALL-E; checker limita la excepción a cinco rutas exactas y rechaza transporte; carrera concurrente prueba una ejecución | Determinista y local; devuelve un fixture predeterminado sin número real, cuenta, crédito, conversación, proveedor o red CALL-E |
 | Revisión humana | Estado técnico separado y acción posterior autorizada; tests verifican invariancia de Task y RoleAssignment | Revisado no significa aprobado, seguro, resuelto ni clínicamente validado |
 | Privacidad/auditoría | Resultado normalizado en enums; eventos mínimos; escaneo de columnas y UI/E2E | Sin teléfono completo, token, contract, resultado crudo, prompt, transcript, summary, evidence o payload |
 
@@ -542,6 +542,13 @@ de forma durable la validez ni los cuatro enums después de recargar. Un CHECK
 cerrado y un trigger de inmutabilidad impiden resultados parciales o reescritos.
 No se modifican `Task`, `RoleAssignment`, consentimiento, notas clínicas ni el
 modelo de contacto del paciente.
+
+`SYNTHETIC_FIXTURE_DISPLAY = PASS`. El E2E prueba presentación del fixture,
+persistencia normalizada, lifecycle, one-use/carrera, RBAC, ausencia de red y
+teléfono expuesto, e invariancia de Task/RoleAssignment. No prueba una respuesta
+conversacional: `VOICE_CONTAINMENT = NOT_TESTED`,
+`WRONG_RECIPIENT_DISCLOSURE_LIVE = NOT_TESTED` y
+`CLINICAL_ADVICE_LIVE = NOT_TESTED`.
 
 La validación final usa PostgreSQL 16 exclusivo en loopback 55434 y tmpfs. Los
 recuentos y exits reales, incluida la recreación previa a E2E y el audit heredado,

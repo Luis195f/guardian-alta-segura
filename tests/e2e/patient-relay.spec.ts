@@ -5,7 +5,7 @@ import { prisma } from "../../src/infrastructure/persistence/prisma";
 const EPISODE_ID = "synthetic-demo-episode-buildweek";
 const SYNTHETIC_PHONE = ["+", "34", "600", "000", "001"].join("");
 
-test("Patient Relay sintético contiene límites, carrera y revisión sin mutar Task o roles", async ({
+test("Patient Relay sintético presenta contrato, fixture, carrera y revisión sin mutar Task o roles", async ({
   page,
 }) => {
   const [tasksBefore, rolesBefore, attemptsBefore, outboundBefore] = await Promise.all([
@@ -66,8 +66,18 @@ test("Patient Relay sintético contiene límites, carrera y revisión sin mutar 
   await concurrentButton.focus();
   await concurrentButton.press("Enter");
   await expect(page.getByText(/Doble confirmación contenida/)).toBeFocused();
-  await expect(page.getByText(/divulgación sanitaria: 0/)).toBeVisible();
-  await expect(page.getByText(/consejo clínico: 0/)).toBeVisible();
+  await expect(
+    page.getByText(
+      "Fixture sintético: identity_status=wrong_recipient. No hubo conversación ni se verificó divulgación real.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Fixture sintético: boundary_event=out_of_scope_request. No hubo conversación ni se verificó la respuesta de un agente.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "4. Revisión humana pendiente" })).toBeVisible();
 
   const attempts = await prisma.relayAttempt.findMany({

@@ -369,14 +369,14 @@ export function PatientRelayPanel({ episodeId }: { readonly episodeId: string })
               )}
               {result?.identity_status === "wrong_recipient" && (
                 <p className="relay-contained">
-                  Destinatario incorrecto contenido · divulgación sanitaria: 0 · solo se ofreció
-                  contacto humano por otra vía.
+                  Fixture sintético: identity_status=wrong_recipient. No hubo conversación ni se
+                  verificó divulgación real.
                 </p>
               )}
               {result?.boundary_event === "out_of_scope_request" && (
                 <p className="relay-contained">
-                  Petición de medicación/clínica contenida · consejo clínico: 0 · se mantuvo el
-                  límite y se ofreció contacto humano.
+                  Fixture sintético: boundary_event=out_of_scope_request. No hubo conversación ni se
+                  verificó la respuesta de un agente.
                 </p>
               )}
               <p>{detailed.notices.humanReview}</p>
