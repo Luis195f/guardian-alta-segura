@@ -18,6 +18,7 @@ import { SbarPreviewPanel } from "@/presentation/components/sbar-preview-panel";
 import { NursingWorkQueuePanel } from "@/presentation/components/nursing-workqueue-panel";
 import { ErrorState, LoadingState } from "@/presentation/components/ui-states";
 import { GovernanceEvidencePanel } from "@/presentation/components/governance-evidence-panel";
+import { PatientRelayPanel } from "@/presentation/components/patient-relay-panel";
 import {
   EPISODE_WORKSPACE_TABS,
   type EpisodeWorkspaceTab,
@@ -283,6 +284,13 @@ export function EpisodeWorkspace({
               </button>
             </article>
             <article>
+              <span>Patient Relay</span>
+              <strong>Ensayo local sintético · sin red</strong>
+              <button type="button" onClick={() => setTab("patient-relay")}>
+                Abrir Patient Relay
+              </button>
+            </article>
+            <article>
               <span>Domicilio Seguro</span>
               <strong>
                 {summary.homeSafetyVersions ? "Información registrada" : "Pendiente de revisión"}
@@ -319,6 +327,7 @@ export function EpisodeWorkspace({
         <EpisodeAlerts episodeId={episode.id} onOpenFollowUp={() => setTab("follow-up")} />
       )}
       {tab === "follow-up" && <NursingWorkQueuePanel enabled episodeId={episode.id} />}
+      {tab === "patient-relay" && <PatientRelayPanel episodeId={episode.id} />}
       {tab === "home-safety" && <HomeSafetyPanel episodeId={episode.id} enabled />}
       {tab === "sbar" && <SbarPreviewPanel episodeId={episode.id} enabled />}
       {tab === "evidence" && <GovernanceEvidencePanel episodeId={episode.id} />}

@@ -64,6 +64,7 @@ enum AuditAction {
   RELAY_CONFIRMATION_CONSUMED
   RELAY_CONFIRMATION_REJECTED
   RELAY_AUTHORITY_STALE
+  RELAY_SYNTHETIC_EXECUTION_RECORDED
   RELAY_PROVIDER_REF_CREATED
   RELAY_TECHNICAL_RESULT_AVAILABLE
   RELAY_HUMAN_REVIEW_RECORDED
@@ -335,6 +336,37 @@ enum RelayTechnicalDisposition {
   FAILED
   CANCELED
   UNCERTAIN
+}
+
+enum RelayResultValidity {
+  VALID
+  INVALID
+  MISSING
+}
+
+enum RelayIdentityStatus {
+  INTENDED_RECIPIENT @map("intended_recipient")
+  WRONG_RECIPIENT    @map("wrong_recipient")
+  UNKNOWN            @map("unknown")
+}
+
+enum RelayContactStatus {
+  REACHED     @map("reached")
+  NOT_REACHED @map("not_reached")
+  UNKNOWN     @map("unknown")
+}
+
+enum RelayCallbackPreference {
+  REQUESTED     @map("requested")
+  NOT_REQUESTED @map("not_requested")
+  UNKNOWN       @map("unknown")
+}
+
+enum RelayBoundaryEvent {
+  NONE                 @map("none")
+  OUT_OF_SCOPE_REQUEST @map("out_of_scope_request")
+  EMERGENCY_STATEMENT  @map("emergency_statement")
+  UNKNOWN              @map("unknown")
 }
 
 model User {
@@ -1128,6 +1160,11 @@ model RelayAttempt {
   lifecycleState        RelayLifecycleState @default(PREVIEWED) @map("lifecycle_state")
   attestationVersion    String              @map("attestation_version") @db.VarChar(64)
   revision              String              @db.VarChar(64)
+  resultValidity        RelayResultValidity? @map("result_validity")
+  identityStatus        RelayIdentityStatus? @map("identity_status")
+  contactStatus         RelayContactStatus?  @map("contact_status")
+  callbackPreference    RelayCallbackPreference? @map("callback_preference")
+  boundaryEvent         RelayBoundaryEvent?  @map("boundary_event")
   expiresAt             DateTime            @map("expires_at") @db.Timestamptz(3)
   consumedAt            DateTime?           @map("consumed_at") @db.Timestamptz(3)
   revokedAt             DateTime?           @map("revoked_at") @db.Timestamptz(3)

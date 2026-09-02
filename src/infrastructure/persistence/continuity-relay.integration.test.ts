@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import type { CreateRelayPreviewRecordInput } from "@/application/ports/continuity-relay";
 import type { OutboundCallSnapshot } from "@/application/ports/outbound-call";
+import { SYNTHETIC_PATIENT_RELAY_RESULT } from "@/domain/relay/patient-relay-contract";
 import { PrismaContinuityRelayStore } from "@/infrastructure/persistence/prisma-continuity-relay-store";
 import { PrismaOutboundCallIntentStore } from "@/infrastructure/persistence/prisma-outbound-call-intent-store";
 import { prisma } from "@/infrastructure/persistence/prisma";
@@ -12,6 +13,11 @@ const relayStore = new PrismaContinuityRelayStore();
 const outboundStore = new PrismaOutboundCallIntentStore();
 const CORRELATION_ID = "018f673a-4e35-7060-99b5-7bc6feba3a97";
 const NOW = new Date("2026-08-30T10:00:00.000Z");
+const RESULT_FIELDS = {
+  resultValidity: "VALID" as const,
+  technicalResult: SYNTHETIC_PATIENT_RELAY_RESULT,
+  syntheticExecution: true,
+};
 
 let actorRef = "";
 let episodeRef = "";
@@ -202,6 +208,7 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     const withoutProvider = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: reserved,
+      ...RESULT_FIELDS,
       now: new Date(NOW.getTime() + 2_000),
       correlationId: CORRELATION_ID,
     });
@@ -217,6 +224,7 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     const providerCreated = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: queued,
+      ...RESULT_FIELDS,
       now: new Date(NOW.getTime() + 2_000),
       correlationId: CORRELATION_ID,
     });
@@ -231,13 +239,24 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     const result = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: completed,
+      ...RESULT_FIELDS,
       now: new Date(NOW.getTime() + 3_000),
       correlationId: CORRELATION_ID,
     });
     expect(result.lifecycleState).toBe("RESULT_COMPLETED");
+    expect(result).toMatchObject({
+      resultValidity: "VALID",
+      technicalResult: SYNTHETIC_PATIENT_RELAY_RESULT,
+    });
+    expect(
+      await prisma.auditEvent.count({
+        where: { resourceId: confirmed.id, action: "RELAY_SYNTHETIC_EXECUTION_RECORDED" },
+      }),
+    ).toBe(1);
     const stale = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: queued,
+      ...RESULT_FIELDS,
       now: new Date(NOW.getTime() + 4_000),
       correlationId: CORRELATION_ID,
     });
@@ -251,6 +270,12 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
       now: new Date(NOW.getTime() + 5_000),
     });
     expect(reviewed).toMatchObject({ lifecycleState: "HUMAN_REVIEWED", reviewedByRef: actorRef });
+    await expect(
+      prisma.relayAttempt.update({
+        where: { id: confirmed.id },
+        data: { identityStatus: "UNKNOWN" },
+      }),
+    ).rejects.toThrow();
     await expect(
       relayStore.recordHumanReview({
         attemptRef: confirmed.id,

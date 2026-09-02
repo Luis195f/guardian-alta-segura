@@ -516,6 +516,63 @@ bloqueo global de dominios CALL-E permaneció activo. No hubo número completo,
 cuenta, crédito, llamada, request ni tráfico real CALL-E. La limpieza final del
 contenedor/red/puerto C03 se confirma en el informe de entrega.
 
+<a id="call-e-c04--patient-relay-sintetico"></a>
+
+## CALL-E C04 — Patient Relay sintético y contención temprana
+
+Corte contractual: 2026-09-01; revisión independiente final: 2026-09-02. Base,
+HEAD y `origin/main` anclados en
+`7614195020733a5c7fab4ec3c9a85b7b4df7cf31`, árbol
+`f87e05fc63b974355bde758eb071f1d96620b1ae`; PR C03 #52 merged y run
+33519644679/job 99895351346 `completed/success` para ese SHA. C04 permaneció sin
+upstream, rama remota, commit o stage antes de editar.
+
+| Control C04 | Implementación / prueba | Límite honesto |
+| --- | --- | --- |
+| Entrada y autoridad | API demo bajo el episodio, sesión/RBAC/scope existentes y `SyntheticDemoPatientRelayAuthority`; solicitudes con cuerpo cerrado | Solo fixture demo marcado sintético; `UnavailableRelayAuthorityResolver` continúa deny-all para runtime no sintético; no autoridad institucional |
+| Preview y confirmación | UI `PatientRelayPanel`, preview C03 sin executor/red, token solo en cookie HttpOnly, SameSite Strict y path del Relay exacto; CAS one-use | Sin saldo/precio ni cancelación API; confirmación no autoriza llamada real |
+| Task contract | `synthetic-patient-relay-v1`, allowlist ordenada sin texto clínico ni prompt libre | Control determinista local; no prueba contención de voz o proveedor live |
+| Result schema | Cuatro enums obligatorios, `additionalProperties=false`; null/malformado se abstiene y `unknown` permanece unknown | Estado técnico, no decisión clínica; completed no equivale a resultado válido |
+| Ejecución | `LocalSyntheticPatientRelayProvider`, sin `fetch` ni adapter CALL-E; checker limita la excepción a cinco rutas exactas y rechaza transporte; carrera concurrente prueba una ejecución | Determinista y local; no número real, cuenta, crédito, proveedor o red CALL-E |
+| Revisión humana | Estado técnico separado y acción posterior autorizada; tests verifican invariancia de Task y RoleAssignment | Revisado no significa aprobado, seguro, resuelto ni clínicamente validado |
+| Privacidad/auditoría | Resultado normalizado en enums; eventos mínimos; escaneo de columnas y UI/E2E | Sin teléfono completo, token, contract, resultado crudo, prompt, transcript, summary, evidence o payload |
+
+C04 añade una migración aditiva mínima porque el store C03 no podía reconstruir
+de forma durable la validez ni los cuatro enums después de recargar. Un CHECK
+cerrado y un trigger de inmutabilidad impiden resultados parciales o reescritos.
+No se modifican `Task`, `RoleAssignment`, consentimiento, notas clínicas ni el
+modelo de contacto del paciente.
+
+La validación final usa PostgreSQL 16 exclusivo en loopback 55434 y tmpfs. Los
+recuentos y exits reales, incluida la recreación previa a E2E y el audit heredado,
+se resumen a continuación. `CONTAINMENT_REHEARSAL = NOT_RUN`:
+`CALL_E_REST_ENABLED` permanece ausente/false, no se usa `CALL_E_API_KEY`, no se
+solicita teléfono y no se ejecuta ninguna llamada.
+
+| Comando/comprobación | Resultado real | Exit |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` / `pnpm prisma:generate` | Lock al día; Prisma Client 6.19.0 | 0 / 0 |
+| Migraciones / seed / status / DB→Prisma / columnas prohibidas | PostgreSQL 16.14; 18/18 desde vacío; seed sintético; schema al día y drift 0; 0 columnas prohibidas | 0 |
+| `pnpm format:check` / `pnpm lint` / `pnpm typecheck` | PASS / PASS / PASS | 0 / 0 / 0 |
+| `pnpm test` | 457 unitarias + 116 integración + 32 tooling = 605/605 PASS | 0 |
+| `pnpm test:tooling` | 32/32 PASS en ejecución separada | 0 |
+| Trazabilidad / governance / boundary / referencias | 14 requisitos, 40 claims, drift 0; CALL-E live/SDK/webhook/transporte sintético ausentes; 56 enlaces Markdown relativos del delta y referencias canónicas resueltos | 0 |
+| `pnpm build` | Next 16.2.11; 18 páginas estáticas; rutas Relay solo demo | 0 |
+| `pnpm test:e2e` | 76/76 PASS desde base recreada, incluido C04 2/2 | 0 |
+| `git diff --check` | PASS | 0 |
+| `pnpm audit --prod --json` | 8 high + 2 moderate + 0 critical en dependencias heredadas; manifest/lock sin cambios C04 | 1 |
+
+La revisión independiente endureció el checker para que solo permita las cinco
+rutas Patient Relay exactas y el executor local sin red; añadió pruebas negativas
+de rutas y transporte, limitó la cookie al path exacto del Relay y alineó la
+documentación para Draft PR. El primer lint C04 detectó la carga síncrona dentro de un effect React; se
+separó en una carga inicial asíncrona cancelable y el gate completo pasó, sin
+suprimir la regla. Un primer E2E focalizado detectó que la prueba no esperaba la
+navegación de sesión; se corrigió esa sincronización de prueba sin cambiar
+workers, retries, timeouts o comportamiento productivo. El audit actual añade dos
+high respecto al baseline declarado de seis; el catálogo cambió, no el manifest
+o lockfile de C04.
+
 ## Executed baseline evidence
 
 ### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents

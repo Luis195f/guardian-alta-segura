@@ -66,3 +66,66 @@ test("rejects prohibited provider surfaces and a presentation entrypoint", (t) =
   assert.match(result.stderr, /Prohibited production token/u);
   assert.match(result.stderr, /Live CALL-E entrypoint/u);
 });
+
+test("rejects any extra route hidden under the synthetic Patient Relay namespace", (t) => {
+  const root = fixture(t);
+  const route = path.join(
+    root,
+    "src",
+    "app",
+    "api",
+    "demo",
+    "discharge-episodes",
+    "[episodeId]",
+    "patient-relay",
+    "live",
+    "route.ts",
+  );
+  mkdirSync(path.dirname(route), { recursive: true });
+  writeFileSync(route, `import "@/application/relay/${"manage-continuity-relay"}";\n`);
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unexpected file in synthetic Patient Relay route namespace/u);
+  assert.match(result.stderr, /Live CALL-E entrypoint/u);
+});
+
+test("rejects network transport injected into an exact synthetic Patient Relay route", (t) => {
+  const root = fixture(t);
+  const route = path.join(
+    root,
+    "src",
+    "app",
+    "api",
+    "demo",
+    "discharge-episodes",
+    "[episodeId]",
+    "patient-relay",
+    "preview",
+    "route.ts",
+  );
+  writeFileSync(
+    route,
+    `${readFileSync(route, "utf8")}\nvoid ${"fetch"}("https://example.invalid");\n`,
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Provider runtime escaped into synthetic demo route/u);
+});
+
+test("rejects network transport injected into the local synthetic executor", (t) => {
+  const root = fixture(t);
+  const executor = path.join(
+    root,
+    "src",
+    "infrastructure",
+    "relay",
+    "synthetic-demo-patient-relay.ts",
+  );
+  writeFileSync(
+    executor,
+    `${readFileSync(executor, "utf8")}\nvoid ${"fetch"}("https://example.invalid");\n`,
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /exact local no-network implementation/u);
+});

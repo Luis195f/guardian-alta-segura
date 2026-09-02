@@ -4,6 +4,7 @@ export const EPISODE_WORKSPACE_TABS = [
   ["check-ins", "Check-ins"],
   ["alerts", "Avisos"],
   ["follow-up", "Seguimiento"],
+  ["patient-relay", "Patient Relay"],
   ["home-safety", "Domicilio Seguro"],
   ["sbar", "SBAR"],
   ["evidence", "Evidencia / Trazabilidad"],

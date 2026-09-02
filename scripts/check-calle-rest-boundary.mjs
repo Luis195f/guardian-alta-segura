@@ -11,6 +11,18 @@ const forbiddenProductionTokens = [
   "/v1/calls/batch",
 ];
 
+const syntheticPatientRelayRouteRoot =
+  "src/app/api/demo/discharge-episodes/[episodeId]/patient-relay/";
+const exactSyntheticPatientRelayRoutes = new Set([
+  `${syntheticPatientRelayRouteRoot}route.ts`,
+  `${syntheticPatientRelayRouteRoot}http.ts`,
+  `${syntheticPatientRelayRouteRoot}preview/route.ts`,
+  `${syntheticPatientRelayRouteRoot}confirm/route.ts`,
+  `${syntheticPatientRelayRouteRoot}review/route.ts`,
+]);
+const forbiddenSyntheticTransport =
+  /api\.heycall-e\.com|\/v1\/calls|call-e-rest-(?:runtime|adapter)|\bfetch\s*\(|node:(?:http|https|net|tls)|\bundici\b|\baxios\b|XMLHttpRequest|WebSocket/iu;
+
 function filesBelow(root) {
   if (!existsSync(root)) return [];
   const files = [];
@@ -70,8 +82,36 @@ export function checkCallERestBoundary({
 
   for (const file of filesBelow(path.join(repositoryRoot, "src", "app"))) {
     const source = readFileSync(file, "utf8");
-    if (/call-e-rest|outbound-call|continuity-relay/iu.test(source)) {
+    const relative = path.relative(repositoryRoot, file).replaceAll("\\", "/");
+    const insideSyntheticPatientRelayRoutes = relative.startsWith(syntheticPatientRelayRouteRoot);
+    const exactSyntheticPatientRelayRoute = exactSyntheticPatientRelayRoutes.has(relative);
+    if (insideSyntheticPatientRelayRoutes && !exactSyntheticPatientRelayRoute) {
+      failures.push(`Unexpected file in synthetic Patient Relay route namespace: ${relative}`);
+    }
+    if (
+      /call-e-rest|outbound-call|continuity-relay/iu.test(source) &&
+      relative !== `${syntheticPatientRelayRouteRoot}http.ts`
+    ) {
       failures.push(`Live CALL-E entrypoint found in ${path.relative(repositoryRoot, file)}`);
+    }
+    if (insideSyntheticPatientRelayRoutes && forbiddenSyntheticTransport.test(source)) {
+      failures.push(`Provider runtime escaped into synthetic demo route in ${relative}`);
+    }
+  }
+
+  const syntheticExecutorPath = path.join(
+    repositoryRoot,
+    "src/infrastructure/relay/synthetic-demo-patient-relay.ts",
+  );
+  if (existsSync(syntheticExecutorPath)) {
+    const source = readFileSync(syntheticExecutorPath, "utf8");
+    if (
+      !source.includes("new LocalSyntheticPatientRelayProvider()") ||
+      forbiddenSyntheticTransport.test(source)
+    ) {
+      failures.push(
+        "Synthetic Patient Relay executor is not the exact local no-network implementation",
+      );
     }
   }
 
@@ -84,6 +124,7 @@ export function checkCallERestBoundary({
     "src/infrastructure/persistence/prisma-continuity-relay-store.ts",
     "src/infrastructure/relay/hmac-relay-secret-protector.ts",
     "src/infrastructure/relay/unavailable-relay-authority.ts",
+    "src/infrastructure/relay/synthetic-demo-patient-relay.ts",
   ];
   for (const relative of requiredServerFiles) {
     const file = path.join(repositoryRoot, relative);
