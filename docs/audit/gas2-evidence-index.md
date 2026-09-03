@@ -580,6 +580,64 @@ workers, retries, timeouts o comportamiento productivo. El audit actual añade d
 high respecto al baseline declarado de seis; el catálogo cambió, no el manifest
 o lockfile de C04.
 
+<a id="call-e-c05--professional-relay-sintetico"></a>
+
+## CALL-E C05 — Professional Relay sintético
+
+Corte y validación final: 2026-09-03. Base, HEAD y `origin/main` anclados en
+`834ddecd7edbfc21bf20c50a3d641f627ab221dc`; PR C04 #53 `MERGED` con ese
+`mergeCommit` y run push/main 33666254743/job 100368636385
+`completed/success` para el mismo SHA.
+Antes de editar, C05 no tenía upstream, rama remota, commit, stage ni delta.
+
+| Control C05 | Implementación / prueba | Límite honesto |
+| --- | --- | --- |
+| Autoridad y target | `SyntheticDemoProfessionalRelayAuthority` deriva server-side la Task opaca abierta, su profesional sintético asignado, episodio/scope y RoleAssignment activos; cuerpos `{}` | No existe fuente institucional o contacto real; el teléfono no es autoridad y el resolver no sintético continúa deny-all |
+| Revalidación concurrente | Binding HMAC incorpora revisiones y RoleAssignment; CAS PostgreSQL comprueba episodio, Task, assignment, actor y target; segunda resolución justo antes del executor | Una revocación detectada en cualquiera de esas revalidaciones produce cero ejecución; no demuestra control frente a proveedor o llamada real |
+| Preview y confirmación | UI/API separadas de Patient Relay; token CSPRNG one-use solo en cookie HttpOnly/SameSite Strict/path exacto; replay y carrera producen un éxito | No hay saldo/precio actual ni cancelación API; confirmación no autoriza una llamada real |
+| Task contract y schema | `synthetic-professional-relay-v1`; cinco enums obligatorios, objeto cerrado, sin texto libre; null/arrays/tipos/enums/campos extra inválidos | El contrato prescribe límites, pero fixture e instrucciones no prueban conversación, identidad verbal, divulgación, agente, voz o proveedor |
+| Ejecución | `LocalSyntheticProfessionalRelayExecutor` devuelve un único fixture predeterminado; checker limita cinco rutas exactas y rechaza transporte de red | Aplicación local determinista; `PROFESSIONAL_RELAY_EVIDENCE = SYNTHETIC_FIXTURE_ONLY`, live `NOT_TESTED` |
+| Persistencia y semántica | Solo enums normalizados y referencias opacas autorizadas; CHECK cerrado, trigger inmutable y lifecycle append-only; E2E compara Task/RoleAssignment antes y después | acknowledged/availability/taskCompleted/HUMAN_REVIEWED no significan aceptación, assignment, resolución o aprobación clínica |
+| Privacidad | UI identifica inequívocamente el fixture; rutas no devuelven token, targetRef/userId o teléfono completo; logs de errores contienen código/correlación/componente | No hubo divulgación o interacción live; retención/residencia del proveedor siguen sin evaluar |
+
+C05 añade una migración aditiva para `intended_professional`, `acknowledged` y
+`availability_to_review`, conservando los campos Patient Relay separados. El
+CHECK discrimina ambos recipientKind y el trigger impide reescribir un resultado
+normalizado. No se añade almacenamiento de teléfono, prompt, transcript, summary,
+evidence, payload o contenido clínico a RelayAttempt. La Task sintética del seed
+permanece `OPEN`, asignada al mismo profesional y con revisión 1 durante todo el
+recorrido; ningún `TASK_REASSIGNED` o `TASK_RESOLVED` es producido por Relay.
+
+La validación final usa PostgreSQL 16.10 exclusivo, contenedor/red C05 y loopback
+55435, con 19/19 migraciones reales desde vacío. La base fue recreada otra vez
+antes del E2E completo. No se modificaron manifest, dependencias ni lockfile.
+
+| Comando/comprobación | Resultado real | Exit |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` / `pnpm prisma:generate` | Lock al día, cero descargas; Prisma Client 6.19.0 | 0 / 0 |
+| Migraciones / seed / status / DB→Prisma | PostgreSQL 16.10; 19/19 desde vacío; seed sintético; schema al día y drift 0 | 0 / 0 / 0 / 0 |
+| `pnpm format:check` / `pnpm lint` / `pnpm typecheck` | PASS / PASS / PASS | 0 / 0 / 0 |
+| `pnpm test` | 473 unitarias + 118 integración + 34 tooling = 625/625 PASS | 0 |
+| `pnpm test:tooling` | 34/34 PASS en ejecución separada | 0 |
+| Trazabilidad / governance / boundary / referencias | 14 requisitos, 41 claims, drift 0; SDK/live/webhook/transporte de los executors ausentes; 10 documentos, 57 enlaces y 8 anchors verificados | 0 |
+| `pnpm build` | Next 16.2.11; 18/18 páginas estáticas; rutas Relay solo demo | 0 |
+| `pnpm test:e2e` | 79/79 PASS desde base recreada, incluido C05 3/3; un worker, cero retries | 0 |
+| `git diff --check` | PASS; warning autocrlf informativo | 0 |
+| `pnpm audit --prod --json` | 8 high + 2 moderate + 0 critical heredados; manifest/lock sin cambios C05 | 1 |
+
+Los intentos focalizados intermedios detectaron dos selectores Playwright no
+únicos y una repetición sobre estado one-use ya consumido. Se corrigieron solo
+los selectores, se recreó `guardian_c05` y el E2E focalizado pasó 3/3 antes de la
+ejecución completa 79/79. No se relajaron workers, retries, timeouts, RBAC ni
+controles. Proveedor, conversación, voz, divulgación live, piloto y producción
+no fueron probados; DEC-019, GAP-DCB-025, GAS2-R-021 y HAZ-GAS-021–038 siguen
+abiertos, sin aceptación residual.
+
+La revisión final prepublicación detectó y corrigió un bypass del checker por
+alias de transporte: ahora rechaza cualquier referencia a `fetch` e imports
+HTTP(S)/socket, incluidos imports bare, dentro de rutas Relay sintéticas y sus
+executors. La regresión específica elevó tooling a 34 sin cambiar dependencias.
+
 ## Executed baseline evidence
 
 ### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents

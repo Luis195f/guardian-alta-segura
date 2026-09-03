@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { CreateRelayPreviewRecordInput } from "@/application/ports/continuity-relay";
 import type { OutboundCallSnapshot } from "@/application/ports/outbound-call";
 import { SYNTHETIC_PATIENT_RELAY_RESULT } from "@/domain/relay/patient-relay-contract";
+import { SYNTHETIC_PROFESSIONAL_RELAY_RESULT } from "@/domain/relay/professional-relay-contract";
 import { PrismaContinuityRelayStore } from "@/infrastructure/persistence/prisma-continuity-relay-store";
 import { PrismaOutboundCallIntentStore } from "@/infrastructure/persistence/prisma-outbound-call-intent-store";
 import { prisma } from "@/infrastructure/persistence/prisma";
@@ -21,6 +22,10 @@ const RESULT_FIELDS = {
 
 let actorRef = "";
 let episodeRef = "";
+let professionalTargetRef = "";
+let professionalTaskRef = "";
+let actorRoleAssignmentRef = "";
+let targetRoleAssignmentRef = "";
 
 function hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -70,6 +75,7 @@ function consumeInput(
     authorityFingerprint: record.authorityFingerprint,
     attestationVersion: record.attestationVersion,
     revision: record.revision,
+    professionalEligibility: null,
     correlationId: CORRELATION_ID,
     now: new Date(NOW.getTime() + 1_000),
     ...overrides,
@@ -133,10 +139,49 @@ beforeAll(async () => {
       responsibleClinicianId: clinician.id,
       createdById: nurse.id,
       checkInProtocolVersionId: protocol.id,
+      status: "ACTIVE",
     },
   });
   actorRef = nurse.id;
   episodeRef = episode.id;
+  professionalTargetRef = clinician.id;
+  actorRoleAssignmentRef = (
+    await prisma.roleAssignment.findFirstOrThrow({
+      where: { userId: nurse.id, role: "nurse", revokedAt: null },
+    })
+  ).id;
+  targetRoleAssignmentRef = (
+    await prisma.roleAssignment.findFirstOrThrow({
+      where: { userId: clinician.id, role: "clinician", revokedAt: null },
+    })
+  ).id;
+  const task = await prisma.task.create({
+    data: {
+      episodeId: episode.id,
+      summary: "SINTÉTICO — elemento opaco para relay profesional.",
+      assignedToId: clinician.id,
+      createdById: nurse.id,
+      creationIdempotencyKey: `relay-professional-${suffix}`,
+      creationFingerprint: hex(`relay-professional-${suffix}`),
+      revision: 1,
+      events: {
+        create: {
+          type: "CREATED",
+          fromState: null,
+          toState: "OPEN",
+          fromAssignedToId: null,
+          toAssignedToId: clinician.id,
+          actorUserId: nurse.id,
+          actorRole: "nurse",
+          idempotencyKey: `relay-professional-event-${suffix}`,
+          requestFingerprint: hex(`relay-professional-event-${suffix}`),
+          resultingRevision: 1,
+          occurredAt: NOW,
+        },
+      },
+    },
+  });
+  professionalTaskRef = task.id;
 });
 
 describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
@@ -194,6 +239,64 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
       data: { revokedAt: new Date(NOW.getTime() + 500), updatedAt: new Date(NOW.getTime() + 500) },
     });
     await expect(relayStore.consumeConfirmation(consumeInput(record))).resolves.toBeNull();
+  });
+
+  it("atomically revalidates professional assignment and active roles before consumption", async () => {
+    const professionalPreview = await relayStore.createPreview(
+      previewInput({
+        recipientKind: "PROFESSIONAL",
+        purpose: "PROFESSIONAL_REVIEW_REQUEST",
+        taskRef: professionalTaskRef,
+        targetRef: professionalTargetRef,
+        revision: "professional-assignment-v1",
+      }),
+    );
+    const professionalEligibility = {
+      episodeRevision: 1,
+      taskRevision: 1,
+      actorRoleAssignmentRef,
+      targetRoleAssignmentRef,
+      targetRole: "clinician" as const,
+    };
+    await prisma.roleAssignment.update({
+      where: { id: targetRoleAssignmentRef },
+      data: { revokedAt: new Date(NOW.getTime() + 500) },
+    });
+    try {
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          relayStore.consumeConfirmation(
+            consumeInput(professionalPreview, { professionalEligibility }),
+          ),
+        ),
+      );
+      expect(results.every((result) => result === null)).toBe(true);
+      await expect(relayStore.getById(professionalPreview.id)).resolves.toMatchObject({
+        lifecycleState: "PREVIEWED",
+        consumedAt: null,
+      });
+    } finally {
+      await prisma.roleAssignment.update({
+        where: { id: targetRoleAssignmentRef },
+        data: { revokedAt: null },
+      });
+    }
+
+    const fresh = await relayStore.createPreview(
+      previewInput({
+        recipientKind: "PROFESSIONAL",
+        purpose: "PROFESSIONAL_REVIEW_REQUEST",
+        taskRef: professionalTaskRef,
+        targetRef: professionalTargetRef,
+        revision: "professional-assignment-v1",
+      }),
+    );
+    const concurrent = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        relayStore.consumeConfirmation(consumeInput(fresh, { professionalEligibility })),
+      ),
+    );
+    expect(concurrent.filter((result) => result !== null)).toHaveLength(1);
   });
 
   it("requires persisted providerRef, preserves terminal state, and records one human review", async () => {
@@ -313,6 +416,62 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
         data: { reviewedByRef: actorRef, reviewedAt: new Date(NOW.getTime() + 7_000) },
       }),
     ).rejects.toThrow();
+  });
+
+  it("persists the Professional Relay result as the separate closed allowlist", async () => {
+    const preview = await relayStore.createPreview(
+      previewInput({
+        recipientKind: "PROFESSIONAL",
+        purpose: "PROFESSIONAL_REVIEW_REQUEST",
+        taskRef: professionalTaskRef,
+        targetRef: professionalTargetRef,
+        revision: "professional-assignment-v1",
+      }),
+    );
+    const confirmed = await relayStore.consumeConfirmation(
+      consumeInput(preview, {
+        professionalEligibility: {
+          episodeRevision: 1,
+          taskRevision: 1,
+          actorRoleAssignmentRef,
+          targetRoleAssignmentRef,
+          targetRole: "clinician",
+        },
+      }),
+    );
+    if (!confirmed) throw new Error("Synthetic professional confirmation was not consumed");
+    const reserved = await outboundStore.reserve({
+      idempotencyRef: confirmed.idempotencyRef,
+      protectedFingerprint: hex(`professional-${confirmed.id}`),
+      now: new Date(NOW.getTime() + 2_000),
+    });
+    expect(await outboundStore.claimPost(reserved.id, new Date(NOW.getTime() + 2_000))).toBe(true);
+    const providerRef = `synthetic-professional-${randomUUID()}`;
+    const completed = await outboundStore.persistProviderRef({
+      intentId: reserved.id,
+      providerRef,
+      snapshot: snapshot(providerRef, "COMPLETED"),
+      now: new Date(NOW.getTime() + 3_000),
+    });
+    const recorded = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: completed,
+      resultValidity: "VALID",
+      technicalResult: SYNTHETIC_PROFESSIONAL_RELAY_RESULT,
+      syntheticExecution: true,
+      now: new Date(NOW.getTime() + 3_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(recorded).toMatchObject({
+      lifecycleState: "RESULT_COMPLETED",
+      technicalResult: SYNTHETIC_PROFESSIONAL_RELAY_RESULT,
+    });
+    const stored = await prisma.relayAttempt.findUniqueOrThrow({ where: { id: confirmed.id } });
+    expect(stored).toMatchObject({
+      callbackPreference: null,
+      acknowledged: "YES",
+      availabilityToReview: "YES",
+    });
   });
 
   it("persists no phone, token, visible target, prompt, clinical content, or provider payload columns", async () => {

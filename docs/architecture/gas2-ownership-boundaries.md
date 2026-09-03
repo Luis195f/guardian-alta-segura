@@ -51,7 +51,7 @@ separado.
 
 Una futura llamada al profesional y una futura llamada al paciente son capacidades diferentes y no equivalentes. Deben mantener separados propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo. `Alert`, `CheckInOutcome`, `Task` y `Commitment` jamás pueden iniciar automáticamente ninguna de las dos.
 
-No se selecciona proveedor productivo ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Patient Relay C04 existe solo como recorrido local, determinista y sintético `IMPLEMENTED_UNVALIDATED`; Professional Relay C05 y cualquier relay real permanecen `FUTURE_ONLY / NO_GO`. C03 aporta autoridad tipada y lifecycle interno; C04 añade UI/API demo y executor local sin telefonía, proveedor o voz automatizada. ADR-0017 conserva el contrato conceptual y ADR-0019 la excepción técnica sintética; ninguna autoriza uso real.
+No se selecciona proveedor productivo ni se presumen consentimiento, base jurídica, protocolo, horarios, SLA o responsable. Patient Relay C04 y Professional Relay C05 existen solo como recorridos separados, locales, deterministas y sintéticos `IMPLEMENTED_UNVALIDATED`; cualquier relay real permanece `FUTURE_ONLY / NO_GO`. C03 aporta autoridad tipada y lifecycle interno; C04/C05 añaden UI/API demo y executors locales sin telefonía, proveedor o voz automatizada. En C05 el servidor deriva una única Task opaca y profesional asignado elegible; acknowledged y disponibilidad no aceptan, asignan ni resuelven trabajo. ADR-0017 conserva el contrato conceptual y ADR-0019 la excepción técnica sintética; ninguna autoriza uso real.
 
 ## Riesgo de duplicación por concepto propuesto
 
@@ -60,9 +60,9 @@ La única excepción documental específica de proveedor es
 Professional Relay son capacidades organizativas futuras separadas del core y
 entre sí. GAS conserva intención, autorización, idempotencia, minimización y
 revisión; CALL-E sigue siendo transporte externo no confiable para decisiones
-clínicas. C02 aporta el adapter REST desactivado, C03 el core interno y C04 un
-resolver/entrypoint exclusivamente para el fixture sintético; no hay motor de voz
-propio, resolver real de destinatario ni entrypoint live. C04 no cambia
+clínicas. C02 aporta el adapter REST desactivado, C03 el core interno y C04/C05
+resolvers/entrypoints separados exclusivamente para fixtures sintéticos; no hay motor de voz
+propio, resolver real de destinatario ni entrypoint live. C04/C05 no cambian
 ADR-0017, no introduce IA en el core y no autoriza llamadas.
 Demo pública sintética: `LIVE OFF`; datos reales, piloto y producción: `NO_GO`.
 
@@ -76,7 +76,7 @@ Demo pública sintética: `LIVE OFF`; datos reales, piloto y producción: `NO_GO
 | `ProcessAnomaly` | Medio | Ventanas/outcomes de check-in, tareas y timestamps | No implementar antes de aprobar ADR-0015. Después, limitar a ausencia de evidencia registral sobre compromisos explícitos; nunca inferir incumplimiento o significado clínico. |
 | `ConsentScope` | Muy alto | `PolicyVersion`, registros legales, `RevocationEvent` y `CaregiverAuthorizationScope` | Reutilizar decisiones legales por finalidad. No colapsar consentimiento, base legal y autorización de cuidador en una tabla genérica. |
 | `AuditLog` | Crítico | `AuditEvent`, `CaregiverAccessAudit` e historias de dominio | No crear. Añadir vistas/consultas autorizadas sobre la evidencia existente. |
-| `RelayAttempt` | Medio si duplica transporte; bajo en C03/C04 acotado | `OutboundCallIntent/Event` conserva transporte; `AuditEvent` conserva auditoría | Mantener solo binding de autoridad, confirmación one-use, resultado técnico normalizado en enums cerrados y lifecycle humano. No copiar provider payload, teléfono, prompt o estado técnico detallado. |
+| `RelayAttempt` | Medio si duplica transporte; bajo en C03/C04/C05 acotado | `OutboundCallIntent/Event` conserva transporte; `AuditEvent` conserva auditoría | Mantener solo binding de autoridad, confirmación one-use, resultado técnico normalizado en enums cerrados y lifecycle humano. No copiar provider payload, teléfono, prompt o estado técnico detallado. |
 | `ConnectorRegistration` | Bajo en responsabilidad, alto si se especula | `IdentityProvider` y adaptador local demuestran el patrón, pero no hay registro equivalente | Definir contrato solo al seleccionar un conector. No crear catálogo persistente hasta necesitar estado operativo o rotación de configuración. |
 
 ## Qué puede ser una proyección y no una tabla

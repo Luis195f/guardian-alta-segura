@@ -38,11 +38,13 @@ fuente canónica de contacto de voz o attestation. Los gates `DEVPOST_REGISTERED
 `EXTRA_CALLS_REQUEST` y `SUPPORTED_AUTHORIZED_NUMBER` siguen no verificados.
 DEC-003/005/010/011/013/014/015/016/017 mantienen su estado y autoridad; DEC-019
 no los sustituye. El HMAC, claim atómico, GET de reconciliación, mapper y
-sanitización y controles C03/C04 son `IMPLEMENTED_UNVALIDATED`; no deciden el
+sanitización y controles C03/C04/C05 son `IMPLEMENTED_UNVALIDATED`; no deciden el
 destinatario real, región/locale/Line Region, TTL productivo, retención, SLA o
-protocolo definitivo. C04 demuestra Patient Relay únicamente con autoridad,
-teléfono y executor locales sintéticos; Professional Relay C05 y cualquier
-ejecución real siguen no implementados. DEC-019 permanece `Pendiente` y no se
+protocolo definitivo. C04 demuestra Patient Relay y C05 Professional Relay
+únicamente con autoridad, teléfono y executors locales sintéticos. El target y
+la Task profesional se derivan server-side; acknowledged, disponibilidad y
+taskCompleted no asignan ni resuelven trabajo. Cualquier ejecución real sigue
+no implementada. DEC-019 permanece `Pendiente` y no se
 acepta riesgo residual.
 
 ### Evidencia de apoyo a DEC-003 y comunicaciones futuras

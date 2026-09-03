@@ -609,6 +609,81 @@ async function main() {
       throw new CanonicalPolicyMismatchError("synthetic-buildweek-episode", "demo-v1");
     }
 
+    const professionalRelayTaskId = "synthetic-demo-professional-review-task";
+    const professionalRelayTask = await transaction.task.findUnique({
+      where: { id: professionalRelayTaskId },
+      select: {
+        episodeId: true,
+        alertId: true,
+        summary: true,
+        currentState: true,
+        assignedToId: true,
+        createdById: true,
+        revision: true,
+        resolvedAt: true,
+      },
+    });
+    if (!professionalRelayTask) {
+      const taskCreatedAt = new Date("2026-07-21T08:20:00.000Z");
+      await transaction.task.create({
+        data: {
+          id: professionalRelayTaskId,
+          episodeId: demoEpisodeId,
+          alertId: null,
+          summary: "SINTÉTICO — revisar elemento opaco de continuidad.",
+          currentState: "OPEN",
+          assignedToId: clinician.id,
+          createdById: nurse.id,
+          creationIdempotencyKey: "synthetic-seed:professional-relay-task",
+          creationFingerprint: "7".repeat(64),
+          revision: 1,
+          createdAt: taskCreatedAt,
+          updatedAt: taskCreatedAt,
+          events: {
+            create: {
+              id: "synthetic-demo-professional-review-task-created",
+              type: "CREATED",
+              fromState: null,
+              toState: "OPEN",
+              fromAssignedToId: null,
+              toAssignedToId: clinician.id,
+              actorUserId: nurse.id,
+              actorRole: "nurse",
+              idempotencyKey: "synthetic-seed:professional-relay-task-created",
+              requestFingerprint: "7".repeat(64),
+              resultingRevision: 1,
+              occurredAt: taskCreatedAt,
+            },
+          },
+        },
+      });
+      for (const action of ["TASK_CREATED", "TASK_ASSIGNED"]) {
+        await transaction.auditEvent.create({
+          data: {
+            actorUserId: nurse.id,
+            actorRole: "nurse",
+            action,
+            resourceType: "Task",
+            resourceId: professionalRelayTaskId,
+            outcome: "SUCCESS",
+            correlationId,
+            createdAt: taskCreatedAt,
+          },
+        });
+      }
+    } else if (
+      professionalRelayTask.episodeId !== demoEpisodeId ||
+      professionalRelayTask.alertId !== null ||
+      professionalRelayTask.summary !== "SINTÉTICO — revisar elemento opaco de continuidad." ||
+      professionalRelayTask.currentState !== "OPEN" ||
+      professionalRelayTask.assignedToId !== clinician.id ||
+      professionalRelayTask.createdById !== nurse.id ||
+      professionalRelayTask.revision !== 1 ||
+      professionalRelayTask.resolvedAt !== null
+    ) {
+      throw new CanonicalPolicyMismatchError("synthetic-professional-relay-task", "demo-v1");
+    }
+
     const safetyPlanId = "synthetic-demo-safety-plan-buildweek";
     if (!(await transaction.safetyPlan.findUnique({ where: { id: safetyPlanId } }))) {
       const steps = [

@@ -124,6 +124,7 @@ export class SyntheticDemoPatientRelayAuthority implements RelayAuthorityResolve
       locale: "es-ES",
       lineRegion: "SYNTHETIC_LOCAL_NO_PROVIDER",
       revision: `episode-v${episode.version}`,
+      professionalEligibility: null,
     };
   }
 

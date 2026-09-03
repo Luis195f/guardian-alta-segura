@@ -11,6 +11,7 @@ import type {
   RelayTechnicalDisposition,
 } from "@/domain/relay/continuity-relay";
 import type { PatientRelayTechnicalResult } from "@/domain/relay/patient-relay-contract";
+import type { ProfessionalRelayTechnicalResult } from "@/domain/relay/professional-relay-contract";
 
 export type RelayResultValidity = "VALID" | "INVALID" | "MISSING";
 
@@ -23,6 +24,14 @@ export interface RelayTaskContract {
   readonly key: RelayPurpose;
   readonly version: string;
   readonly outboundTaskKey: OutboundCallTaskKey;
+}
+
+export interface RelayProfessionalEligibility {
+  readonly episodeRevision: number;
+  readonly taskRevision: number;
+  readonly actorRoleAssignmentRef: string;
+  readonly targetRoleAssignmentRef: string;
+  readonly targetRole: "nurse" | "clinician";
 }
 
 /**
@@ -38,6 +47,7 @@ export interface RelayAuthoritySnapshot extends RelayContextRef {
   readonly locale: string;
   readonly lineRegion: string;
   readonly revision: string;
+  readonly professionalEligibility: RelayProfessionalEligibility | null;
 }
 
 export interface RelayAuthorityResolver {
@@ -98,7 +108,10 @@ export interface RelayAuthorityBinding extends RelayContextRef {
   readonly taskContractVersion: string;
   readonly attestationVersion: string;
   readonly revision: string;
+  readonly professionalEligibility: RelayProfessionalEligibility | null;
 }
+
+export type RelayTechnicalResult = PatientRelayTechnicalResult | ProfessionalRelayTechnicalResult;
 
 export interface RelayAttemptRecord extends RelayContextRef {
   readonly id: string;
@@ -114,7 +127,7 @@ export interface RelayAttemptRecord extends RelayContextRef {
   readonly attestationVersion: string;
   readonly revision: string;
   readonly resultValidity: RelayResultValidity | null;
-  readonly technicalResult: PatientRelayTechnicalResult | null;
+  readonly technicalResult: RelayTechnicalResult | null;
   readonly expiresAt: Date;
   readonly consumedAt: Date | null;
   readonly revokedAt: Date | null;
@@ -157,6 +170,7 @@ export interface RelayAttemptStore {
     readonly authorityFingerprint: string;
     readonly attestationVersion: string;
     readonly revision: string;
+    readonly professionalEligibility: RelayProfessionalEligibility | null;
     readonly correlationId: string;
     readonly now: Date;
   }): Promise<RelayAttemptRecord | null>;
@@ -172,7 +186,7 @@ export interface RelayAttemptStore {
     readonly attemptRef: string;
     readonly outboundIntent: OutboundCallIntentRecord;
     readonly resultValidity: RelayResultValidity;
-    readonly technicalResult: PatientRelayTechnicalResult | null;
+    readonly technicalResult: RelayTechnicalResult | null;
     readonly syntheticExecution: boolean;
     readonly now: Date;
     readonly correlationId: string;

@@ -129,3 +129,72 @@ test("rejects network transport injected into the local synthetic executor", (t)
   assert.equal(result.status, 1);
   assert.match(result.stderr, /exact local no-network implementation/u);
 });
+
+test("rejects extra or networked Professional Relay demo surfaces", (t) => {
+  const root = fixture(t);
+  const extraRoute = path.join(
+    root,
+    "src",
+    "app",
+    "api",
+    "demo",
+    "discharge-episodes",
+    "[episodeId]",
+    "professional-relay",
+    "live",
+    "route.ts",
+  );
+  mkdirSync(path.dirname(extraRoute), { recursive: true });
+  writeFileSync(extraRoute, `void ${"fetch"}("https://example.invalid");\n`);
+  const executor = path.join(
+    root,
+    "src",
+    "infrastructure",
+    "relay",
+    "synthetic-demo-professional-relay.ts",
+  );
+  writeFileSync(
+    executor,
+    `${readFileSync(executor, "utf8")}\nvoid ${"fetch"}("https://example.invalid");\n`,
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unexpected file in synthetic Professional Relay route namespace/u);
+  assert.match(result.stderr, /Provider runtime escaped into synthetic demo route/u);
+  assert.match(result.stderr, /Synthetic Professional Relay executor/u);
+});
+
+test("rejects aliased fetch and bare HTTP transport imports in Professional Relay", (t) => {
+  const root = fixture(t);
+  const route = path.join(
+    root,
+    "src",
+    "app",
+    "api",
+    "demo",
+    "discharge-episodes",
+    "[episodeId]",
+    "professional-relay",
+    "preview",
+    "route.ts",
+  );
+  writeFileSync(
+    route,
+    `${readFileSync(route, "utf8")}\nconst send = globalThis["${"fetch"}"];\nvoid send;\n`,
+  );
+  const executor = path.join(
+    root,
+    "src",
+    "infrastructure",
+    "relay",
+    "synthetic-demo-professional-relay.ts",
+  );
+  writeFileSync(
+    executor,
+    `${readFileSync(executor, "utf8")}\nimport transport from "${"https"}";\nvoid transport;\n`,
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Provider runtime escaped into synthetic demo route/u);
+  assert.match(result.stderr, /Synthetic Professional Relay executor/u);
+});

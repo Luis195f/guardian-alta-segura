@@ -1,6 +1,8 @@
 import {
   Prisma,
   RelayBoundaryEvent as PrismaRelayBoundaryEvent,
+  RelayAcknowledged as PrismaRelayAcknowledged,
+  RelayAvailabilityToReview as PrismaRelayAvailabilityToReview,
   RelayCallbackPreference as PrismaRelayCallbackPreference,
   RelayContactStatus as PrismaRelayContactStatus,
   RelayIdentityStatus as PrismaRelayIdentityStatus,
@@ -10,6 +12,7 @@ import type {
   CreateRelayPreviewRecordInput,
   RelayAttemptRecord,
   RelayAttemptStore,
+  RelayTechnicalResult,
 } from "@/application/ports/continuity-relay";
 import type { OutboundCallIntentState } from "@/application/ports/outbound-call";
 import type {
@@ -18,6 +21,14 @@ import type {
   PatientRelayContactStatus,
   PatientRelayIdentityStatus,
 } from "@/domain/relay/patient-relay-contract";
+import type {
+  ProfessionalRelayAcknowledged,
+  ProfessionalRelayAvailabilityToReview,
+  ProfessionalRelayBoundaryEvent,
+  ProfessionalRelayContactStatus,
+  ProfessionalRelayIdentityStatus,
+  ProfessionalRelayTechnicalResult,
+} from "@/domain/relay/professional-relay-contract";
 import {
   isRelayResultState,
   relayResultState,
@@ -48,6 +59,8 @@ const attemptSelect = {
   identityStatus: true,
   contactStatus: true,
   callbackPreference: true,
+  acknowledged: true,
+  availabilityToReview: true,
   boundaryEvent: true,
   expiresAt: true,
   consumedAt: true,
@@ -61,20 +74,36 @@ const attemptSelect = {
 type PrismaAttempt = Prisma.RelayAttemptGetPayload<{ select: typeof attemptSelect }>;
 
 function toAttempt(attempt: PrismaAttempt): RelayAttemptRecord {
-  const technicalResult =
+  let technicalResult: RelayTechnicalResult | null = null;
+  if (
     attempt.resultValidity === "VALID" &&
     attempt.identityStatus &&
     attempt.contactStatus &&
-    attempt.callbackPreference &&
     attempt.boundaryEvent
-      ? {
-          identity_status: attempt.identityStatus.toLowerCase() as PatientRelayIdentityStatus,
-          contact_status: attempt.contactStatus.toLowerCase() as PatientRelayContactStatus,
-          callback_preference:
-            attempt.callbackPreference.toLowerCase() as PatientRelayCallbackPreference,
-          boundary_event: attempt.boundaryEvent.toLowerCase() as PatientRelayBoundaryEvent,
-        }
-      : null;
+  ) {
+    if (attempt.recipientKind === "PATIENT" && attempt.callbackPreference) {
+      technicalResult = {
+        identity_status: attempt.identityStatus.toLowerCase() as PatientRelayIdentityStatus,
+        contact_status: attempt.contactStatus.toLowerCase() as PatientRelayContactStatus,
+        callback_preference:
+          attempt.callbackPreference.toLowerCase() as PatientRelayCallbackPreference,
+        boundary_event: attempt.boundaryEvent.toLowerCase() as PatientRelayBoundaryEvent,
+      };
+    } else if (
+      attempt.recipientKind === "PROFESSIONAL" &&
+      attempt.acknowledged &&
+      attempt.availabilityToReview
+    ) {
+      technicalResult = {
+        identity_status: attempt.identityStatus.toLowerCase() as ProfessionalRelayIdentityStatus,
+        contact_status: attempt.contactStatus.toLowerCase() as ProfessionalRelayContactStatus,
+        acknowledged: attempt.acknowledged.toLowerCase() as ProfessionalRelayAcknowledged,
+        availability_to_review:
+          attempt.availabilityToReview.toLowerCase() as ProfessionalRelayAvailabilityToReview,
+        boundary_event: attempt.boundaryEvent.toLowerCase() as ProfessionalRelayBoundaryEvent,
+      } satisfies ProfessionalRelayTechnicalResult;
+    }
+  }
   return {
     ...attempt,
     recipientKind: attempt.recipientKind,
@@ -101,9 +130,10 @@ function resultDisposition(state: OutboundCallIntentState): RelayTechnicalDispos
 }
 
 const identityStatusToPrisma: Readonly<
-  Record<PatientRelayIdentityStatus, PrismaRelayIdentityStatus>
+  Record<RelayTechnicalResult["identity_status"], PrismaRelayIdentityStatus>
 > = {
   intended_recipient: PrismaRelayIdentityStatus.INTENDED_RECIPIENT,
+  intended_professional: PrismaRelayIdentityStatus.INTENDED_PROFESSIONAL,
   wrong_recipient: PrismaRelayIdentityStatus.WRONG_RECIPIENT,
   unknown: PrismaRelayIdentityStatus.UNKNOWN,
 };
@@ -121,6 +151,22 @@ const callbackPreferenceToPrisma: Readonly<
   requested: PrismaRelayCallbackPreference.REQUESTED,
   not_requested: PrismaRelayCallbackPreference.NOT_REQUESTED,
   unknown: PrismaRelayCallbackPreference.UNKNOWN,
+};
+
+const acknowledgedToPrisma: Readonly<
+  Record<ProfessionalRelayAcknowledged, PrismaRelayAcknowledged>
+> = {
+  yes: PrismaRelayAcknowledged.YES,
+  no: PrismaRelayAcknowledged.NO,
+  unknown: PrismaRelayAcknowledged.UNKNOWN,
+};
+
+const availabilityToReviewToPrisma: Readonly<
+  Record<ProfessionalRelayAvailabilityToReview, PrismaRelayAvailabilityToReview>
+> = {
+  yes: PrismaRelayAvailabilityToReview.YES,
+  no: PrismaRelayAvailabilityToReview.NO,
+  unknown: PrismaRelayAvailabilityToReview.UNKNOWN,
 };
 
 const boundaryEventToPrisma: Readonly<Record<PatientRelayBoundaryEvent, PrismaRelayBoundaryEvent>> =
@@ -198,6 +244,62 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
     input: Parameters<RelayAttemptStore["consumeConfirmation"]>[0],
   ): Promise<RelayAttemptRecord | null> {
     return prisma.$transaction(async (transaction) => {
+      const eligibility = input.professionalEligibility;
+      const professionalGuard: Prisma.RelayAttemptWhereInput =
+        input.recipientKind !== "PROFESSIONAL"
+          ? {}
+          : !eligibility || !input.context.taskRef
+            ? { NOT: { id: input.attemptRef } }
+            : {
+                episode: {
+                  is: {
+                    id: input.context.episodeRef,
+                    status: "ACTIVE",
+                    version: eligibility.episodeRevision,
+                    ...(input.actorRole === "nurse"
+                      ? { responsibleNurseId: input.actorRef }
+                      : { responsibleClinicianId: input.actorRef }),
+                    ...(eligibility.targetRole === "nurse"
+                      ? { responsibleNurseId: input.targetRef }
+                      : { responsibleClinicianId: input.targetRef }),
+                  },
+                },
+                task: {
+                  is: {
+                    id: input.context.taskRef,
+                    episodeId: input.context.episodeRef,
+                    currentState: "OPEN",
+                    revision: eligibility.taskRevision,
+                    assignedToId: input.targetRef,
+                    assignedTo: {
+                      is: {
+                        isSynthetic: true,
+                        isActive: true,
+                        roleAssignments: {
+                          some: {
+                            id: eligibility.targetRoleAssignmentRef,
+                            role: eligibility.targetRole,
+                            revokedAt: null,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                actor: {
+                  is: {
+                    isSynthetic: true,
+                    isActive: true,
+                    roleAssignments: {
+                      some: {
+                        id: eligibility.actorRoleAssignmentRef,
+                        role: input.actorRole,
+                        revokedAt: null,
+                      },
+                    },
+                  },
+                },
+              };
       const consumed = await transaction.relayAttempt.updateMany({
         where: {
           id: input.attemptRef,
@@ -215,6 +317,7 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
           consumedAt: null,
           revokedAt: null,
           expiresAt: { gt: input.now },
+          ...professionalGuard,
         },
         data: {
           lifecycleState: "CONFIRMED",
@@ -374,7 +477,19 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
               ? contactStatusToPrisma[input.technicalResult.contact_status]
               : null,
             callbackPreference: input.technicalResult
-              ? callbackPreferenceToPrisma[input.technicalResult.callback_preference]
+              ? "callback_preference" in input.technicalResult
+                ? callbackPreferenceToPrisma[input.technicalResult.callback_preference]
+                : null
+              : null,
+            acknowledged: input.technicalResult
+              ? "acknowledged" in input.technicalResult
+                ? acknowledgedToPrisma[input.technicalResult.acknowledged]
+                : null
+              : null,
+            availabilityToReview: input.technicalResult
+              ? "availability_to_review" in input.technicalResult
+                ? availabilityToReviewToPrisma[input.technicalResult.availability_to_review]
+                : null
               : null,
             boundaryEvent: input.technicalResult
               ? boundaryEventToPrisma[input.technicalResult.boundary_event]

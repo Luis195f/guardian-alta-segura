@@ -1316,7 +1316,8 @@ footer {
   text-decoration: underline;
 }
 
-.patient-relay {
+.patient-relay,
+.professional-relay {
   max-width: 68rem;
 }
 

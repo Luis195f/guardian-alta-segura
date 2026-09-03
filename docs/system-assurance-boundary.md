@@ -88,31 +88,34 @@ seguridad clínica y CI verde no prueba eficacia, cumplimiento o readiness.
 
 ## Finalidad prevista separada
 
-### Excepción C01/C02/C03/C04 del hackathon — 2026-08-27 a 2026-09-01
+### Excepción C01/C02/C03/C04/C05 del hackathon — 2026-08-27 a 2026-09-03
 
 [ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) documenta la frontera
 y C02 implementa un adapter REST técnico desactivado. C03 añade el core interno
-tipado de Continuity Relay. C04 añade un entrypoint Patient Relay exclusivamente
-local, determinista y sintético, sin conectar el adapter REST, sin modificar la
+tipado de Continuity Relay. C04 y C05 añaden entrypoints separados Patient Relay
+y Professional Relay exclusivamente locales, deterministas y sintéticos, sin conectar el adapter REST, sin modificar la
 aceptación limitada de 5B ni el Gate B. La cadena es: core GAS sintético → sandbox técnico CALL-E para
 hackathon → demo pública sintética con `LIVE OFF` → futuro piloto clínico
 `NO_GO` → producción/datos reales `NO_GO`.
 
-Patient Relay se demuestra en C04 solo dentro del fixture demo no productivo;
-Professional Relay y cualquier relay real permanecen ausentes. CALL-E no es
+Patient Relay y Professional Relay se demuestran solo dentro de fixtures demo
+predeterminados no productivos; cualquier relay real permanece ausente. CALL-E no es
 autoridad clínica. No se introduce IA generativa en
 el core. `CALL_E_RUNTIME = IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY` y
 `LIVE_ENTRYPOINT = ABSENT`: el adapter server-only usa un port neutral, flag
 apagado, configuración fail-closed, transporte inyectable, HMAC y persistencia
-técnica minimizada. El único UI/endpoint Relay es el recorrido C04 sintético y
-rechaza flag live o API key; no existe entrypoint de proveedor, scheduler, worker
+técnica minimizada. Los únicos UI/endpoints Relay son los recorridos C04/C05 sintéticos y
+rechazan flag live o API key; no existe entrypoint de proveedor, scheduler, worker
 o trigger.
 Avisos, check-ins, no respuesta, tareas, compromisos y resultados externos no
 disparan llamadas. C03 prueba preview sin red, confirmación one-use, revalidación,
 binding HMAC, lifecycle y revisión humana registrada. El resolver runtime de
 autoridad y attestation no sintético deniega siempre porque el modelo no contiene
 contacto de voz autorizado ni configuración regional canónica; resolver y policy
-C04 están limitados al fixture demo/test marcado no productivo. `HUMAN_REVIEWED`
+C04/C05 están limitados al fixture demo/test marcado no productivo. C05 deriva
+profesional y Task server-side, revalida assignment/scope/episodio/revisión y no
+interpreta acknowledged, disponibilidad o taskCompleted como aceptación,
+asignación o resolución. `HUMAN_REVIEWED`
 no es aprobación clínica ni cierra riesgo. Los
 límites de irreversibilidad, minimización y decisiones pendientes están en
 ADR-0019; el aviso de no cancelación está presente en el preview C04 visible y
@@ -120,10 +123,10 @@ las pruebas sintéticas no lo convierten en control live
 validado.
 
 La ampliación HAZ-GAS-021–038 y GAP-DCB-025 registra incertidumbre y distingue
-controles técnicos C02/C03/C04 `IMPLEMENTED_UNVALIDATED` de controles todavía
+controles técnicos C02/C03/C04/C05 `IMPLEMENTED_UNVALIDATED` de controles todavía
 `PLANNED`; no acredita controles clínicos efectivos. La publicación técnica de
-C04 se limita a revisión técnica y publicación como Draft PR; no se autoriza
-C05/C10, Ready/merge, piloto, producción ni aceptación de riesgo. El core clínico
+C05 se limita a revisión técnica y publicación como Draft PR; no se autoriza
+C06/C10, Ready/merge, piloto, producción ni aceptación de riesgo. El core clínico
 y sus requisitos no cambian.
 
 ### Guardián Core
