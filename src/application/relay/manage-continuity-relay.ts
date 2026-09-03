@@ -24,6 +24,7 @@ import {
   type RelayRecipientKind,
 } from "@/domain/relay/continuity-relay";
 import { parsePatientRelayTechnicalResult } from "@/domain/relay/patient-relay-contract";
+import { parseProfessionalRelayTechnicalResult } from "@/domain/relay/professional-relay-contract";
 
 const RECIPIENT_KINDS: readonly RelayRecipientKind[] = ["PATIENT", "PROFESSIONAL"];
 const PURPOSES: readonly RelayPurpose[] = ["PATIENT_CALLBACK_OFFER", "PROFESSIONAL_REVIEW_REQUEST"];
@@ -107,7 +108,19 @@ function validateAuthority(
   if (
     snapshot.episodeRef !== requestedEpisodeRef ||
     (snapshot.taskRef !== null && !OPAQUE_REF.test(snapshot.taskRef)) ||
-    (recipientKind === "PATIENT" && snapshot.taskRef !== null) ||
+    (recipientKind === "PATIENT" &&
+      (snapshot.taskRef !== null || snapshot.professionalEligibility !== null)) ||
+    (recipientKind === "PROFESSIONAL" &&
+      (snapshot.taskRef === null ||
+        snapshot.professionalEligibility === null ||
+        !Number.isInteger(snapshot.professionalEligibility.episodeRevision) ||
+        snapshot.professionalEligibility.episodeRevision < 1 ||
+        !Number.isInteger(snapshot.professionalEligibility.taskRevision) ||
+        snapshot.professionalEligibility.taskRevision < 1 ||
+        !OPAQUE_REF.test(snapshot.professionalEligibility.actorRoleAssignmentRef) ||
+        !OPAQUE_REF.test(snapshot.professionalEligibility.targetRoleAssignmentRef) ||
+        !["nurse", "clinician"].includes(snapshot.professionalEligibility.targetRole) ||
+        snapshot.professionalEligibility.targetRole === snapshot.actingRole)) ||
     !OPAQUE_REF.test(snapshot.targetRef) ||
     !/^\+[1-9]\d{7,14}$/.test(snapshot.destinationPhone) ||
     snapshot.maskedTarget === snapshot.destinationPhone ||
@@ -176,7 +189,14 @@ function binding(input: {
     taskContractVersion: input.taskContract.version,
     attestationVersion: input.attestationVersion,
     revision: input.authority.revision,
+    professionalEligibility: input.authority.professionalEligibility,
   };
+}
+
+function parseTechnicalResult(purpose: RelayPurpose, value: unknown) {
+  return purpose === "PATIENT_CALLBACK_OFFER"
+    ? parsePatientRelayTechnicalResult(value)
+    : parseProfessionalRelayTechnicalResult(value);
 }
 
 export class ContinuityRelayService {
@@ -392,6 +412,7 @@ export class ContinuityRelayService {
       authorityFingerprint: candidateFingerprint,
       attestationVersion: attestation.version,
       revision: refreshed.revision,
+      professionalEligibility: refreshed.professionalEligibility,
       correlationId: input.correlationId,
       now,
     });
@@ -400,18 +421,65 @@ export class ContinuityRelayService {
       throw new RelayConflictError("confirmation_already_consumed");
     }
 
+    const executionAuthority = await this.authority.resolve({
+      actor,
+      recipientKind: input.recipientKind,
+      purpose: input.purpose,
+      context: storedContext,
+    });
+    if (!executionAuthority) {
+      await this.reject(actor, attempt.id, true, input.correlationId);
+      throw new RelayDeniedError("authority_stale_before_execution");
+    }
+    try {
+      validateAuthority(executionAuthority, attempt.episodeRef, input.recipientKind);
+      actorRole(actor, executionAuthority);
+      const executionAttestation = await this.attestations.verify({
+        actor,
+        recipientKind: input.recipientKind,
+        purpose: input.purpose,
+      });
+      if (
+        !executionAttestation.current ||
+        executionAttestation.version !== attempt.attestationVersion
+      ) {
+        throw new RelayDeniedError("attestation_stale_before_execution");
+      }
+      const executionFingerprint = this.secrets.protectAuthority(
+        binding({
+          actor,
+          recipientKind: input.recipientKind,
+          purpose: input.purpose,
+          authority: executionAuthority,
+          taskContract,
+          attestationVersion: executionAttestation.version,
+        }),
+      );
+      if (
+        executionAuthority.taskRef !== attempt.taskRef ||
+        executionAuthority.targetRef !== attempt.targetRef ||
+        executionAuthority.revision !== attempt.revision ||
+        !this.secrets.matchesProtected(attempt.authorityFingerprint, executionFingerprint)
+      ) {
+        throw new RelayDeniedError("authority_stale_before_execution");
+      }
+    } catch (error) {
+      await this.reject(actor, attempt.id, true, input.correlationId);
+      throw error;
+    }
+
     const execution = await this.outbound.execute({
       taskKey: taskContract.outboundTaskKey,
       recipients: [
         {
-          phones: [refreshed.destinationPhone],
-          region: refreshed.region,
-          locale: refreshed.locale,
+          phones: [executionAuthority.destinationPhone],
+          region: executionAuthority.region,
+          locale: executionAuthority.locale,
         },
       ],
       idempotencyRef: consumed.idempotencyRef,
     });
-    const technicalResult = parsePatientRelayTechnicalResult(execution.rawTechnicalResult);
+    const technicalResult = parseTechnicalResult(input.purpose, execution.rawTechnicalResult);
     const resultValidity = technicalResult
       ? "VALID"
       : execution.rawTechnicalResult === null || execution.rawTechnicalResult === undefined

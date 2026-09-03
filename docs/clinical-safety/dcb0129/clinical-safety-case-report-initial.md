@@ -204,9 +204,9 @@ El [Hazard Log inicial](hazard-log-initial.md) identificó 20 peligros abiertos
 en el corte inicial. La ampliación documental C01 del 27-08-2026 añade
 HAZ-GAS-021–038 para el sandbox CALL-E futuro: 38 entradas abiertas en total,
 sin estimación ni aceptación. [ADR-0019](../../adr/0019-calle-hackathon-sandbox-boundary.md)
-registra C02 `IMPLEMENTED_DISABLED`, el core interno C03 y Patient Relay C04
-exclusivamente local/sintético con controles técnicos `IMPLEMENTED_UNVALIDATED`;
-no implementa Professional Relay ni comunicaciones live y no modifica los
+registra C02 `IMPLEMENTED_DISABLED`, el core interno C03, Patient Relay C04 y
+Professional Relay C05 exclusivamente locales/sintéticos con controles técnicos
+`IMPLEMENTED_UNVALIDATED`; no implementa comunicaciones live y no modifica los
 argumentos clínicos de seguridad del baseline. El resolver no sintético
 permanece deny-all y C00 estático divergente no es
 evidencia clínica ni prueba live.

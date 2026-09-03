@@ -24,6 +24,7 @@ function canonicalAuthority(input: RelayAuthorityBinding): string {
     input.taskContractVersion,
     input.attestationVersion,
     input.revision,
+    input.professionalEligibility,
   ]);
 }
 

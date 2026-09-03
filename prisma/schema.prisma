@@ -345,9 +345,10 @@ enum RelayResultValidity {
 }
 
 enum RelayIdentityStatus {
-  INTENDED_RECIPIENT @map("intended_recipient")
-  WRONG_RECIPIENT    @map("wrong_recipient")
-  UNKNOWN            @map("unknown")
+  INTENDED_RECIPIENT    @map("intended_recipient")
+  INTENDED_PROFESSIONAL @map("intended_professional")
+  WRONG_RECIPIENT       @map("wrong_recipient")
+  UNKNOWN               @map("unknown")
 }
 
 enum RelayContactStatus {
@@ -360,6 +361,18 @@ enum RelayCallbackPreference {
   REQUESTED     @map("requested")
   NOT_REQUESTED @map("not_requested")
   UNKNOWN       @map("unknown")
+}
+
+enum RelayAcknowledged {
+  YES     @map("yes")
+  NO      @map("no")
+  UNKNOWN @map("unknown")
+}
+
+enum RelayAvailabilityToReview {
+  YES     @map("yes")
+  NO      @map("no")
+  UNKNOWN @map("unknown")
 }
 
 enum RelayBoundaryEvent {
@@ -1146,37 +1159,39 @@ model OutboundCallIntentEvent {
 }
 
 model RelayAttempt {
-  id                    String              @id @default(cuid())
-  recipientKind         RelayRecipientKind  @map("recipient_kind")
+  id                    String                     @id @default(cuid())
+  recipientKind         RelayRecipientKind         @map("recipient_kind")
   purpose               RelayPurpose
-  episodeRef            String              @map("episode_ref")
-  taskRef               String?             @map("task_ref")
-  targetRef             String              @map("target_ref") @db.VarChar(128)
-  actorRef              String              @map("actor_ref")
-  authorityFingerprint  String              @map("authority_fingerprint") @db.Char(64)
-  confirmationDigest    String              @unique(map: "relay_attempts_confirmation_digest_key") @map("confirmation_digest") @db.Char(64)
-  idempotencyRef        String              @unique(map: "relay_attempts_idempotency_ref_key") @map("idempotency_ref") @db.VarChar(128)
-  outboundCallIntentRef String?             @unique(map: "relay_attempts_outbound_intent_ref_key") @map("outbound_call_intent_ref")
-  lifecycleState        RelayLifecycleState @default(PREVIEWED) @map("lifecycle_state")
-  attestationVersion    String              @map("attestation_version") @db.VarChar(64)
-  revision              String              @db.VarChar(64)
-  resultValidity        RelayResultValidity? @map("result_validity")
-  identityStatus        RelayIdentityStatus? @map("identity_status")
-  contactStatus         RelayContactStatus?  @map("contact_status")
-  callbackPreference    RelayCallbackPreference? @map("callback_preference")
-  boundaryEvent         RelayBoundaryEvent?  @map("boundary_event")
-  expiresAt             DateTime            @map("expires_at") @db.Timestamptz(3)
-  consumedAt            DateTime?           @map("consumed_at") @db.Timestamptz(3)
-  revokedAt             DateTime?           @map("revoked_at") @db.Timestamptz(3)
-  reviewedByRef         String?             @map("reviewed_by_ref")
-  reviewedAt            DateTime?           @map("reviewed_at") @db.Timestamptz(3)
-  createdAt             DateTime            @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime            @map("updated_at") @db.Timestamptz(3)
-  episode               DischargeEpisode    @relation(fields: [episodeRef], references: [id], onDelete: Restrict, map: "relay_attempts_episode_fkey")
-  task                  Task?               @relation(fields: [taskRef], references: [id], onDelete: Restrict, map: "relay_attempts_task_fkey")
-  actor                 User                @relation("RelayAttemptActor", fields: [actorRef], references: [id], onDelete: Restrict, map: "relay_attempts_actor_fkey")
-  reviewer              User?               @relation("RelayAttemptReviewer", fields: [reviewedByRef], references: [id], onDelete: Restrict, map: "relay_attempts_reviewer_fkey")
-  outboundCallIntent    OutboundCallIntent? @relation(fields: [outboundCallIntentRef], references: [id], onDelete: Restrict, map: "relay_attempts_outbound_intent_fkey")
+  episodeRef            String                     @map("episode_ref")
+  taskRef               String?                    @map("task_ref")
+  targetRef             String                     @map("target_ref") @db.VarChar(128)
+  actorRef              String                     @map("actor_ref")
+  authorityFingerprint  String                     @map("authority_fingerprint") @db.Char(64)
+  confirmationDigest    String                     @unique(map: "relay_attempts_confirmation_digest_key") @map("confirmation_digest") @db.Char(64)
+  idempotencyRef        String                     @unique(map: "relay_attempts_idempotency_ref_key") @map("idempotency_ref") @db.VarChar(128)
+  outboundCallIntentRef String?                    @unique(map: "relay_attempts_outbound_intent_ref_key") @map("outbound_call_intent_ref")
+  lifecycleState        RelayLifecycleState        @default(PREVIEWED) @map("lifecycle_state")
+  attestationVersion    String                     @map("attestation_version") @db.VarChar(64)
+  revision              String                     @db.VarChar(64)
+  resultValidity        RelayResultValidity?       @map("result_validity")
+  identityStatus        RelayIdentityStatus?       @map("identity_status")
+  contactStatus         RelayContactStatus?        @map("contact_status")
+  callbackPreference    RelayCallbackPreference?   @map("callback_preference")
+  acknowledged          RelayAcknowledged?
+  availabilityToReview  RelayAvailabilityToReview? @map("availability_to_review")
+  boundaryEvent         RelayBoundaryEvent?        @map("boundary_event")
+  expiresAt             DateTime                   @map("expires_at") @db.Timestamptz(3)
+  consumedAt            DateTime?                  @map("consumed_at") @db.Timestamptz(3)
+  revokedAt             DateTime?                  @map("revoked_at") @db.Timestamptz(3)
+  reviewedByRef         String?                    @map("reviewed_by_ref")
+  reviewedAt            DateTime?                  @map("reviewed_at") @db.Timestamptz(3)
+  createdAt             DateTime                   @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                   @map("updated_at") @db.Timestamptz(3)
+  episode               DischargeEpisode           @relation(fields: [episodeRef], references: [id], onDelete: Restrict, map: "relay_attempts_episode_fkey")
+  task                  Task?                      @relation(fields: [taskRef], references: [id], onDelete: Restrict, map: "relay_attempts_task_fkey")
+  actor                 User                       @relation("RelayAttemptActor", fields: [actorRef], references: [id], onDelete: Restrict, map: "relay_attempts_actor_fkey")
+  reviewer              User?                      @relation("RelayAttemptReviewer", fields: [reviewedByRef], references: [id], onDelete: Restrict, map: "relay_attempts_reviewer_fkey")
+  outboundCallIntent    OutboundCallIntent?        @relation(fields: [outboundCallIntentRef], references: [id], onDelete: Restrict, map: "relay_attempts_outbound_intent_fkey")
   events                RelayEvent[]
 
   @@index([episodeRef, lifecycleState, createdAt], map: "relay_attempts_episode_state_created_idx")

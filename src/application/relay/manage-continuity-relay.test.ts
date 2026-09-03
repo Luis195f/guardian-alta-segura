@@ -25,6 +25,7 @@ import type { OutboundCallIntentRecord } from "@/application/ports/outbound-call
 import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import { isValidRelayPair, RELAY_NO_CANCEL_NOTICE } from "@/domain/relay/continuity-relay";
 import { SYNTHETIC_PATIENT_RELAY_RESULT } from "@/domain/relay/patient-relay-contract";
+import { SYNTHETIC_PROFESSIONAL_RELAY_RESULT } from "@/domain/relay/professional-relay-contract";
 import { HmacRelaySecretProtector } from "@/infrastructure/relay/hmac-relay-secret-protector";
 import {
   UnavailableRelayAttestationVerifier,
@@ -56,6 +57,8 @@ class MutableActorContext implements RelayActorContext {
 }
 
 class MutableAuthority implements RelayAuthorityResolver {
+  resolveCalls = 0;
+  unavailableAtCall: number | null = null;
   snapshot: RelayAuthoritySnapshot | null = {
     actingRole: "nurse",
     episodeRef: "episode-1",
@@ -67,10 +70,13 @@ class MutableAuthority implements RelayAuthorityResolver {
     locale: "es-ES",
     lineRegion: "TEST_ONLY_INTERNATIONAL",
     revision: "episode-v1",
+    professionalEligibility: null,
   };
   reviewAllowed = true;
 
   async resolve(input: Parameters<RelayAuthorityResolver["resolve"]>[0]) {
+    this.resolveCalls += 1;
+    if (this.resolveCalls === this.unavailableAtCall) return null;
     if (!this.snapshot || input.actor.userId !== "nurse-1") return null;
     if (
       this.snapshot.episodeRef !== input.context.episodeRef ||
@@ -399,6 +405,13 @@ describe("Continuity Relay typed authority core", () => {
       taskRef: "task-derived-by-authority",
       targetRef: "professional-target-opaque-1",
       revision: "assignment-v1",
+      professionalEligibility: {
+        episodeRevision: 1,
+        taskRevision: 1,
+        actorRoleAssignmentRef: "actor-role-assignment-1",
+        targetRoleAssignmentRef: "target-role-assignment-1",
+        targetRole: "clinician",
+      },
     };
     const request: RelayPreviewRequest = {
       recipientKind: "PROFESSIONAL",
@@ -413,6 +426,7 @@ describe("Continuity Relay typed authority core", () => {
       taskRef: "task-derived-by-authority",
     });
     expect([...harness.attempts.records.values()][0]?.taskRef).toBe("task-derived-by-authority");
+    harness.execution.rawTechnicalResult = SYNTHETIC_PROFESSIONAL_RELAY_RESULT;
 
     await expect(
       harness.service.confirm({
@@ -445,6 +459,25 @@ describe("Continuity Relay typed authority core", () => {
       "RELAY_PROVIDER_REF_CREATED",
       "RELAY_TECHNICAL_RESULT_AVAILABLE",
     ]);
+  });
+
+  it("keeps a synthetic provider-unavailable result technical and pending human review", async () => {
+    const harness = createHarness();
+    harness.outbound.execute = vi.fn(async (input) => ({
+      outboundIntent: outboundIntent(input.idempotencyRef, "FAILED"),
+      rawTechnicalResult: null,
+      syntheticExecution: true,
+    }));
+    const prepared = await previewAndConfirmation(harness);
+    await expect(prepared.service.confirm(prepared.confirmation)).resolves.toMatchObject({
+      lifecycleState: "RESULT_FAILED",
+    });
+    expect(prepared.attempts.records.get("attempt-1")).toMatchObject({
+      lifecycleState: "RESULT_FAILED",
+      resultValidity: "MISSING",
+      technicalResult: null,
+      reviewedAt: null,
+    });
   });
 
   it.each([
@@ -553,6 +586,21 @@ describe("Continuity Relay typed authority core", () => {
       RelayConflictError,
     );
     expect(conflict.outbound.execute).not.toHaveBeenCalled();
+  });
+
+  it("revalidates again after consumption and executes zero times on a concurrent revocation", async () => {
+    const harness = await previewAndConfirmation();
+    harness.authority.unavailableAtCall = 3;
+    await expect(harness.service.confirm(harness.confirmation)).rejects.toMatchObject({
+      errorCode: "authority_stale_before_execution",
+    });
+    expect(harness.outbound.execute).not.toHaveBeenCalled();
+    expect(harness.attempts.records.get("attempt-1")).toMatchObject({
+      lifecycleState: "CONFIRMED",
+    });
+    expect(harness.attempts.audits.some(({ action }) => action === "RELAY_AUTHORITY_STALE")).toBe(
+      true,
+    );
   });
 
   it("records human review with current server actor without treating it as clinical approval", async () => {

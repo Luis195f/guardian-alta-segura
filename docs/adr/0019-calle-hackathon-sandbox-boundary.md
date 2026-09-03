@@ -2,9 +2,9 @@
 
 - Estado: `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`.
 - Fecha: 2026-08-27; pivot REST C02 autorizado el 2026-08-29.
-- Alcance: C01 documental, adapter REST técnico C02, core interno C03 y Patient
-  Relay C04 exclusivamente local, determinista y sintético; solo permite
-  revisión técnica y publicación como Draft PR, sin autorizar C05, C10,
+- Alcance: C01 documental, adapter REST técnico C02, core interno C03, Patient
+  Relay C04 y Professional Relay C05 exclusivamente locales, deterministas y
+  sintéticos; solo permite revisión técnica y publicación como Draft PR, sin autorizar C06, C10,
   llamadas, Ready/merge, piloto ni producción.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
@@ -33,6 +33,13 @@ conecta el adapter REST, no usa red CALL-E y rechaza el modo demo si el flag liv
 está activo o existe una API key. La autoridad, destino, teléfono sintético,
 región, locale, Line Region, attestation, revisión y fingerprint se derivan y
 revalidan server-side; el cliente no puede aportarlos.
+
+C05 reutiliza el mismo core y añade un carril Professional Relay separado. El
+profesional elegible y la Task opaca se derivan server-side desde el episodio,
+la asignación y RoleAssignment sintéticos vigentes. La confirmación revalida esas
+relaciones mediante un CAS PostgreSQL y vuelve a comprobar la autoridad antes del
+executor local; cambio o revocación concurrente produce cero ejecución. No se
+aceptan identificadores, taskRef, teléfono ni destinatario desde el navegador.
 
 C00 fue una inspección estática local del contrato de `@call-e/calle@0.6.0` y
 fuentes públicas. Sus resultados contractuales son `STATIC_PROVIDER_PROBE =
@@ -107,8 +114,9 @@ prompts como control. No se construye un motor de voz propio.
 ## Patient Relay y Professional Relay
 
 Son capacidades distintas y no equivalentes. C03 tipa sus dos parejas internas;
-C04 implementa únicamente un recorrido Patient Relay sintético y no productivo.
-Professional Relay C05 permanece futuro y no implementado.
+C04 implementa Patient Relay y C05 implementa Professional Relay como recorridos
+separados, sintéticos y no productivos. Ninguno constituye telefonía o evidencia
+de conversación, identidad verbal, proveedor o voz.
 
 | Dimensión | Patient Relay | Professional Relay |
 | --- | --- | --- |
@@ -189,6 +197,30 @@ vez. El executor no contiene transporte de proveedor y declara
 resultado observado de una interacción. Esto es evidencia técnica
 `IMPLEMENTED_UNVALIDATED`; comportamiento de voz/proveedor y contención real
 permanecen `NOT_TESTED`.
+
+## Professional Relay C05 sintético y tipado
+
+C05 implementa el recorrido `preview sin red → confirmación one-use → fixture
+sintético predeterminado → persistencia normalizada → revisión humana`. Solo la
+enfermera responsable sintética puede iniciarlo y el servidor deriva un único
+profesional elegible de la Task abierta asignada y de los RoleAssignment activos.
+La UI y las rutas no aceptan ni transmiten `userId`, `professionalId`,
+`targetRef`, `taskRef`, teléfono o destinatario operativo.
+
+El contrato `synthetic-professional-relay-v1` declara agente IA, exige verificar
+al profesional previsto, prohíbe divulgar ante `wrong_recipient`, formula una
+única pregunta administrativa y cierra limpiamente. El resultado es un objeto
+cerrado de cinco enums: `identity_status`, `contact_status`, `acknowledged`,
+`availability_to_review` y `boundary_event`; campos adicionales, null, arrays,
+tipos o enums desconocidos quedan inválidos y pendientes de revisión humana.
+Estas instrucciones y el fixture no demuestran que existiera conversación,
+verificación verbal, divulgación, respuesta del agente o comportamiento real.
+
+`acknowledged=yes` no acepta una GAS Task; `availability_to_review=yes` no crea
+assignment; `taskCompleted` técnico no resuelve la Task; `HUMAN_REVIEWED` no es
+aprobación clínica. Tests de aplicación y persistencia prueban que Task y
+RoleAssignment permanecen invariantes. El executor es local y sin transporte;
+voz, proveedor, contención y divulgación live permanecen `NOT_TESTED`.
 
 ## Gates humanos y ciclo live futuro
 
@@ -374,10 +406,11 @@ errores sanitizados, red bloqueada y superficies prohibidas ausentes. Son
 controles `IMPLEMENTED_UNVALIDATED`: no prueban proveedor live, número de intentos
 físicos, contención de voz, autorización de destinatario, eficacia clínica ni
 operación. C03 prueba preview, confirmación one-use, revalidación, lifecycle y
-persistencia minimizada del core interno, pero no implementa la fuente real de
-autoridad, Patient/Professional Relay completos, contención de voz, policy
-productiva ni ningún entrypoint. Esos elementos quedan para decisiones y fases
-separadas.
+persistencia minimizada del core interno; C04/C05 prueban dos recorridos locales
+separados con fixture predeterminado, sin red, y conservan invariantes de Task y
+RoleAssignment. No implementan fuente real de autoridad, contención de voz,
+policy productiva ni entrypoint live. Esos elementos quedan para decisiones y
+fases separadas.
 
 ## Claim máximo permitido
 
@@ -391,8 +424,13 @@ separadas.
 > destinos y transporte sintéticos. La resolución productiva de destinatario
 > permanece deny-all y no existen relays completos ni entrypoint.
 
+> C04 y C05 implementan recorridos Patient Relay y Professional Relay separados,
+> locales y completamente sintéticos, con fixture predeterminado y revisión
+> humana. No ejecutan llamadas, conversación, voz o proveedor; no asignan ni
+> resuelven Task y no autorizan uso real.
+
 `CALL_E_RUNTIME = IMPLEMENTED_DISABLED`, `LIVE_ENTRYPOINT = ABSENT`,
 `LIVE_CALLS = NOT_EXECUTED`,
 `REAL_CLINICAL_PILOT = NO_GO`, `REAL_DATA_PRODUCTION = NO_GO` y
-`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C03 se limita a rama y
-Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C04/C05/C10.
+`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C05 se limita a rama y
+Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C06/C10.
