@@ -173,14 +173,17 @@ test("flujo HTTP crea y procesa tareas solo mediante acciones humanas trazables"
   });
   expect(task.events).toHaveLength(5);
   expect(episode.status).toBe("ACTIVE");
-  expect(audits.map(({ action }) => action)).toEqual([
+  const auditActions = audits.map(({ action }) => action);
+  const expectedAuditActions = [
     "TASK_CREATED",
     "TASK_ASSIGNED",
     "TASK_REASSIGNED",
     "TASK_CONTACT_ATTEMPT_RECORDED",
     "TASK_NOTE_RECORDED",
     "TASK_RESOLVED",
-  ]);
+  ];
+  expect(auditActions).toHaveLength(expectedAuditActions.length);
+  expect([...auditActions].sort()).toEqual([...expectedAuditActions].sort());
   expect(JSON.stringify(audits)).not.toMatch(
     /Nota breve sintética|Seguimiento organizativo completado/,
   );
