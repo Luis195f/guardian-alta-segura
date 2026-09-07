@@ -14,6 +14,17 @@ export type RelayLifecycleState =
 
 export type RelayTechnicalDisposition = "COMPLETED" | "FAILED" | "CANCELED" | "UNCERTAIN";
 
+export type RelayGovernanceOutcome =
+  | "CALL_NOT_ATTEMPTED"
+  | "CHANNEL_UNAVAILABLE"
+  | "UNKNOWN_PENDING_RECONCILIATION"
+  | "CONFIRMATION_CONFLICT"
+  | "PROVIDER_POLICY_REFUSAL"
+  | "CALL_NOT_READY"
+  | "RESULT_SCHEMA_VIOLATION"
+  | "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW"
+  | "UNKNOWN_PROVIDER_ERROR";
+
 export const RELAY_COST_NOTICE =
   "La ejecución puede consumir crédito y generar coste; este preview no consulta ni afirma saldo o precio actual.";
 
@@ -56,7 +67,9 @@ export function isValidRelayTransition(
 ): boolean {
   if (fromState === null) return toState === "PREVIEWED";
   if (fromState === "PREVIEWED") return toState === "CONFIRMED";
-  if (fromState === "CONFIRMED") return toState === "PROVIDER_CREATED";
+  if (fromState === "CONFIRMED") {
+    return toState === "PROVIDER_CREATED" || toState === "RESULT_UNCERTAIN";
+  }
   if (fromState === "PROVIDER_CREATED") return isRelayResultState(toState);
   if (isRelayResultState(fromState)) return toState === "HUMAN_REVIEWED";
   return false;

@@ -128,6 +128,10 @@ class MemoryAttemptStore implements RelayAttemptStore {
       lifecycleState: "PREVIEWED",
       attestationVersion: input.attestationVersion,
       revision: input.revision,
+      region: input.region,
+      locale: input.locale,
+      lineRegion: input.lineRegion,
+      governanceOutcome: null,
       resultValidity: null,
       technicalResult: null,
       expiresAt: input.expiresAt,
@@ -213,12 +217,13 @@ class MemoryAttemptStore implements RelayAttemptStore {
   async recordOutboundState(input: Parameters<RelayAttemptStore["recordOutboundState"]>[0]) {
     let current = this.records.get(input.attemptRef);
     if (!current) throw new Error("missing synthetic attempt");
-    if (!input.outboundIntent.providerRef) return current;
-    if (current.lifecycleState === "CONFIRMED") {
+    if (!input.outboundIntent.providerRef && !input.governedResult.terminal) return current;
+    if (current.lifecycleState === "CONFIRMED" && input.outboundIntent.providerRef) {
       current = {
         ...current,
         lifecycleState: "PROVIDER_CREATED",
         outboundCallIntentRef: input.outboundIntent.id,
+        governanceOutcome: input.governedResult.terminal ? null : input.governedResult.outcome,
         updatedAt: input.now,
       };
       if (input.syntheticExecution) {
@@ -234,18 +239,21 @@ class MemoryAttemptStore implements RelayAttemptStore {
         attemptRef: current.id,
       });
     }
-    const results = {
-      COMPLETED: "RESULT_COMPLETED",
-      FAILED: "RESULT_FAILED",
-      CANCELED: "RESULT_CANCELED",
-      UNCERTAIN: "RESULT_UNCERTAIN",
-    } as const;
-    if (current.lifecycleState === "PROVIDER_CREATED" && input.outboundIntent.state in results) {
+    if (
+      input.governedResult.terminal &&
+      (current.lifecycleState === "PROVIDER_CREATED" ||
+        (current.lifecycleState === "CONFIRMED" && !input.outboundIntent.providerRef))
+    ) {
+      const successfulProviderResult =
+        input.governedResult.outcome === "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW" ||
+        input.governedResult.outcome === "RESULT_SCHEMA_VIOLATION";
       current = {
         ...current,
-        lifecycleState: results[input.outboundIntent.state as keyof typeof results],
-        resultValidity: input.resultValidity,
-        technicalResult: input.technicalResult,
+        lifecycleState: successfulProviderResult ? "RESULT_COMPLETED" : "RESULT_UNCERTAIN",
+        outboundCallIntentRef: input.outboundIntent.id,
+        governanceOutcome: input.governedResult.outcome,
+        resultValidity: input.governedResult.resultValidity,
+        technicalResult: input.governedResult.technicalResult,
         updatedAt: input.now,
       };
       this.audits.push({
@@ -253,6 +261,12 @@ class MemoryAttemptStore implements RelayAttemptStore {
         actorRef: null,
         attemptRef: current.id,
       });
+    } else if (!input.governedResult.terminal && current.lifecycleState === "PROVIDER_CREATED") {
+      current = {
+        ...current,
+        governanceOutcome: input.governedResult.outcome,
+        updatedAt: input.now,
+      };
     }
     this.records.set(current.id, current);
     return current;
@@ -282,6 +296,7 @@ class MemoryAttemptStore implements RelayAttemptStore {
 function outboundIntent(
   idempotencyRef: string,
   state: OutboundCallIntentRecord["state"] = "COMPLETED",
+  overrides: Partial<OutboundCallIntentRecord> = {},
 ): OutboundCallIntentRecord {
   return {
     id: "outbound-intent-1",
@@ -298,6 +313,7 @@ function outboundIntent(
     providerAcceptedAt: FIXED_NOW,
     lastPolledAt: null,
     completedAt: state === "COMPLETED" ? FIXED_NOW : null,
+    ...overrides,
   };
 }
 
@@ -464,16 +480,23 @@ describe("Continuity Relay typed authority core", () => {
   it("keeps a synthetic provider-unavailable result technical and pending human review", async () => {
     const harness = createHarness();
     harness.outbound.execute = vi.fn(async (input) => ({
-      outboundIntent: outboundIntent(input.idempotencyRef, "FAILED"),
+      outboundIntent: outboundIntent(input.idempotencyRef, "FAILED", {
+        providerRef: null,
+        technicalStatus: "FAILED",
+        errorClass: "PROVIDER_UNAVAILABLE",
+        errorCode: "provider_unavailable",
+        providerAcceptedAt: null,
+      }),
       rawTechnicalResult: null,
       syntheticExecution: true,
     }));
     const prepared = await previewAndConfirmation(harness);
     await expect(prepared.service.confirm(prepared.confirmation)).resolves.toMatchObject({
-      lifecycleState: "RESULT_FAILED",
+      lifecycleState: "RESULT_UNCERTAIN",
     });
     expect(prepared.attempts.records.get("attempt-1")).toMatchObject({
-      lifecycleState: "RESULT_FAILED",
+      lifecycleState: "RESULT_UNCERTAIN",
+      governanceOutcome: "CHANNEL_UNAVAILABLE",
       resultValidity: "MISSING",
       technicalResult: null,
       reviewedAt: null,

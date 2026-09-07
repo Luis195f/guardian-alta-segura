@@ -63,6 +63,7 @@ export function patientRelayView(
     confirmationAvailable:
       attempt.lifecycleState === "PREVIEWED" && confirmationAvailable && !expired,
     lifecycleState: attempt.lifecycleState,
+    governanceOutcome: attempt.governanceOutcome,
     resultValidity: attempt.resultValidity,
     technicalResult: attempt.technicalResult,
     reviewedAt: attempt.reviewedAt?.toISOString() ?? null,

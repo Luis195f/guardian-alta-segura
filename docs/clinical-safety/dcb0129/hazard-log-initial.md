@@ -849,6 +849,24 @@ Evidencia ejecutable focal: `operational-continuity-cursor.test.ts`,
 `operational-continuity.integration.test.ts` y
 `tests/e2e/operational-continuity.spec.ts`. Todos los fixtures son sintéticos.
 
+## Evidencia técnica C06 añadida sin cierre de peligros
+
+C06 añade controles locales `IMPLEMENTED_UNVALIDATED`; no cambia estado,
+estimación, ownership ni aceptación de HAZ-GAS-021–038:
+
+| Peligro abierto | Evidencia técnica C06 | Límite que permanece |
+| --- | --- | --- |
+| HAZ-GAS-022 | Timeout posterior a `providerRef` conserva el intent y reconcilia con GET; tests prueban cero segundo create e idempotency conflict sin nueva key. | No demuestra exactamente un intento físico ni garantías del proveedor. |
+| HAZ-GAS-026 | Mapper por igualdad exacta separa no iniciado, canal indisponible, policy, conflicto, not-ready, schema y desconocido. | Códigos live, operación y recuperación institucional no probados. |
+| HAZ-GAS-029 | Relay/OutboundCall existentes almacenan solo referencias, enums, región/locale/Line Region y tiempos mínimos; columnas y objetos crudos prohibidos se prueban. | Retención, residencia y tratamiento externo permanecen pendientes. |
+| HAZ-GAS-030 | Todo terminal conserva review pendiente; resultado, confianza, acknowledged, availability y taskCompleted no mutan Task ni otra acción GAS. | Review no es aprobación clínica ni aceptación de riesgo. |
+| HAZ-GAS-031 | Schemas Patient/Professional separados, objetos cerrados y abstención ante null, extras, tipos, arrays o enums inválidos. | Calls 0.6.0 no expone `resultValidation`; validación live no existe. |
+| HAZ-GAS-037 | Pruebas usan fakes/executors locales; checker mantiene SDK, live entrypoint, webhooks, workers y red ausentes. | Configuración desplegada, proveedor, voz y tráfico real no probados. |
+
+DEC-019, GAP-DCB-025 y GAS2-R-021 siguen abiertos. Ningún control C06 se
+presenta como control clínicamente efectivo ni autoriza C07, live, piloto o
+producción.
+
 ## Acciones globales pendientes
 
 1. Designar y acreditar un CSO competente; revisar y aprobar formalmente el

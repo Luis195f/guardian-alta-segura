@@ -222,6 +222,39 @@ aprobación clínica. Tests de aplicación y persistencia prueban que Task y
 RoleAssignment permanecen invariantes. El executor es local y sin transporte;
 voz, proveedor, contención y divulgación live permanecen `NOT_TESTED`.
 
+## Gobernanza de errores y resultados C06
+
+C06 añade una única frontera determinista compartida por Patient Relay y
+Professional Relay. Usa coincidencia exacta, no texto parcial: códigos ausentes,
+malformados o no allowlisted quedan como `UNKNOWN_PROVIDER_ERROR`. Los códigos
+demostrados en C00 se normalizan así:
+
+| Resultado normalizado | Códigos exactos |
+| --- | --- |
+| `CALL_NOT_ATTEMPTED` | `unsupported_region`, `unsupported_language`, `invalid_phone`, `invalid_recipient`, `no_recipients`, `result_schema_invalid`, `recipient_result_schema_invalid` |
+| `CHANNEL_UNAVAILABLE` | `provider_unavailable`, `insufficient_balance`, `unauthorized`, `forbidden`, `rate_limit_exceeded`; timeout/conexión/transporte antes de `providerRef` |
+| `CONFIRMATION_CONFLICT` | `idempotency_conflict` |
+| `PROVIDER_POLICY_REFUSAL` | `recipient_blocked`, `policy_violation` |
+| `CALL_NOT_READY` | `call_not_ready`; no terminal y pendiente de GET |
+| `UNKNOWN_PENDING_RECONCILIATION` | timeout o incertidumbre después de persistir `providerRef`; conserva el mismo intent y solo usa GET |
+| `RESULT_SCHEMA_VIOLATION` | evento `call.result_validation_failed`, `structuredResult` nulo o schema estricto no conforme |
+| `RESULT_AVAILABLE_PENDING_HUMAN_REVIEW` | estado terminal y objeto estructurado válido para el Relay exacto |
+
+La evidencia C00 de Calls 0.6.0 no contiene propiedad `resultValidation`; por
+tanto C06 no inventa esa propiedad ni una regla de presencia. La divergencia
+respecto de un contrato que la presuponga queda explícita y fail-closed:
+`structuredResult` nulo, arrays, coerciones, tipos/enums incorrectos o propiedades
+adicionales producen abstención con campos unknown. `summary`, `evidence`,
+`completionConfidence`, transcript, metadata y `taskCompleted` no son fuentes.
+
+El ledger canónico se conserva: `OutboundCallIntent/Event` mantiene la referencia
+técnica e idempotencia; `RelayAttempt/Event` añade región/locale/Line Region,
+resultado normalizado y estado de revisión. No existe registro paralelo ni se
+persiste objeto crudo, teléfono, prompt, transcript, summary, evidence,
+completionConfidence o contenido clínico. Todo terminal queda en `RESULT_*`
+pendiente de revisión humana. La review no aprueba clínicamente, no acepta riesgo,
+no reasigna y no modifica Task, Safety Plan, Alert, tratamiento o episodio.
+
 ## Gates humanos y ciclo live futuro
 
 Los gates `DEVPOST_REGISTERED`, `CALL_E_ACCOUNT`, `EXTRA_CALLS_REQUEST` y
@@ -408,9 +441,11 @@ físicos, contención de voz, autorización de destinatario, eficacia clínica n
 operación. C03 prueba preview, confirmación one-use, revalidación, lifecycle y
 persistencia minimizada del core interno; C04/C05 prueban dos recorridos locales
 separados con fixture predeterminado, sin red, y conservan invariantes de Task y
-RoleAssignment. No implementan fuente real de autoridad, contención de voz,
-policy productiva ni entrypoint live. Esos elementos quedan para decisiones y
-fases separadas.
+RoleAssignment. C06 prueba normalización exacta, schemas separados,
+reconciliación por el mismo `providerRef`, transición terminal concurrente,
+revisión obligatoria y persistencia minimizada. No implementan fuente real de
+autoridad, contención de voz, policy productiva ni entrypoint live. Esos
+elementos quedan para decisiones y fases separadas.
 
 ## Claim máximo permitido
 
@@ -429,8 +464,12 @@ fases separadas.
 > humana. No ejecutan llamadas, conversación, voz o proveedor; no asignan ni
 > resuelven Task y no autorizan uso real.
 
+> C06 implementa gobernanza local de errores y resultados sobre esos límites:
+> mapeo exacto, validación estricta, reconciliación sin segundo create y revisión
+> humana obligatoria. No habilita el adapter ni aporta evidencia live.
+
 `CALL_E_RUNTIME = IMPLEMENTED_DISABLED`, `LIVE_ENTRYPOINT = ABSENT`,
 `LIVE_CALLS = NOT_EXECUTED`,
 `REAL_CLINICAL_PILOT = NO_GO`, `REAL_DATA_PRODUCTION = NO_GO` y
-`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C05 se limita a rama y
-Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C06/C10.
+`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C06 se limita a rama y
+Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C07/C10.

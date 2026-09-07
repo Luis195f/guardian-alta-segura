@@ -79,7 +79,7 @@ describe("CALL-E REST adapter", () => {
     expect(result).toEqual({
       providerRef: "synthetic-call-ref",
       status: "QUEUED",
-      structuredResult: "ABSTAINED",
+      structuredResult: null,
       providerCreatedAt: new Date("2026-08-29T10:00:00.000Z"),
       providerCompletedAt: null,
     });
@@ -140,18 +140,20 @@ describe("CALL-E REST adapter", () => {
       "structuredResult",
     ]);
     expect(JSON.stringify(result).includes("must be discarded")).toBe(false);
-    expect(result.structuredResult).toBe("ABSTAINED");
+    expect(result.structuredResult).toBeNull();
   });
 
-  it("treats a non-null unvalidated structured result and malformed bodies as invalid", async () => {
+  it("extracts only structured_result for downstream strict validation", async () => {
     const withUnvalidatedResult = adapter(async () =>
       Response.json(callResponse({ structured_result: { decision: true } })),
     ).client;
-    const malformed = adapter(async () => Response.json({ id: "synthetic-call-ref" })).client;
-    await expect(withUnvalidatedResult.get("synthetic-call-ref")).rejects.toMatchObject({
-      errorClass: "INVALID_RESPONSE",
-      errorCode: "invalid_response",
+    await expect(withUnvalidatedResult.get("synthetic-call-ref")).resolves.toMatchObject({
+      structuredResult: { decision: true },
     });
+  });
+
+  it("treats malformed provider envelopes as invalid", async () => {
+    const malformed = adapter(async () => Response.json({ id: "synthetic-call-ref" })).client;
     await expect(malformed.get("synthetic-call-ref")).rejects.toMatchObject({
       errorClass: "INVALID_RESPONSE",
     });
@@ -179,12 +181,20 @@ describe("CALL-E REST adapter", () => {
   });
 
   it.each([
-    [401, "unauthorized", "CONFIGURATION_AUTH", "authentication_failed"],
-    [429, "rate_limit_exceeded", "RATE_LIMIT", "rate_limited"],
+    [401, "unauthorized", "CONFIGURATION_AUTH", "unauthorized"],
+    [429, "rate_limit_exceeded", "RATE_LIMIT", "rate_limit_exceeded"],
     [402, "insufficient_balance", "BALANCE", "insufficient_balance"],
     [422, "unsupported_region", "REGION_LANGUAGE", "unsupported_region"],
+    [422, "unsupported_language", "REGION_LANGUAGE", "unsupported_language"],
     [422, "invalid_phone", "RECIPIENT_PHONE", "invalid_phone"],
+    [422, "invalid_recipient", "RECIPIENT_PHONE", "invalid_recipient"],
+    [422, "no_recipients", "RECIPIENT_PHONE", "no_recipients"],
+    [422, "result_schema_invalid", "RESULT_SCHEMA", "result_schema_invalid"],
+    [422, "recipient_result_schema_invalid", "RESULT_SCHEMA", "recipient_result_schema_invalid"],
     [409, "idempotency_conflict", "IDEMPOTENCY_CONFLICT", "idempotency_conflict"],
+    [409, "recipient_blocked", "POLICY_REFUSAL", "recipient_blocked"],
+    [422, "policy_violation", "POLICY_REFUSAL", "policy_violation"],
+    [409, "call_not_ready", "CALL_NOT_READY", "call_not_ready"],
     [503, "provider_unavailable", "PROVIDER_UNAVAILABLE", "provider_unavailable"],
   ])(
     "sanitizes provider errors without retaining messages",
@@ -202,6 +212,17 @@ describe("CALL-E REST adapter", () => {
       expect(JSON.stringify(log.mock.calls).includes(rawMessage)).toBe(false);
     },
   );
+
+  it("keeps unknown provider codes unknown without status-based invention", async () => {
+    const { client } = adapter(async () =>
+      Response.json({ error: { code: "idempotency_conflict_later" } }, { status: 409 }),
+    );
+    await expect(client.create(input())).rejects.toMatchObject({
+      errorClass: "UNKNOWN",
+      errorCode: "unknown_error",
+      uncertain: true,
+    });
+  });
 
   it("classifies an uncertain connection without logging request data", async () => {
     const { client, log } = adapter(async () => {

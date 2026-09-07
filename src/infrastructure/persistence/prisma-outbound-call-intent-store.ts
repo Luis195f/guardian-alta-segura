@@ -233,7 +233,12 @@ export class PrismaOutboundCallIntentStore implements OutboundCallIntentStore {
         select: intentSelect,
       });
       if (isTerminalState(current.state as OutboundCallIntentState)) return toIntent(current);
-      const nextState: OutboundCallIntentState = input.error.uncertain ? "UNCERTAIN" : "FAILED";
+      const callNotReady = input.error.errorClass === "CALL_NOT_READY" && current.providerRef;
+      const nextState: OutboundCallIntentState = callNotReady
+        ? "POLLING"
+        : input.error.uncertain
+          ? "UNCERTAIN"
+          : "FAILED";
       const updated = await transaction.outboundCallIntent.updateMany({
         where: { id: input.intentId, state: current.state },
         data: {
@@ -242,7 +247,7 @@ export class PrismaOutboundCallIntentStore implements OutboundCallIntentStore {
           errorClass: input.error.errorClass,
           errorCode: input.error.errorCode,
           updatedAt: input.now,
-          completedAt: input.error.uncertain ? null : input.now,
+          completedAt: input.error.uncertain || callNotReady ? null : input.now,
         },
       });
       if (updated.count !== 1) {

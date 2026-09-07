@@ -72,6 +72,7 @@ export function professionalRelayView(
     confirmationAvailable:
       attempt.lifecycleState === "PREVIEWED" && confirmationAvailable && !expired,
     lifecycleState: attempt.lifecycleState,
+    governanceOutcome: attempt.governanceOutcome,
     resultValidity: attempt.resultValidity,
     technicalResult,
     reviewedAt: attempt.reviewedAt?.toISOString() ?? null,

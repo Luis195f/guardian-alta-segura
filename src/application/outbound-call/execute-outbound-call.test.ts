@@ -125,9 +125,10 @@ class MemoryStore implements OutboundCallIntentStore {
   async recordError(input: Parameters<OutboundCallIntentStore["recordError"]>[0]) {
     this.order.push("error-persisted");
     if (!this.record) throw new Error("missing intent");
+    const callNotReady = input.error.errorClass === "CALL_NOT_READY" && this.record.providerRef;
     this.record = {
       ...this.record,
-      state: input.error.uncertain ? "UNCERTAIN" : "FAILED",
+      state: callNotReady ? "POLLING" : input.error.uncertain ? "UNCERTAIN" : "FAILED",
       reconciliationState: input.reconciliationState,
       errorClass: input.error.errorClass,
       errorCode: input.error.errorCode,
@@ -218,6 +219,59 @@ describe("outbound call idempotent execution", () => {
     expect(result.reconciliationState).toBe("RECONCILED");
     expect(provider.create).toHaveBeenCalledTimes(1);
     expect(provider.get).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps call_not_ready polling the same providerRef without another POST", async () => {
+    const store = new MemoryStore();
+    const notReady = new OutboundCallProviderError({
+      errorClass: "CALL_NOT_READY",
+      errorCode: "call_not_ready",
+      uncertain: true,
+    });
+    const provider: OutboundCallProvider = {
+      create: vi.fn(async () => snapshot("QUEUED")),
+      get: vi.fn(async () => {
+        throw notReady;
+      }),
+    };
+    const executor = service(provider, store);
+    const first = await executor.execute(request());
+    const replay = await executor.execute(request());
+    expect(first).toMatchObject({
+      state: "POLLING",
+      providerRef: "synthetic-provider-ref",
+      errorClass: "CALL_NOT_READY",
+      errorCode: "call_not_ready",
+      reconciliationState: "PENDING",
+    });
+    expect(replay.state).toBe("POLLING");
+    expect(provider.create).toHaveBeenCalledTimes(1);
+    expect(provider.get).toHaveBeenCalledTimes(6);
+  });
+
+  it("does not regenerate idempotency after provider idempotency_conflict", async () => {
+    const store = new MemoryStore();
+    const provider: OutboundCallProvider = {
+      create: vi.fn(async () => {
+        throw new OutboundCallProviderError({
+          errorClass: "IDEMPOTENCY_CONFLICT",
+          errorCode: "idempotency_conflict",
+          uncertain: false,
+        });
+      }),
+      get: vi.fn(),
+    };
+    const executor = service(provider, store);
+    const first = await executor.execute(request());
+    const replay = await executor.execute(request());
+    expect(first).toMatchObject({
+      state: "FAILED",
+      errorClass: "IDEMPOTENCY_CONFLICT",
+      errorCode: "idempotency_conflict",
+    });
+    expect(replay.idempotencyRef).toBe(request().idempotencyRef);
+    expect(provider.create).toHaveBeenCalledTimes(1);
+    expect(provider.get).not.toHaveBeenCalled();
   });
 
   it("does not retry POST after uncertain create or providerRef persistence failure", async () => {

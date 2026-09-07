@@ -23,8 +23,7 @@ import {
   type RelayPurpose,
   type RelayRecipientKind,
 } from "@/domain/relay/continuity-relay";
-import { parsePatientRelayTechnicalResult } from "@/domain/relay/patient-relay-contract";
-import { parseProfessionalRelayTechnicalResult } from "@/domain/relay/professional-relay-contract";
+import { normalizeRelayResult } from "@/application/relay/result-governance";
 
 const RECIPIENT_KINDS: readonly RelayRecipientKind[] = ["PATIENT", "PROFESSIONAL"];
 const PURPOSES: readonly RelayPurpose[] = ["PATIENT_CALLBACK_OFFER", "PROFESSIONAL_REVIEW_REQUEST"];
@@ -193,12 +192,6 @@ function binding(input: {
   };
 }
 
-function parseTechnicalResult(purpose: RelayPurpose, value: unknown) {
-  return purpose === "PATIENT_CALLBACK_OFFER"
-    ? parsePatientRelayTechnicalResult(value)
-    : parseProfessionalRelayTechnicalResult(value);
-}
-
 export class ContinuityRelayService {
   constructor(
     private readonly actors: RelayActorContext,
@@ -275,6 +268,9 @@ export class ContinuityRelayService {
       idempotencyRef: this.secrets.issueIdempotencyRef(),
       attestationVersion: attestation.version,
       revision: authority.revision,
+      region: authority.region,
+      locale: authority.locale,
+      lineRegion: authority.lineRegion,
       expiresAt,
       createdAt: issuedAt,
       correlationId: input.correlationId,
@@ -479,17 +475,16 @@ export class ContinuityRelayService {
       ],
       idempotencyRef: consumed.idempotencyRef,
     });
-    const technicalResult = parseTechnicalResult(input.purpose, execution.rawTechnicalResult);
-    const resultValidity = technicalResult
-      ? "VALID"
-      : execution.rawTechnicalResult === null || execution.rawTechnicalResult === undefined
-        ? "MISSING"
-        : "INVALID";
+    const governedResult = normalizeRelayResult({
+      purpose: input.purpose,
+      intent: execution.outboundIntent,
+      structuredResult: execution.rawTechnicalResult,
+      providerEventType: execution.providerEventType,
+    });
     const recorded = await this.attempts.recordOutboundState({
       attemptRef: attempt.id,
       outboundIntent: execution.outboundIntent,
-      resultValidity,
-      technicalResult,
+      governedResult,
       syntheticExecution: execution.syntheticExecution,
       now: this.now(),
       correlationId: input.correlationId,
