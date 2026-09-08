@@ -738,6 +738,80 @@ aislado con PASS y después se obtuvieron las tres ejecuciones limpias anteriore
 DEC-019, GAP-DCB-025, GAS2-R-021 y HAZ-GAS-021–038 permanecen abiertos, sin
 aceptación residual.
 
+<a id="call-e-c08--live-proof-blocked"></a>
+
+## CALL-E C08 — reconocimiento actual y live proof bloqueada
+
+Corte read-only: `2026-09-08T13:15:00.991Z`. Base, HEAD inicial y
+`origin/main` anclados en `219fe413afbff6947ad863967a3697a249ad1b6a`, árbol
+`b0b8c20ed1528f47577cdb3f5a8434f8d7cd9d6d`; PR C07 #57 `MERGED` con ese
+`mergeCommit` y run 34227147596/job verify 102063940225
+`completed/success` para el mismo SHA. La rama C08 partió limpia, sin commits,
+stage, upstream ni rama remota.
+
+### Fuentes oficiales actuales
+
+| Fuente consultada | Evidencia observada | Límite aplicado |
+| --- | --- | --- |
+| [Authentication](https://docs.heycall-e.com/authentication) | API keys de proyecto server-to-server; Bearer; comprobación read-only sugerida `GET /v1/goals?limit=1`; 200 acredita la petición y 403 puede indicar falta de proyecto/capacidad/región/operación | No había `CALLE_API_KEY`; no se hizo petición y cuenta/capacidad siguen no verificadas |
+| [Calls guide](https://docs.heycall-e.com/calls) y [Calls reference](https://docs.heycall-e.com/api-reference/calls) | `POST /v1/calls`, `GET /v1/calls/{call_id}`, `Idempotency-Key` estable y ausencia de operación cliente de cancelación | C08 no crea, consulta ni cancela Calls; país listado no equivale a autorización |
+| [Goals reference](https://docs.heycall-e.com/api-reference/goals) y [Goal Runs guide](https://docs.heycall-e.com/goal-runs) | `GET /v1/goals` y `GET /v1/goals/{goal_id}` son owner-scoped; publicación de Goal no es operación Developer API | Goals/Goal Runs quedan fuera del runtime C08 y no se creó recurso alguno |
+| [Supported Regions and Languages](https://github.com/CALLE-AI/call-e-integrations#-supported-regions-and-languages) | España `ES`, `+34`, inglés/español, Line Region `International`; la nota define International como principalmente para pruebas | Observación mutable y read-only; no acredita cuenta, carrier, KYC, presupuesto, destino autorizado o llamada |
+| [CALL-E FAQ](https://www.heycall-e.com/#faq) | Outbound puede requerir KYC antes de activación y controles adicionales según región/carrier | KYC y capacidad de esta cuenta no verificados |
+| [Terms of Service](https://www.heycall-e.com/terms-of-service/) | El usuario debe asegurar autorización, consentimiento/notices, revisión de outputs y tratamiento lícito; datos regulados/sensibles requieren autorización escrita y salvaguardas adicionales | No es validación jurídica; C08 prohíbe PHI/PII clínica y mantiene piloto/producción NO_GO |
+
+La consulta no convierte fuentes mutables en configuración productiva. La
+superficie REST C02 continúa limitada al adapter existente; la documentación
+actual más amplia no autoriza batch, webhook, Goals, Goal Runs o SDK en GAS.
+`SDK_LICENSE = UNRESOLVED`; `SDK_DEPENDENCY = ABSENT`.
+
+### Gates, ledger y evidencia negativa
+
+| Gate o evidencia C08 | Estado observado | Consecuencia |
+| --- | --- | --- |
+| `CALLE_API_KEY` | `ABSENT`, comprobación de presencia únicamente; valor nunca leído ni expuesto | `CALL_E_ACCOUNT_CAPABILITY = NOT_VERIFIED`; GET read-only no ejecutado |
+| Cuenta operativa, capacidad, KYC | `NOT_VERIFIED` | No contacto con CALL-E |
+| Región/idioma/línea publicados | `ES / +34 / es,en / International`, observado en fuente oficial | Solo aptitud regional publicada para pruebas; no autorización operativa |
+| Destino y permiso del titular | `BLOCKED`; no existe attestation local segura | `SUPPORTED_AUTHORIZED_NUMBER = BLOCKED` |
+| Identidad/rol del tester, consentimiento IA, ventana, recording notice | `NOT_ATTESTED` | No dry-run ni llamada |
+| PHI/PII clínica o pacientes reales | `PROHIBITED`; no se recibió ni persistió contenido | `RAW_CONTENT_PERSISTED = 0` |
+| Presupuesto C08 | máximo global aprobado por instrucción: 4; capacidad/saldo no verificados; consumidas 0 | Ledger `0/4`; no se reserva ni consume llamada |
+| Confirmación humana inmediatamente anterior | No solicitada: los gates previos fallaron | Confirmaciones recibidas 0; ninguna ejecución posible |
+
+No hubo payload, teléfono completo, providerRef, prompt, audio, transcript,
+summary, datos personales o contenido clínico que persistir o publicar. No se
+creó evidencia local protegida de providerRef porque nunca existió. Dry-run,
+Patient, Professional y contención live son `NOT_EXECUTED`.
+
+### Validación local C08
+
+La validación usó PostgreSQL `16.14` efímero, aislado en loopback y tmpfs, puerto
+`55438`. CI y E2E conservaron `CALL_E_REST_ENABLED=false`; no hubo red real de
+CALL-E ni modificación de P15.
+
+| Comando o evidencia | Resultado | Exit | Alcance o limitación |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; 409 paquetes reutilizados, descargas 0, lockfile intacto | 0 | Grafo existente; el primer intento quedó bloqueado por permisos de Corepack y pasó sin cambios en contexto permitido |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.0 | 0 | Sin cambio de schema o migración |
+| Base PostgreSQL 16 vacía, deploy, seed, status y drift | PASS; 20/20 migraciones, seed correcto, schema al día, drift 0 | 0 | El primer intento de drift usó la opción no soportada `--to-schema`; el rerun correcto con `--to-schema-datamodel` pasó |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck` | PASS | 0 | Documentación, análisis estático y TypeScript |
+| `pnpm test` | PASS; 556 unitarias + 120 integración + 35 tooling = 711/711 | 0 | Solo fakes y fixtures sintéticos; el primer intento de integración omitió `DATABASE_URL`, y el rerun con la DSN C08 aislada pasó sin cambio de producto |
+| `pnpm test:tooling` | PASS; 35/35 | 0 | Invocación separada requerida |
+| `pnpm traceability:check` | PASS; 14 requisitos, 44 claims, drift Markdown/CSV 0 | 0 | Taxonomía y referencias del repositorio |
+| Governance checker | PASS; 44 claims y referencias locales resueltas | 0 | No acredita verdad externa o autorización live |
+| `pnpm calle:boundary:check` | PASS; SDK ausente y REST server-only | 0 | Sin entrypoint live, ingress, webhook, Goals, batch ni ampliación de superficie |
+| `pnpm build` | PASS; 18/18 páginas estáticas | 0 | Build local, no despliegue |
+| `pnpm test:e2e`, 1 worker, 0 retries | PASS final; 83/83 en base C08 nueva | 0 | Primera pasada 82/83 por fallo heredado de hidratación; el caso focal pasó 1/1 y el rerun completo desde otra base vacía pasó 83/83; no se ocultó ni cambió el test |
+| `pnpm audit --prod --json` | EXPECTED NONZERO; 8 high + 2 moderate, critical 0, atribuibles a C08 = 0 | 1 | Advisories heredados; manifest y lockfile sin cambios |
+| `git diff --check` y escaneos del delta | PASS; E.164 0, emails 0, DNI 0, NIE 0, asignaciones de secretos 0; `.env` ausente | 0 | `gitleaks` no estaba disponible; no existió dato live que escanear |
+| Limpieza aislada | PASS; contenedor C08 autoremove ausente y puerto 55438 libre | 0 | Las bases sintéticas tmpfs se eliminaron por diseño; contenedor y volumen P15 preservados |
+
+Resultado documental: `LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION`, con el
+bloqueo adicional independiente `CALL_E_ACCOUNT_CAPABILITY = NOT_VERIFIED` por
+ausencia de key. `CALL_E_RUNTIME_PROOF = NOT_EVIDENCED` y
+`NO_FAKE_LIVE_CLAIM = PASS`. DEC-019, GAP-DCB-025, GAS2-R-021 y
+HAZ-GAS-021–038 permanecen abiertos; no se acepta riesgo residual.
+
 ## Executed baseline evidence
 
 ### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents
