@@ -60,10 +60,34 @@ class FixedRelayActorContext implements RelayActorContext {
 
 function actingRole(
   actor: AuthenticatedPrincipal,
+  persistedActor: {
+    readonly id: string;
+    readonly isActive: boolean;
+    readonly isSynthetic: boolean;
+    readonly roleAssignments: readonly { readonly role: string }[];
+  },
   episode: { readonly responsibleNurseId: string; readonly responsibleClinicianId: string },
 ): "nurse" | "clinician" | null {
-  if (episode.responsibleNurseId === actor.userId && actor.roles.includes("nurse")) return "nurse";
-  if (episode.responsibleClinicianId === actor.userId && actor.roles.includes("clinician")) {
+  if (
+    persistedActor.id !== actor.userId ||
+    !persistedActor.isActive ||
+    !persistedActor.isSynthetic
+  ) {
+    return null;
+  }
+  const activeRoles = persistedActor.roleAssignments.map(({ role }) => role);
+  if (
+    episode.responsibleNurseId === actor.userId &&
+    actor.roles.includes("nurse") &&
+    activeRoles.includes("nurse")
+  ) {
+    return "nurse";
+  }
+  if (
+    episode.responsibleClinicianId === actor.userId &&
+    actor.roles.includes("clinician") &&
+    activeRoles.includes("clinician")
+  ) {
     return "clinician";
   }
   return null;
@@ -82,36 +106,53 @@ export class SyntheticDemoPatientRelayAuthority implements RelayAuthorityResolve
     ) {
       return null;
     }
-    const episode = await prisma.dischargeEpisode.findUnique({
-      where: { id: input.context.episodeRef },
-      select: {
-        id: true,
-        version: true,
-        status: true,
-        responsibleNurseId: true,
-        responsibleClinicianId: true,
-        patient: {
-          select: {
-            id: true,
-            externalPseudonymousId: true,
-            isSynthetic: true,
-            identityVerificationState: true,
-            identityVerificationPolicyVersionId: true,
+    const [persistedActor, episode] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: input.actor.userId },
+        select: {
+          id: true,
+          isActive: true,
+          isSynthetic: true,
+          roleAssignments: {
+            where: { role: { in: ["nurse", "clinician"] }, revokedAt: null },
+            select: { role: true },
           },
         },
-      },
-    });
+      }),
+      prisma.dischargeEpisode.findUnique({
+        where: { id: input.context.episodeRef },
+        select: {
+          id: true,
+          version: true,
+          status: true,
+          responsibleNurseId: true,
+          responsibleClinicianId: true,
+          patient: {
+            select: {
+              id: true,
+              externalPseudonymousId: true,
+              isSynthetic: true,
+              identityVerificationState: true,
+              identityVerificationPolicyVersionId: true,
+              identityVerifiedAt: true,
+            },
+          },
+        },
+      }),
+    ]);
     if (
+      !persistedActor ||
       !episode ||
       episode.status !== "ACTIVE" ||
       !episode.patient.isSynthetic ||
       episode.patient.externalPseudonymousId !== SYNTHETIC_PATIENT_PSEUDONYM ||
       episode.patient.identityVerificationState !== "VERIFIED" ||
-      !episode.patient.identityVerificationPolicyVersionId
+      !episode.patient.identityVerificationPolicyVersionId ||
+      !episode.patient.identityVerifiedAt
     ) {
       return null;
     }
-    const role = actingRole(input.actor, episode);
+    const role = actingRole(input.actor, persistedActor, episode);
     if (!role) return null;
     return {
       actingRole: role,
@@ -140,27 +181,48 @@ export class SyntheticDemoPatientRelayAuthority implements RelayAuthorityResolve
     ) {
       return null;
     }
-    const episode = await prisma.dischargeEpisode.findUnique({
-      where: { id: input.attempt.episodeRef },
-      select: {
-        status: true,
-        responsibleNurseId: true,
-        responsibleClinicianId: true,
-        patient: {
-          select: { id: true, isSynthetic: true, identityVerificationState: true },
+    const [persistedActor, episode] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: input.actor.userId },
+        select: {
+          id: true,
+          isActive: true,
+          isSynthetic: true,
+          roleAssignments: {
+            where: { role: { in: ["nurse", "clinician"] }, revokedAt: null },
+            select: { role: true },
+          },
         },
-      },
-    });
+      }),
+      prisma.dischargeEpisode.findUnique({
+        where: { id: input.attempt.episodeRef },
+        select: {
+          status: true,
+          responsibleNurseId: true,
+          responsibleClinicianId: true,
+          patient: {
+            select: {
+              id: true,
+              isSynthetic: true,
+              identityVerificationState: true,
+              identityVerifiedAt: true,
+            },
+          },
+        },
+      }),
+    ]);
     if (
+      !persistedActor ||
       !episode ||
       episode.status !== "ACTIVE" ||
       !episode.patient.isSynthetic ||
       episode.patient.identityVerificationState !== "VERIFIED" ||
+      !episode.patient.identityVerifiedAt ||
       episode.patient.id !== input.attempt.targetRef
     ) {
       return null;
     }
-    return actingRole(input.actor, episode);
+    return actingRole(input.actor, persistedActor, episode);
   }
 }
 

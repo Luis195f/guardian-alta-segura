@@ -67,6 +67,20 @@ test("rejects prohibited provider surfaces and a presentation entrypoint", (t) =
   assert.match(result.stderr, /Live CALL-E entrypoint/u);
 });
 
+test("rejects disguised CALL-E webhook ingress paths and configuration", (t) => {
+  const root = fixture(t);
+  const route = path.join(root, "src", "app", "api", "provider", "webhook", "route.ts");
+  mkdirSync(path.dirname(route), { recursive: true });
+  writeFileSync(route, "export function POST() { return new Response(null, { status: 204 }); }\n");
+  const config = path.join(root, "src", "infrastructure", "config", "provider-ingress.ts");
+  mkdirSync(path.dirname(config), { recursive: true });
+  writeFileSync(config, `export const ${"CALL_E_WEBHOOK_SECRET"} = "disabled";\n`);
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /ingress route/u);
+  assert.match(result.stderr, /ingress configuration/u);
+});
+
 test("rejects any extra route hidden under the synthetic Patient Relay namespace", (t) => {
   const root = fixture(t);
   const route = path.join(

@@ -309,6 +309,45 @@ describe("outbound call idempotent execution", () => {
     expect(acceptedProvider.get).not.toHaveBeenCalled();
   });
 
+  it("does not recreate after a provider accepted create followed by a local timeout", async () => {
+    const store = new MemoryStore();
+    let acceptedCreates = 0;
+    const provider: OutboundCallProvider = {
+      create: vi.fn(async () => {
+        acceptedCreates += 1;
+        throw new OutboundCallProviderError({
+          errorClass: "TIMEOUT",
+          errorCode: "request_timeout",
+          uncertain: true,
+        });
+      }),
+      get: vi.fn(),
+    };
+    const executor = service(provider, store);
+    const confirmations = await Promise.all([
+      executor.execute(request()),
+      executor.execute(request()),
+      executor.execute(request()),
+    ]);
+    expect(confirmations.map(({ state }) => state).sort()).toEqual([
+      "POSTING",
+      "POSTING",
+      "UNCERTAIN",
+    ]);
+    expect(acceptedCreates).toBe(1);
+    expect(provider.create).toHaveBeenCalledTimes(1);
+    expect(provider.get).not.toHaveBeenCalled();
+
+    const replay = await executor.execute(request());
+    expect(replay).toMatchObject({
+      state: "UNCERTAIN",
+      errorClass: "TIMEOUT",
+      errorCode: "request_timeout",
+      providerRef: null,
+    });
+    expect(acceptedCreates).toBe(1);
+  });
+
   it("returns identical replay without another POST and conflicts on another fingerprint", async () => {
     const store = new MemoryStore();
     const provider: OutboundCallProvider = {

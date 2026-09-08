@@ -3,9 +3,10 @@
 - Estado: `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`.
 - Fecha: 2026-08-27; pivot REST C02 autorizado el 2026-08-29.
 - Alcance: C01 documental, adapter REST técnico C02, core interno C03, Patient
-  Relay C04 y Professional Relay C05 exclusivamente locales, deterministas y
-  sintéticos; solo permite revisión técnica y publicación como Draft PR, sin autorizar C06, C10,
-  llamadas, Ready/merge, piloto ni producción.
+  Relay C04, Professional Relay C05, gobernanza C06 y pruebas adversariales C07
+  exclusivamente locales, deterministas y sintéticas; solo permite revisión
+  técnica y publicación como Draft PR, sin autorizar C08, C10, llamadas,
+  Ready/merge, piloto ni producción.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
 - Prerrequisito: `C00_PREREQUISITE = SATISFIED_BY_HUMAN_REVIEW` y
@@ -254,6 +255,43 @@ persiste objeto crudo, teléfono, prompt, transcript, summary, evidence,
 completionConfidence o contenido clínico. Todo terminal queda en `RESULT_*`
 pendiente de revisión humana. La review no aprueba clínicamente, no acepta riesgo,
 no reasigna y no modifica Task, Safety Plan, Alert, tratamiento o episodio.
+
+## Evidencia adversarial C07
+
+C07 no añade transporte ni comportamiento clínico. Convierte las invariantes
+C02–C06 en casos reproducibles de autorización negativa, cardinalidad cerrada,
+carreras, replay, reconciliación, minimización, contenido hostil y accesibilidad.
+Los tests ejercitan exclusivamente parsers, policy estática, fakes, PostgreSQL y
+los dos recorridos sintéticos locales. No simulan conversación, voz o conducta de
+un agente y no acreditan al proveedor.
+
+La prueba de revocación detectó que el Patient Relay volvía a validar la
+responsabilidad del episodio pero no consultaba de nuevo el `RoleAssignment`
+persistido dentro de su resolver. El hardening C07 exige ahora usuario sintético
+activo, rol persistido vigente e `identityVerifiedAt` en preview, confirmación,
+revalidación inmediatamente anterior al executor y review. Professional Relay
+conserva sus guardas relacionales y CAS sobre episodio, Task, revisiones y ambos
+RoleAssignment. Un episodio sintético distinto, un actor no responsable, una
+Task stale/reasignada, un fingerprint alterado o los roles patient, caregiver,
+support y admin producen cero executor/intent.
+
+El modelo no contiene una entidad institucional de unidad asistencial. C07
+demuestra aislamiento horizontal por episodio y responsables actuales; no lo
+rebautiza como aislamiento institucional por unidad ni cierra DEC-013/017. Los
+valores `ES`, `es-ES` y `SYNTHETIC_LOCAL_NO_PROVIDER` continúan siendo un fixture
+local, no una configuración de proveedor. La única fuente regional externa
+documentada sigue siendo la observación C00 fechada con
+`verifiedAt=2026-08-27T18:35:50.6934815+02:00`; no se reutiliza como allowlist
+actual ni como prueba de Line Region. Región no soportada se normaliza por código
+exacto y locale/región incompatibles se rechazan fail-closed.
+
+Los casos de prompt injection, destinatario incorrecto, preguntas de medicación
+o tratamiento, emergencia, intento de cambiar voz/policy, insistencia, contenido
+fuera de alcance y respuesta ambigua/inválida/no allowlisted solo prueban el
+contrato/parser local. El contenido libre no entra en el resultado normalizado;
+los estados admitidos son técnicos y requieren revisión humana. Axe se ejecuta
+sobre Patient Relay y Professional Relay para impactos `serious`/`critical`;
+esa evidencia focalizada no es una declaración de conformidad WCAG general.
 
 ## Gates humanos y ciclo live futuro
 
