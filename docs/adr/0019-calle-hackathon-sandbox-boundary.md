@@ -3,10 +3,10 @@
 - Estado: `IMPLEMENTED_DISABLED / REST_SANDBOX_ONLY / NO LIVE ENTRYPOINT`.
 - Fecha: 2026-08-27; pivot REST C02 autorizado el 2026-08-29.
 - Alcance: C01 documental, adapter REST técnico C02, core interno C03, Patient
-  Relay C04, Professional Relay C05, gobernanza C06 y pruebas adversariales C07
-  exclusivamente locales, deterministas y sintéticas; solo permite revisión
-  técnica y publicación como Draft PR, sin autorizar C08, C10, llamadas,
-  Ready/merge, piloto ni producción.
+  Relay C04, Professional Relay C05, gobernanza C06, pruebas adversariales C07
+  locales/sintéticas y reconocimiento read-only C08 bloqueado antes de live;
+  solo permite revisión técnica y publicación como Draft PR, sin habilitar una
+  ruta live, C10, llamadas, Ready/merge, piloto ni producción.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
 - Prerrequisito: `C00_PREREQUISITE = SATISFIED_BY_HUMAN_REVIEW` y
@@ -295,10 +295,18 @@ esa evidencia focalizada no es una declaración de conformidad WCAG general.
 
 ## Gates humanos y ciclo live futuro
 
-Los gates `DEVPOST_REGISTERED`, `CALL_E_ACCOUNT`, `EXTRA_CALLS_REQUEST` y
-`SUPPORTED_AUTHORIZED_NUMBER` están **NO VERIFICADOS**. No son afirmaciones
-personales sobre registro, cuenta, solicitud o titularidad. C01 no depende de
-un número, no lo solicita y no inspecciona secretos ni cuentas privadas.
+En el corte C08 `2026-09-08T13:15:00.991Z`, `CALLE_API_KEY` estaba ausente en
+la variable de entorno de sesión y no existía attestation de destino propio o
+explícitamente autorizado mediante mecanismo local seguro. La comprobación se
+limitó a presencia/ausencia y no imprimió, copió ni persistió secreto alguno.
+Por ello no se hizo siquiera el GET read-only de autenticación/capacidad, no se
+preparó dry-run, no se implementó entrypoint y no se contactó a CALL-E.
+
+`CALL_E_ACCOUNT` y capacidad permanecen **NO VERIFICADOS**;
+`SUPPORTED_AUTHORIZED_NUMBER` está **BLOCKED**. `DEVPOST_REGISTERED` y
+`EXTRA_CALLS_REQUEST` siguen **NO VERIFICADOS**. No son afirmaciones personales
+sobre registro, cuenta, solicitud o titularidad. El reconocimiento regional
+actual de ES no satisface por inferencia ninguno de esos gates.
 
 Una eventual llamada requiere separadamente cuenta, crédito, API key server-only,
 región soportada, número propio o autorizado, propósito sintético, preview,
@@ -323,6 +331,26 @@ transacción PostgreSQL: fallos entre aceptación y persistencia requieren
 reconciliación, no suponer rollback de la llamada.
 
 ## Decisiones técnicas derivadas de C00 y del OpenAPI REST C02
+
+### Reconocimiento oficial read-only C08
+
+Fuentes oficiales consultadas el `2026-09-08T13:15:00.991Z` confirman que la
+lista publicada incluye España `ES`, `+34`, inglés/español y Line Region
+`International`; la propia nota limita `International` principalmente a
+pruebas. La documentación vigente exige API key de proyecto server-to-server
+como Bearer, propone `GET /v1/goals?limit=1` para comprobar acceso y documenta
+`GET /v1/goals`, `GET /v1/goals/{goal_id}`, `POST /v1/calls` y
+`GET /v1/calls/{call_id}`. Un `403` puede representar falta de acceso a proyecto,
+capacidad, región u operación, pero C08 no obtuvo respuesta porque no había key.
+
+La página oficial indica además que outbound puede requerir KYC según región y
+carrier. Esto no acredita KYC, capacidad de la cuenta, autorización del destino,
+presupuesto o legalidad de una llamada concreta. Los términos asignan al usuario
+la responsabilidad de consentimiento, notices y revisión humana, y prohíben
+datos sensibles/regulados sin autorización escrita y salvaguardas adicionales.
+
+La licencia del SDK no se reevalúa: `SDK_LICENSE = UNRESOLVED` y
+`SDK_DEPENDENCY = ABSENT`. El REST C02 permanece intacto y desactivado.
 
 ### Versión y licencia
 
@@ -506,8 +534,13 @@ elementos quedan para decisiones y fases separadas.
 > mapeo exacto, validación estricta, reconciliación sin segundo create y revisión
 > humana obligatoria. No habilita el adapter ni aporta evidencia live.
 
+> C08 solo aporta evidencia documental fechada de reconocimiento oficial y de
+> bloqueo fail-closed: sin API key de sesión y sin destino autorizado atestado no
+> hubo comprobación autenticada, dry-run, entrypoint ni llamada. La región listada
+> no acredita autorización, capacidad, KYC, presupuesto o funcionamiento live.
+
 `CALL_E_RUNTIME = IMPLEMENTED_DISABLED`, `LIVE_ENTRYPOINT = ABSENT`,
 `LIVE_CALLS = NOT_EXECUTED`,
 `REAL_CLINICAL_PILOT = NO_GO`, `REAL_DATA_PRODUCTION = NO_GO` y
-`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C06 se limita a rama y
-Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C07/C10.
+`RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C08 se limita a rama y
+Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C09/C10.
