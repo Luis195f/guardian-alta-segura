@@ -88,12 +88,14 @@ seguridad clínica y CI verde no prueba eficacia, cumplimiento o readiness.
 
 ## Finalidad prevista separada
 
-### Excepción C01/C02/C03/C04/C05 del hackathon — 2026-08-27 a 2026-09-03
+### Excepción C01/C02/C03/C04/C05/C06 del hackathon — 2026-08-27 a 2026-09-07
 
 [ADR-0019](adr/0019-calle-hackathon-sandbox-boundary.md) documenta la frontera
 y C02 implementa un adapter REST técnico desactivado. C03 añade el core interno
 tipado de Continuity Relay. C04 y C05 añaden entrypoints separados Patient Relay
-y Professional Relay exclusivamente locales, deterministas y sintéticos, sin conectar el adapter REST, sin modificar la
+y Professional Relay exclusivamente locales, deterministas y sintéticos. C06
+añade una frontera compartida de errores/resultados, schema estricto y
+reconciliación sin segundo create, sin conectar el adapter REST ni modificar la
 aceptación limitada de 5B ni el Gate B. La cadena es: core GAS sintético → sandbox técnico CALL-E para
 hackathon → demo pública sintética con `LIVE OFF` → futuro piloto clínico
 `NO_GO` → producción/datos reales `NO_GO`.
@@ -117,16 +119,20 @@ profesional y Task server-side, revalida assignment/scope/episodio/revisión y n
 interpreta acknowledged, disponibilidad o taskCompleted como aceptación,
 asignación o resolución. `HUMAN_REVIEWED`
 no es aprobación clínica ni cierra riesgo. Los
+resultados C06 válidos o inválidos permanecen pendientes de esa review; errores
+técnicos no se convierten en no respuesta y los campos unknown no se infieren de
+summary, evidence, confianza, transcript o metadata. Calls 0.6.0 no contiene
+`resultValidation`, divergencia que no se cubre con compatibilidad inventada. Los
 límites de irreversibilidad, minimización y decisiones pendientes están en
 ADR-0019; el aviso de no cancelación está presente en el preview C04 visible y
 las pruebas sintéticas no lo convierten en control live
 validado.
 
 La ampliación HAZ-GAS-021–038 y GAP-DCB-025 registra incertidumbre y distingue
-controles técnicos C02/C03/C04/C05 `IMPLEMENTED_UNVALIDATED` de controles todavía
+controles técnicos C02/C03/C04/C05/C06 `IMPLEMENTED_UNVALIDATED` de controles todavía
 `PLANNED`; no acredita controles clínicos efectivos. La publicación técnica de
-C05 se limita a revisión técnica y publicación como Draft PR; no se autoriza
-C06/C10, Ready/merge, piloto, producción ni aceptación de riesgo. El core clínico
+C06 se limita a revisión técnica y publicación como Draft PR; no se autoriza
+C07/C10, Ready/merge, piloto, producción ni aceptación de riesgo. El core clínico
 y sus requisitos no cambian.
 
 ### Guardián Core

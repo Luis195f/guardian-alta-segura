@@ -161,6 +161,16 @@ export class ExecuteOutboundCall {
         if (isTerminal(intent.state)) return intent;
       } catch (error) {
         const sanitized = sanitizeError(error);
+        if (sanitized.errorClass === "CALL_NOT_READY") {
+          intent = await this.store.recordError({
+            intentId: intent.id,
+            error: sanitized,
+            reconciliationState: "PENDING",
+            now: this.now(),
+          });
+          await this.delay(this.options.pollingIntervalMs);
+          continue;
+        }
         if (!sanitized.uncertain) {
           return this.store.recordError({
             intentId: intent.id,
@@ -194,11 +204,13 @@ export class ExecuteOutboundCall {
         reconciliationState: "RECONCILED",
         now: this.now(),
       });
-    } catch {
+    } catch (error) {
+      const sanitized = sanitizeError(error);
       return this.store.recordError({
         intentId: intent.id,
-        error: cause,
-        reconciliationState: "REVIEW_REQUIRED",
+        error: sanitized.errorClass === "CALL_NOT_READY" ? sanitized : cause,
+        reconciliationState:
+          sanitized.errorClass === "CALL_NOT_READY" ? "PENDING" : "REVIEW_REQUIRED",
         now: this.now(),
       });
     }

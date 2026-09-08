@@ -638,6 +638,56 @@ alias de transporte: ahora rechaza cualquier referencia a `fetch` e imports
 HTTP(S)/socket, incluidos imports bare, dentro de rutas Relay sintéticas y sus
 executors. La regresión específica elevó tooling a 34 sin cambiar dependencias.
 
+<a id="call-e-c06--gobernanza-de-resultados"></a>
+
+## CALL-E C06 — errores reales, validación y revisión humana
+
+Corte y validación local: 2026-09-07. Base, HEAD inicial y `origin/main`
+anclados en `6a56391dfc7588b2669ff7a584a2a0852331bfb7`, árbol
+`cd2a2a3bcb089a357601e8b02a0b95eba5a43397`; PR C05-FIX #55 `MERGED`
+con ese `mergeCommit` y run 34126041032/job 101754820163
+`completed/success` para el mismo SHA, sin CI posterior invalidante al iniciar.
+El informe C00 fue leído sin modificar y su SHA-256 coincidió exactamente con
+`E84E9FA341411EDB69B54675CD793F3291BD93ED20CA8FEA62639442FD53AD2D`.
+
+| Control C06 | Implementación / prueba | Límite honesto |
+| --- | --- | --- |
+| Errores reales | Frontera canónica por código exacto para no iniciado, canal indisponible, conflicto, policy, not-ready, schema y desconocido; todos los códigos C00 tienen caso | Los códigos C00 no asignados por el contrato C06 permanecen unknown; no hay clasificación por texto o status inventado |
+| Resultado estructurado | Objetos estrictos Patient/Professional, propiedades exactas, tipos y enums cerrados, sin coerción ni inferencia | Calls 0.6.0 no contiene `resultValidation`; null/evento de fallo/schema no conforme producen abstención, no causa inventada |
+| Timeout e idempotencia | `providerRef` persistido antes de GET; timeout/not-ready reconcilian el mismo intent; conflicto no regenera key; carreras dejan un terminal/evento | No prueba exactamente un intento físico ni garantía externa; la brecha create/commit sigue abierta |
+| Persistencia | Se extienden `OutboundCallIntent/Event` y `RelayAttempt/Event`; solo referencias, región/locale/Line Region, enums, tiempos y review | Cero Call/payload, teléfono, prompt, transcript, summary, evidence, confidence, metadata o contenido clínico almacenado |
+| Revisión y GAS | Todo terminal queda `RESULT_*` hasta review; Task permanece idéntica ante resultado Professional y campos no accionables | Review no es aprobación clínica, decisión operativa, conformidad ni aceptación de riesgo |
+| Runtime | Adapter sigue server-only y desactivado; tests usan fakes/executors locales; checker prohíbe SDK, entrypoint, webhook, batch, worker y red Relay | Proveedor, voz, conversación, divulgación y tráfico live `NOT_TESTED`; llamadas reales 0 |
+
+La migración aditiva número 20 crea un enum normalizado y columnas nullable con
+CHECKs; amplía los triggers del ledger existente para error terminal pre-create,
+resultado inmutable y transición append-only. No backfillea ni elimina datos y no
+afirma rollback destructivo seguro. PostgreSQL 16 fue exclusivo de C06 en
+`127.0.0.1:55436`, con tmpfs y sin volúmenes.
+
+| Comando/comprobación | Resultado real | Exit |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` / `pnpm prisma:generate` | Lock al día; Prisma Client 6.19.0 | 0 / 0 |
+| Migraciones / seed / status / DB→Prisma | 20/20 desde vacío; seed sintético; schema al día; drift 0 | 0 / 0 / 0 / 0 |
+| `pnpm format:check` / `pnpm lint` / `pnpm typecheck` | PASS / PASS / PASS | 0 / 0 / 0 |
+| Pruebas focalizadas C06 | 104/104 unitarias; 13/13 integración PostgreSQL | 0 / 0 |
+| `pnpm test` | 532 unitarias + 120 integración + 34 tooling = 686/686 PASS | 0 |
+| `pnpm test:tooling` | 34/34 PASS en ejecución separada | 0 |
+| Trazabilidad / governance / boundary | 14 requisitos; 42 claims; Markdown/CSV drift 0; SDK/live ausentes | 0 / 0 / 0 |
+| `pnpm build` | Next 16.2.11; 18/18 páginas estáticas | 0 |
+| `pnpm test:e2e` desde base recreada | 79/79 PASS; un worker; cero retries | 0 |
+| `git diff --check` | PASS; avisos autocrlf informativos | 0 |
+| Scan delta | E.164 0, emails 0, DNI/NIE 0, secretos reales 0 | 0 |
+| `pnpm audit --prod --json` | 0 critical, 8 high, 2 moderate heredados; C06 atribuibles 0; manifest/lock intactos | 1 esperado, no PASS |
+
+Advisories abiertos: `effect` GHSA-38f7-945m-qr2g; `postcss`
+GHSA-qx2v-qp2m-jg93, GHSA-6g55-p6wh-862q, GHSA-fxqj-rqcc-2cmp y
+GHSA-r28c-9q8g-f849; `sharp` GHSA-f88m-g3jw-g9cj; `nanoid`
+GHSA-2v37-7h3g-55p8; `deepmerge-ts` GHSA-ggr8-5vv4-36mx; y
+`browserslist` GHSA-c83g-rgw3-j3cx y GHSA-73wf-gq98-2v4g. No se
+resuelven ni aceptan en C06. DEC-019, GAP-DCB-025, GAS2-R-021 y
+HAZ-GAS-021–038 permanecen abiertos; no hay aceptación residual.
+
 ## Executed baseline evidence
 
 ### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents

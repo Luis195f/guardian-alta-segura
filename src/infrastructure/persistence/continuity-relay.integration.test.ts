@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import type { CreateRelayPreviewRecordInput } from "@/application/ports/continuity-relay";
 import type { OutboundCallSnapshot } from "@/application/ports/outbound-call";
+import { normalizeRelayResult } from "@/application/relay/result-governance";
 import { SYNTHETIC_PATIENT_RELAY_RESULT } from "@/domain/relay/patient-relay-contract";
 import { SYNTHETIC_PROFESSIONAL_RELAY_RESULT } from "@/domain/relay/professional-relay-contract";
 import { PrismaContinuityRelayStore } from "@/infrastructure/persistence/prisma-continuity-relay-store";
@@ -15,8 +16,13 @@ const outboundStore = new PrismaOutboundCallIntentStore();
 const CORRELATION_ID = "018f673a-4e35-7060-99b5-7bc6feba3a97";
 const NOW = new Date("2026-08-30T10:00:00.000Z");
 const RESULT_FIELDS = {
-  resultValidity: "VALID" as const,
-  technicalResult: SYNTHETIC_PATIENT_RELAY_RESULT,
+  governedResult: {
+    outcome: "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW" as const,
+    terminal: true,
+    resultValidity: "VALID" as const,
+    technicalResult: SYNTHETIC_PATIENT_RELAY_RESULT,
+    humanReviewRequired: true,
+  },
   syntheticExecution: true,
 };
 
@@ -52,6 +58,9 @@ function previewInput(
     idempotencyRef: idempotencyRef(),
     attestationVersion: "test-attestation-v1",
     revision: "episode-v1",
+    region: "ES",
+    locale: "es-ES",
+    lineRegion: "TEST_ONLY_INTERNATIONAL",
     expiresAt: new Date(NOW.getTime() + 5 * 60_000),
     createdAt: NOW,
     correlationId: CORRELATION_ID,
@@ -311,7 +320,12 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     const withoutProvider = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: reserved,
-      ...RESULT_FIELDS,
+      governedResult: normalizeRelayResult({
+        purpose: confirmed.purpose,
+        intent: reserved,
+        structuredResult: null,
+      }),
+      syntheticExecution: true,
       now: new Date(NOW.getTime() + 2_000),
       correlationId: CORRELATION_ID,
     });
@@ -327,7 +341,12 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     const providerCreated = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: queued,
-      ...RESULT_FIELDS,
+      governedResult: normalizeRelayResult({
+        purpose: confirmed.purpose,
+        intent: queued,
+        structuredResult: null,
+      }),
+      syntheticExecution: true,
       now: new Date(NOW.getTime() + 2_000),
       correlationId: CORRELATION_ID,
     });
@@ -339,31 +358,50 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
       reconciliationState: "RECONCILED",
       now: new Date(NOW.getTime() + 3_000),
     });
-    const result = await relayStore.recordOutboundState({
-      attemptRef: confirmed.id,
-      outboundIntent: completed,
-      ...RESULT_FIELDS,
-      now: new Date(NOW.getTime() + 3_000),
-      correlationId: CORRELATION_ID,
-    });
-    expect(result.lifecycleState).toBe("RESULT_COMPLETED");
-    expect(result).toMatchObject({
+    const concurrentResults = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        relayStore.recordOutboundState({
+          attemptRef: confirmed.id,
+          outboundIntent: completed,
+          ...RESULT_FIELDS,
+          now: new Date(NOW.getTime() + 3_000),
+          correlationId: CORRELATION_ID,
+        }),
+      ),
+    );
+    expect(concurrentResults).toHaveLength(8);
+    expect(
+      concurrentResults.every(({ lifecycleState }) => lifecycleState === "RESULT_COMPLETED"),
+    ).toBe(true);
+    expect(concurrentResults[0]).toMatchObject({
+      governanceOutcome: "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW",
       resultValidity: "VALID",
       technicalResult: SYNTHETIC_PATIENT_RELAY_RESULT,
+      reviewedAt: null,
     });
+    expect(
+      await prisma.relayEvent.count({
+        where: { attemptRef: confirmed.id, toState: "RESULT_COMPLETED" },
+      }),
+    ).toBe(1);
     expect(
       await prisma.auditEvent.count({
         where: { resourceId: confirmed.id, action: "RELAY_SYNTHETIC_EXECUTION_RECORDED" },
       }),
     ).toBe(1);
-    const stale = await relayStore.recordOutboundState({
-      attemptRef: confirmed.id,
-      outboundIntent: queued,
-      ...RESULT_FIELDS,
-      now: new Date(NOW.getTime() + 4_000),
-      correlationId: CORRELATION_ID,
+    await expect(
+      relayStore.recordOutboundState({
+        attemptRef: confirmed.id,
+        outboundIntent: queued,
+        ...RESULT_FIELDS,
+        now: new Date(NOW.getTime() + 4_000),
+        correlationId: CORRELATION_ID,
+      }),
+    ).rejects.toThrow("Relay outbound intent snapshot conflict");
+    await expect(relayStore.getById(confirmed.id)).resolves.toMatchObject({
+      lifecycleState: "RESULT_COMPLETED",
+      governanceOutcome: "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW",
     });
-    expect(stale.lifecycleState).toBe("RESULT_COMPLETED");
 
     const reviewed = await relayStore.recordHumanReview({
       attemptRef: confirmed.id,
@@ -418,7 +456,143 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     ).rejects.toThrow();
   });
 
+  it("records a pre-create provider error without inventing contact and requires review", async () => {
+    const preview = await relayStore.createPreview(previewInput());
+    const confirmed = await relayStore.consumeConfirmation(consumeInput(preview));
+    if (!confirmed) throw new Error("Synthetic confirmation was not consumed");
+    const reserved = await outboundStore.reserve({
+      idempotencyRef: confirmed.idempotencyRef,
+      protectedFingerprint: hex(`pre-create-${confirmed.id}`),
+      now: new Date(NOW.getTime() + 2_000),
+    });
+    expect(await outboundStore.claimPost(reserved.id, new Date(NOW.getTime() + 2_000))).toBe(true);
+    const failed = await outboundStore.recordError({
+      intentId: reserved.id,
+      error: {
+        errorClass: "PROVIDER_UNAVAILABLE",
+        errorCode: "provider_unavailable",
+        uncertain: false,
+      },
+      reconciliationState: "NOT_REQUIRED",
+      now: new Date(NOW.getTime() + 3_000),
+    });
+    const recorded = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: failed,
+      governedResult: normalizeRelayResult({
+        purpose: confirmed.purpose,
+        intent: failed,
+        structuredResult: null,
+      }),
+      syntheticExecution: true,
+      now: new Date(NOW.getTime() + 3_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(recorded).toMatchObject({
+      lifecycleState: "RESULT_UNCERTAIN",
+      governanceOutcome: "CHANNEL_UNAVAILABLE",
+      resultValidity: "MISSING",
+      technicalResult: null,
+      reviewedAt: null,
+    });
+    await expect(
+      relayStore.recordHumanReview({
+        attemptRef: confirmed.id,
+        reviewerRef: actorRef,
+        reviewerRole: "nurse",
+        correlationId: CORRELATION_ID,
+        now: new Date(NOW.getTime() + 4_000),
+      }),
+    ).resolves.toMatchObject({ lifecycleState: "HUMAN_REVIEWED" });
+  });
+
+  it("keeps timeout after providerRef pending and reconciles the same intent", async () => {
+    const preview = await relayStore.createPreview(previewInput());
+    const confirmed = await relayStore.consumeConfirmation(consumeInput(preview));
+    if (!confirmed) throw new Error("Synthetic confirmation was not consumed");
+    const reserved = await outboundStore.reserve({
+      idempotencyRef: confirmed.idempotencyRef,
+      protectedFingerprint: hex(`reconcile-${confirmed.id}`),
+      now: new Date(NOW.getTime() + 2_000),
+    });
+    expect(await outboundStore.claimPost(reserved.id, new Date(NOW.getTime() + 2_000))).toBe(true);
+    const providerRef = `synthetic-reconcile-${randomUUID()}`;
+    const queued = await outboundStore.persistProviderRef({
+      intentId: reserved.id,
+      providerRef,
+      snapshot: snapshot(providerRef, "QUEUED"),
+      now: new Date(NOW.getTime() + 3_000),
+    });
+    const uncertain = await outboundStore.recordError({
+      intentId: queued.id,
+      error: { errorClass: "TIMEOUT", errorCode: "polling_timeout", uncertain: true },
+      reconciliationState: "PENDING",
+      now: new Date(NOW.getTime() + 4_000),
+    });
+    const pending = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: uncertain,
+      governedResult: normalizeRelayResult({
+        purpose: confirmed.purpose,
+        intent: uncertain,
+        structuredResult: null,
+      }),
+      syntheticExecution: true,
+      now: new Date(NOW.getTime() + 4_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(pending).toMatchObject({
+      lifecycleState: "PROVIDER_CREATED",
+      governanceOutcome: "UNKNOWN_PENDING_RECONCILIATION",
+      outboundCallIntentRef: reserved.id,
+      reviewedAt: null,
+    });
+    await expect(
+      relayStore.recordHumanReview({
+        attemptRef: confirmed.id,
+        reviewerRef: actorRef,
+        reviewerRole: "nurse",
+        correlationId: CORRELATION_ID,
+        now: new Date(NOW.getTime() + 5_000),
+      }),
+    ).resolves.toBeNull();
+
+    const completed = await outboundStore.recordSnapshot({
+      intentId: reserved.id,
+      snapshot: snapshot(providerRef, "COMPLETED"),
+      reconciliationState: "RECONCILED",
+      now: new Date(NOW.getTime() + 6_000),
+    });
+    const reconciled = await relayStore.recordOutboundState({
+      attemptRef: confirmed.id,
+      outboundIntent: completed,
+      governedResult: normalizeRelayResult({
+        purpose: confirmed.purpose,
+        intent: completed,
+        structuredResult: SYNTHETIC_PATIENT_RELAY_RESULT,
+      }),
+      syntheticExecution: true,
+      now: new Date(NOW.getTime() + 6_000),
+      correlationId: CORRELATION_ID,
+    });
+    expect(reconciled).toMatchObject({
+      lifecycleState: "RESULT_COMPLETED",
+      governanceOutcome: "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW",
+      outboundCallIntentRef: reserved.id,
+      reviewedAt: null,
+    });
+    expect(
+      await prisma.outboundCallIntent.count({
+        where: { idempotencyRef: confirmed.idempotencyRef, providerRef },
+      }),
+    ).toBe(1);
+  });
+
   it("persists the Professional Relay result as the separate closed allowlist", async () => {
+    const taskBefore = await prisma.task.findUniqueOrThrow({
+      where: { id: professionalTaskRef },
+      select: { currentState: true, assignedToId: true, revision: true, resolvedAt: true },
+    });
     const preview = await relayStore.createPreview(
       previewInput({
         recipientKind: "PROFESSIONAL",
@@ -456,8 +630,13 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
     const recorded = await relayStore.recordOutboundState({
       attemptRef: confirmed.id,
       outboundIntent: completed,
-      resultValidity: "VALID",
-      technicalResult: SYNTHETIC_PROFESSIONAL_RELAY_RESULT,
+      governedResult: {
+        outcome: "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW",
+        terminal: true,
+        resultValidity: "VALID",
+        technicalResult: SYNTHETIC_PROFESSIONAL_RELAY_RESULT,
+        humanReviewRequired: true,
+      },
       syntheticExecution: true,
       now: new Date(NOW.getTime() + 3_000),
       correlationId: CORRELATION_ID,
@@ -472,13 +651,25 @@ describe.sequential("Continuity Relay PostgreSQL guarantees", () => {
       acknowledged: "YES",
       availabilityToReview: "YES",
     });
+    await expect(
+      prisma.task.findUniqueOrThrow({
+        where: { id: professionalTaskRef },
+        select: { currentState: true, assignedToId: true, revision: true, resolvedAt: true },
+      }),
+    ).resolves.toEqual(taskBefore);
   });
 
   it("persists no phone, token, visible target, prompt, clinical content, or provider payload columns", async () => {
     const columns = await prisma.$queryRaw<Array<{ table_name: string; column_name: string }>>`
       SELECT table_name, column_name
       FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name IN ('relay_attempts', 'relay_events')
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'relay_attempts',
+          'relay_events',
+          'outbound_call_intents',
+          'outbound_call_intent_events'
+        )
       ORDER BY table_name, column_name
     `;
     const serializedColumns = JSON.stringify(columns.map(({ column_name }) => column_name));

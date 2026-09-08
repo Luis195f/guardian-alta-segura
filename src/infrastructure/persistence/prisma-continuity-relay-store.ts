@@ -6,6 +6,7 @@ import {
   RelayCallbackPreference as PrismaRelayCallbackPreference,
   RelayContactStatus as PrismaRelayContactStatus,
   RelayIdentityStatus as PrismaRelayIdentityStatus,
+  RelayGovernanceOutcome as PrismaRelayGovernanceOutcome,
 } from "@prisma/client";
 
 import type {
@@ -14,7 +15,6 @@ import type {
   RelayAttemptStore,
   RelayTechnicalResult,
 } from "@/application/ports/continuity-relay";
-import type { OutboundCallIntentState } from "@/application/ports/outbound-call";
 import type {
   PatientRelayBoundaryEvent,
   PatientRelayCallbackPreference,
@@ -29,12 +29,7 @@ import type {
   ProfessionalRelayIdentityStatus,
   ProfessionalRelayTechnicalResult,
 } from "@/domain/relay/professional-relay-contract";
-import {
-  isRelayResultState,
-  relayResultState,
-  type RelayLifecycleState,
-  type RelayTechnicalDisposition,
-} from "@/domain/relay/continuity-relay";
+import { isRelayResultState, type RelayLifecycleState } from "@/domain/relay/continuity-relay";
 import { assertServerOnlyRuntime } from "@/infrastructure/call-transport/server-only-guard";
 import { prisma } from "@/infrastructure/persistence/prisma";
 
@@ -55,6 +50,10 @@ const attemptSelect = {
   lifecycleState: true,
   attestationVersion: true,
   revision: true,
+  region: true,
+  locale: true,
+  lineRegion: true,
+  governanceOutcome: true,
   resultValidity: true,
   identityStatus: true,
   contactStatus: true,
@@ -109,24 +108,10 @@ function toAttempt(attempt: PrismaAttempt): RelayAttemptRecord {
     recipientKind: attempt.recipientKind,
     purpose: attempt.purpose,
     lifecycleState: attempt.lifecycleState,
+    governanceOutcome: attempt.governanceOutcome,
     resultValidity: attempt.resultValidity,
     technicalResult,
   };
-}
-
-function resultDisposition(state: OutboundCallIntentState): RelayTechnicalDisposition | null {
-  switch (state) {
-    case "COMPLETED":
-      return "COMPLETED";
-    case "FAILED":
-      return "FAILED";
-    case "CANCELED":
-      return "CANCELED";
-    case "UNCERTAIN":
-      return "UNCERTAIN";
-    default:
-      return null;
-  }
 }
 
 const identityStatusToPrisma: Readonly<
@@ -193,6 +178,9 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
           idempotencyRef: input.idempotencyRef,
           attestationVersion: input.attestationVersion,
           revision: input.revision,
+          region: input.region,
+          locale: input.locale,
+          lineRegion: input.lineRegion,
           expiresAt: input.expiresAt,
           createdAt: input.createdAt,
           updatedAt: input.createdAt,
@@ -392,23 +380,74 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
     input: Parameters<RelayAttemptStore["recordOutboundState"]>[0],
   ): Promise<RelayAttemptRecord> {
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`
+        SELECT "id"
+        FROM "relay_attempts"
+        WHERE "id" = ${input.attemptRef}
+        FOR UPDATE
+      `;
       let attempt = await transaction.relayAttempt.findUniqueOrThrow({
         where: { id: input.attemptRef },
         select: attemptSelect,
       });
       const outboundIntent = await transaction.outboundCallIntent.findUniqueOrThrow({
         where: { id: input.outboundIntent.id },
-        select: { id: true, idempotencyRef: true, providerRef: true, state: true },
+        select: {
+          id: true,
+          idempotencyRef: true,
+          providerRef: true,
+          state: true,
+          technicalStatus: true,
+          errorClass: true,
+          errorCode: true,
+        },
       });
       if (outboundIntent.idempotencyRef !== attempt.idempotencyRef) {
         throw new Error("Relay outbound intent binding conflict");
       }
-      if (!outboundIntent.providerRef) return toAttempt(attempt);
       if (attempt.outboundCallIntentRef && attempt.outboundCallIntentRef !== outboundIntent.id) {
         throw new Error("Relay outbound intent reference conflict");
       }
+      if (
+        outboundIntent.providerRef !== input.outboundIntent.providerRef ||
+        outboundIntent.state !== input.outboundIntent.state ||
+        outboundIntent.technicalStatus !== input.outboundIntent.technicalStatus ||
+        outboundIntent.errorClass !== input.outboundIntent.errorClass ||
+        outboundIntent.errorCode !== input.outboundIntent.errorCode
+      ) {
+        throw new Error("Relay outbound intent snapshot conflict");
+      }
 
-      if (attempt.lifecycleState === "CONFIRMED") {
+      const governed = input.governedResult;
+      if (
+        (governed.terminal &&
+          (!governed.humanReviewRequired || governed.resultValidity === null)) ||
+        (!governed.terminal &&
+          (governed.humanReviewRequired ||
+            governed.resultValidity !== null ||
+            governed.technicalResult !== null))
+      ) {
+        throw new Error("Relay governed result is inconsistent");
+      }
+      const intentRequiresReconciliation =
+        outboundIntent.state === "RESERVED" ||
+        outboundIntent.state === "POSTING" ||
+        outboundIntent.state === "PROVIDER_ACCEPTED" ||
+        outboundIntent.state === "POLLING" ||
+        (outboundIntent.state === "UNCERTAIN" && outboundIntent.providerRef !== null);
+      if (intentRequiresReconciliation === governed.terminal) {
+        throw new Error("Relay governed result conflicts with outbound lifecycle");
+      }
+      if (
+        !outboundIntent.providerRef &&
+        (governed.outcome === "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW" ||
+          governed.outcome === "RESULT_SCHEMA_VIOLATION")
+      ) {
+        return toAttempt(attempt);
+      }
+      if (!outboundIntent.providerRef && !governed.terminal) return toAttempt(attempt);
+
+      if (attempt.lifecycleState === "CONFIRMED" && outboundIntent.providerRef) {
         const linked = await transaction.relayAttempt.updateMany({
           where: {
             id: attempt.id,
@@ -418,6 +457,9 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
           data: {
             outboundCallIntentRef: outboundIntent.id,
             lifecycleState: "PROVIDER_CREATED",
+            governanceOutcome: governed.terminal
+              ? null
+              : (governed.outcome as PrismaRelayGovernanceOutcome),
             updatedAt: input.now,
           },
         });
@@ -462,63 +504,103 @@ export class PrismaContinuityRelayStore implements RelayAttemptStore {
         });
       }
 
-      const disposition = resultDisposition(outboundIntent.state as OutboundCallIntentState);
-      if (attempt.lifecycleState === "PROVIDER_CREATED" && disposition) {
-        const nextState = relayResultState(disposition);
-        const updated = await transaction.relayAttempt.updateMany({
+      if (!governed.terminal && attempt.lifecycleState === "PROVIDER_CREATED") {
+        await transaction.relayAttempt.updateMany({
           where: { id: attempt.id, lifecycleState: "PROVIDER_CREATED" },
           data: {
+            governanceOutcome: governed.outcome as PrismaRelayGovernanceOutcome,
+            updatedAt: input.now,
+          },
+        });
+      }
+
+      if (
+        governed.terminal &&
+        (attempt.lifecycleState === "PROVIDER_CREATED" ||
+          (attempt.lifecycleState === "CONFIRMED" && !outboundIntent.providerRef))
+      ) {
+        const fromState = attempt.lifecycleState;
+        const successfulProviderResult =
+          governed.outcome === "RESULT_AVAILABLE_PENDING_HUMAN_REVIEW" ||
+          governed.outcome === "RESULT_SCHEMA_VIOLATION";
+        const nextState = successfulProviderResult ? "RESULT_COMPLETED" : "RESULT_UNCERTAIN";
+        const disposition = successfulProviderResult ? "COMPLETED" : "UNCERTAIN";
+        const updated = await transaction.relayAttempt.updateMany({
+          where: {
+            id: attempt.id,
+            lifecycleState: fromState,
+            ...(fromState === "CONFIRMED" ? { outboundCallIntentRef: null } : {}),
+          },
+          data: {
+            outboundCallIntentRef: outboundIntent.id,
             lifecycleState: nextState,
-            resultValidity: input.resultValidity,
-            identityStatus: input.technicalResult
-              ? identityStatusToPrisma[input.technicalResult.identity_status]
+            governanceOutcome: governed.outcome as PrismaRelayGovernanceOutcome,
+            resultValidity: governed.resultValidity,
+            identityStatus: governed.technicalResult
+              ? identityStatusToPrisma[governed.technicalResult.identity_status]
               : null,
-            contactStatus: input.technicalResult
-              ? contactStatusToPrisma[input.technicalResult.contact_status]
+            contactStatus: governed.technicalResult
+              ? contactStatusToPrisma[governed.technicalResult.contact_status]
               : null,
-            callbackPreference: input.technicalResult
-              ? "callback_preference" in input.technicalResult
-                ? callbackPreferenceToPrisma[input.technicalResult.callback_preference]
+            callbackPreference: governed.technicalResult
+              ? "callback_preference" in governed.technicalResult
+                ? callbackPreferenceToPrisma[governed.technicalResult.callback_preference]
                 : null
               : null,
-            acknowledged: input.technicalResult
-              ? "acknowledged" in input.technicalResult
-                ? acknowledgedToPrisma[input.technicalResult.acknowledged]
+            acknowledged: governed.technicalResult
+              ? "acknowledged" in governed.technicalResult
+                ? acknowledgedToPrisma[governed.technicalResult.acknowledged]
                 : null
               : null,
-            availabilityToReview: input.technicalResult
-              ? "availability_to_review" in input.technicalResult
-                ? availabilityToReviewToPrisma[input.technicalResult.availability_to_review]
+            availabilityToReview: governed.technicalResult
+              ? "availability_to_review" in governed.technicalResult
+                ? availabilityToReviewToPrisma[governed.technicalResult.availability_to_review]
                 : null
               : null,
-            boundaryEvent: input.technicalResult
-              ? boundaryEventToPrisma[input.technicalResult.boundary_event]
+            boundaryEvent: governed.technicalResult
+              ? boundaryEventToPrisma[governed.technicalResult.boundary_event]
               : null,
             updatedAt: input.now,
           },
         });
-        if (updated.count !== 1) throw new Error("Relay result transition conflict");
-        await transaction.relayEvent.create({
-          data: {
-            attemptRef: attempt.id,
-            fromState: "PROVIDER_CREATED",
-            toState: nextState,
-            technicalDisposition: disposition,
-            occurredAt: input.now,
-          },
-        });
-        await transaction.auditEvent.create({
-          data: {
-            actorUserId: null,
-            actorRole: null,
-            action: "RELAY_TECHNICAL_RESULT_AVAILABLE",
-            resourceType: "RelayAttempt",
-            resourceId: attempt.id,
-            outcome: "SUCCESS",
-            correlationId: input.correlationId,
-            createdAt: input.now,
-          },
-        });
+        if (updated.count === 1) {
+          await transaction.relayEvent.create({
+            data: {
+              attemptRef: attempt.id,
+              fromState,
+              toState: nextState,
+              technicalDisposition: disposition,
+              governanceOutcome: governed.outcome as PrismaRelayGovernanceOutcome,
+              occurredAt: input.now,
+            },
+          });
+          if (fromState === "CONFIRMED" && input.syntheticExecution) {
+            await transaction.auditEvent.create({
+              data: {
+                actorUserId: null,
+                actorRole: null,
+                action: "RELAY_SYNTHETIC_EXECUTION_RECORDED",
+                resourceType: "RelayAttempt",
+                resourceId: attempt.id,
+                outcome: "SUCCESS",
+                correlationId: input.correlationId,
+                createdAt: input.now,
+              },
+            });
+          }
+          await transaction.auditEvent.create({
+            data: {
+              actorUserId: null,
+              actorRole: null,
+              action: "RELAY_TECHNICAL_RESULT_AVAILABLE",
+              resourceType: "RelayAttempt",
+              resourceId: attempt.id,
+              outcome: "SUCCESS",
+              correlationId: input.correlationId,
+              createdAt: input.now,
+            },
+          });
+        }
       }
       const current = await transaction.relayAttempt.findUniqueOrThrow({
         where: { id: attempt.id },

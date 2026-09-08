@@ -6,6 +6,7 @@ import {
   type OutboundCallTechnicalStatus,
   type SanitizedOutboundCallError,
 } from "@/application/ports/outbound-call";
+import { normalizeProviderErrorCode } from "@/application/relay/result-governance";
 import { CALL_E_API_BASE_URL } from "@/infrastructure/call-transport/call-e-rest-config";
 import { assertServerOnlyRuntime } from "@/infrastructure/call-transport/server-only-guard";
 
@@ -38,61 +39,6 @@ const STATUS_MAP: Readonly<Record<string, OutboundCallTechnicalStatus>> = {
   completed: "COMPLETED",
   failed: "FAILED",
   canceled: "CANCELED",
-};
-
-const CODE_MAP: Readonly<Record<string, SanitizedOutboundCallError>> = {
-  unauthorized: {
-    errorClass: "CONFIGURATION_AUTH",
-    errorCode: "authentication_failed",
-    uncertain: false,
-  },
-  forbidden: {
-    errorClass: "CONFIGURATION_AUTH",
-    errorCode: "authorization_failed",
-    uncertain: false,
-  },
-  rate_limit_exceeded: { errorClass: "RATE_LIMIT", errorCode: "rate_limited", uncertain: false },
-  insufficient_balance: {
-    errorClass: "BALANCE",
-    errorCode: "insufficient_balance",
-    uncertain: false,
-  },
-  unsupported_region: {
-    errorClass: "REGION_LANGUAGE",
-    errorCode: "unsupported_region",
-    uncertain: false,
-  },
-  unsupported_language: {
-    errorClass: "REGION_LANGUAGE",
-    errorCode: "unsupported_language",
-    uncertain: false,
-  },
-  recipient_blocked: {
-    errorClass: "RECIPIENT_PHONE",
-    errorCode: "recipient_blocked",
-    uncertain: false,
-  },
-  no_recipients: {
-    errorClass: "RECIPIENT_PHONE",
-    errorCode: "invalid_recipient",
-    uncertain: false,
-  },
-  invalid_recipient: {
-    errorClass: "RECIPIENT_PHONE",
-    errorCode: "invalid_recipient",
-    uncertain: false,
-  },
-  invalid_phone: { errorClass: "RECIPIENT_PHONE", errorCode: "invalid_phone", uncertain: false },
-  idempotency_conflict: {
-    errorClass: "IDEMPOTENCY_CONFLICT",
-    errorCode: "idempotency_conflict",
-    uncertain: false,
-  },
-  provider_unavailable: {
-    errorClass: "PROVIDER_UNAVAILABLE",
-    errorCode: "provider_unavailable",
-    uncertain: true,
-  },
 };
 
 const PROVIDER_REF = /^[A-Za-z0-9_-]{1,128}$/u;
@@ -217,13 +163,10 @@ function mapSnapshot(value: unknown): OutboundCallSnapshot {
   if (typeof source.status !== "string") throwInvalidResponse();
   const status = STATUS_MAP[source.status];
   if (!status) throwInvalidResponse();
-  if (source.structured_result !== undefined && source.structured_result !== null) {
-    throwInvalidResponse();
-  }
   return {
     providerRef: source.id,
     status,
-    structuredResult: "ABSTAINED",
+    structuredResult: source.structured_result,
     providerCreatedAt: parseDate(source.created_at),
     providerCompletedAt: parseDate(source.completed_at),
   };
@@ -247,32 +190,21 @@ async function parseErrorCode(response: Response): Promise<string | null> {
 
 async function classifyHttpError(response: Response): Promise<SanitizedOutboundCallError> {
   const providerCode = await parseErrorCode(response);
-  if (providerCode && CODE_MAP[providerCode]) return CODE_MAP[providerCode];
-  if (response.status === 401 || response.status === 403) {
-    return {
-      errorClass: "CONFIGURATION_AUTH",
-      errorCode: "authentication_failed",
-      uncertain: false,
-    };
-  }
-  if (response.status === 409) {
-    return {
-      errorClass: "IDEMPOTENCY_CONFLICT",
-      errorCode: "idempotency_conflict",
-      uncertain: false,
-    };
-  }
-  if (response.status === 429) {
-    return { errorClass: "RATE_LIMIT", errorCode: "rate_limited", uncertain: false };
-  }
-  if (response.status >= 500) {
-    return {
-      errorClass: "PROVIDER_UNAVAILABLE",
-      errorCode: "provider_unavailable",
-      uncertain: true,
-    };
-  }
-  return { errorClass: "UNKNOWN", errorCode: "provider_rejected_request", uncertain: false };
+  const normalized = normalizeProviderErrorCode(
+    providerCode ??
+      (response.status === 401
+        ? "unauthorized"
+        : response.status === 403
+          ? "forbidden"
+          : response.status === 429
+            ? "rate_limit_exceeded"
+            : null),
+  );
+  return {
+    errorClass: normalized.errorClass,
+    errorCode: normalized.errorCode,
+    uncertain: normalized.uncertain,
+  };
 }
 
 export class CallERestAdapter implements OutboundCallProvider {

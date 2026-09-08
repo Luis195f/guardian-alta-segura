@@ -344,6 +344,18 @@ enum RelayResultValidity {
   MISSING
 }
 
+enum RelayGovernanceOutcome {
+  CALL_NOT_ATTEMPTED
+  CHANNEL_UNAVAILABLE
+  UNKNOWN_PENDING_RECONCILIATION
+  CONFIRMATION_CONFLICT
+  PROVIDER_POLICY_REFUSAL
+  CALL_NOT_READY
+  RESULT_SCHEMA_VIOLATION
+  RESULT_AVAILABLE_PENDING_HUMAN_REVIEW
+  UNKNOWN_PROVIDER_ERROR
+}
+
 enum RelayIdentityStatus {
   INTENDED_RECIPIENT    @map("intended_recipient")
   INTENDED_PROFESSIONAL @map("intended_professional")
@@ -1173,6 +1185,10 @@ model RelayAttempt {
   lifecycleState        RelayLifecycleState        @default(PREVIEWED) @map("lifecycle_state")
   attestationVersion    String                     @map("attestation_version") @db.VarChar(64)
   revision              String                     @db.VarChar(64)
+  region                String?                    @db.VarChar(2)
+  locale                String?                    @db.VarChar(16)
+  lineRegion            String?                    @map("line_region") @db.VarChar(64)
+  governanceOutcome     RelayGovernanceOutcome?    @map("governance_outcome")
   resultValidity        RelayResultValidity?       @map("result_validity")
   identityStatus        RelayIdentityStatus?       @map("identity_status")
   contactStatus         RelayContactStatus?        @map("contact_status")
@@ -1206,6 +1222,7 @@ model RelayEvent {
   fromState            RelayLifecycleState?       @map("from_state")
   toState              RelayLifecycleState        @map("to_state")
   technicalDisposition RelayTechnicalDisposition? @map("technical_disposition")
+  governanceOutcome    RelayGovernanceOutcome?    @map("governance_outcome")
   actorRef             String?                    @map("actor_ref")
   occurredAt           DateTime                   @map("occurred_at") @db.Timestamptz(3)
   attempt              RelayAttempt               @relation(fields: [attemptRef], references: [id], onDelete: Restrict, map: "relay_events_attempt_fkey")

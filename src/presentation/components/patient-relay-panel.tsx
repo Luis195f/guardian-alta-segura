@@ -45,6 +45,7 @@ type RelayView =
       readonly oneUseConfirmation: true;
       readonly confirmationAvailable: boolean;
       readonly lifecycleState: string;
+      readonly governanceOutcome: string | null;
       readonly resultValidity: "VALID" | "INVALID" | "MISSING" | null;
       readonly technicalResult: RelayTechnicalResult | null;
       readonly reviewedAt: string | null;
@@ -342,6 +343,8 @@ export function PatientRelayPanel({ episodeId }: { readonly episodeId: string })
               <p>
                 Estado textual: <strong>{detailed.lifecycleState}</strong> · validez del schema:{" "}
                 <strong>{detailed.resultValidity ?? "PENDIENTE"}</strong>
+                {" · "}resultado normalizado:{" "}
+                <strong>{detailed.governanceOutcome ?? "PENDIENTE"}</strong>
               </p>
               {result ? (
                 <dl className="relay-result">

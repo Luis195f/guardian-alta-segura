@@ -15,12 +15,10 @@ export interface CreateOutboundCallInput {
 export type OutboundCallTechnicalStatus =
   "QUEUED" | "IN_PROGRESS" | "COMPLETED" | "FAILED" | "CANCELED";
 
-export type StructuredResultDisposition = "ABSTAINED";
-
 export interface OutboundCallSnapshot {
   readonly providerRef: string;
   readonly status: OutboundCallTechnicalStatus;
-  readonly structuredResult: StructuredResultDisposition;
+  readonly structuredResult: unknown;
   readonly providerCreatedAt: Date | null;
   readonly providerCompletedAt: Date | null;
 }
@@ -31,6 +29,9 @@ export type OutboundCallErrorClass =
   | "BALANCE"
   | "REGION_LANGUAGE"
   | "RECIPIENT_PHONE"
+  | "RESULT_SCHEMA"
+  | "POLICY_REFUSAL"
+  | "CALL_NOT_READY"
   | "IDEMPOTENCY_CONFLICT"
   | "PROVIDER_UNAVAILABLE"
   | "TIMEOUT"

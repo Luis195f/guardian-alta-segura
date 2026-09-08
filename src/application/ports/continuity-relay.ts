@@ -6,6 +6,7 @@ import type { AuthenticatedPrincipal } from "@/domain/auth/principal";
 import type { Role } from "@/domain/auth/role";
 import type {
   RelayLifecycleState,
+  RelayGovernanceOutcome,
   RelayPurpose,
   RelayRecipientKind,
   RelayTechnicalDisposition,
@@ -113,6 +114,14 @@ export interface RelayAuthorityBinding extends RelayContextRef {
 
 export type RelayTechnicalResult = PatientRelayTechnicalResult | ProfessionalRelayTechnicalResult;
 
+export interface GovernedRelayResult {
+  readonly outcome: RelayGovernanceOutcome;
+  readonly terminal: boolean;
+  readonly resultValidity: RelayResultValidity | null;
+  readonly technicalResult: RelayTechnicalResult | null;
+  readonly humanReviewRequired: boolean;
+}
+
 export interface RelayAttemptRecord extends RelayContextRef {
   readonly id: string;
   readonly recipientKind: RelayRecipientKind;
@@ -126,6 +135,10 @@ export interface RelayAttemptRecord extends RelayContextRef {
   readonly lifecycleState: RelayLifecycleState;
   readonly attestationVersion: string;
   readonly revision: string;
+  readonly region: string | null;
+  readonly locale: string | null;
+  readonly lineRegion: string | null;
+  readonly governanceOutcome: RelayGovernanceOutcome | null;
   readonly resultValidity: RelayResultValidity | null;
   readonly technicalResult: RelayTechnicalResult | null;
   readonly expiresAt: Date;
@@ -148,6 +161,7 @@ export interface CreateRelayPreviewRecordInput extends Omit<
   | "reviewedAt"
   | "resultValidity"
   | "technicalResult"
+  | "governanceOutcome"
   | "updatedAt"
 > {
   readonly actorRole: "nurse" | "clinician";
@@ -185,8 +199,7 @@ export interface RelayAttemptStore {
   recordOutboundState(input: {
     readonly attemptRef: string;
     readonly outboundIntent: OutboundCallIntentRecord;
-    readonly resultValidity: RelayResultValidity;
-    readonly technicalResult: RelayTechnicalResult | null;
+    readonly governedResult: GovernedRelayResult;
     readonly syntheticExecution: boolean;
     readonly now: Date;
     readonly correlationId: string;
@@ -214,6 +227,7 @@ export interface RelayOutboundExecutor {
   }): Promise<{
     readonly outboundIntent: OutboundCallIntentRecord;
     readonly rawTechnicalResult: unknown;
+    readonly providerEventType?: unknown;
     readonly syntheticExecution: boolean;
   }>;
 }
