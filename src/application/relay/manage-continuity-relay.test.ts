@@ -326,6 +326,31 @@ function patientRequest(): RelayPreviewRequest {
   };
 }
 
+function professionalRequest(): RelayPreviewRequest {
+  return {
+    recipientKind: "PROFESSIONAL",
+    purpose: "PROFESSIONAL_REVIEW_REQUEST",
+    episodeRef: "episode-1",
+    correlationId: CORRELATION_ID,
+  };
+}
+
+function configureProfessionalAuthority(authority: MutableAuthority): void {
+  authority.snapshot = {
+    ...authority.snapshot!,
+    taskRef: "task-derived-by-authority",
+    targetRef: "professional-target-opaque-1",
+    revision: "assignment-v1",
+    professionalEligibility: {
+      episodeRevision: 1,
+      taskRevision: 1,
+      actorRoleAssignmentRef: "actor-role-assignment-1",
+      targetRoleAssignmentRef: "target-role-assignment-1",
+      targetRole: "clinician",
+    },
+  };
+}
+
 function createHarness(clock = { value: FIXED_NOW }) {
   const actors = new MutableActorContext();
   const authority = new MutableAuthority();
@@ -413,28 +438,41 @@ describe("Continuity Relay typed authority core", () => {
     expect(harness.outbound.execute).not.toHaveBeenCalled();
   });
 
+  it.each(["patient", "caregiver", "support", "admin"] as const)(
+    "denies vertical escalation from %s with zero preview or provider effect",
+    async (role) => {
+      const harness = createHarness();
+      harness.actors.actor = {
+        userId: "nurse-1",
+        roles: [role],
+        sessionId: `session-${role}`,
+      };
+      await expect(harness.service.preview(patientRequest())).rejects.toMatchObject({
+        errorCode: "actor_not_authorized",
+      });
+      expect(harness.attempts.records.size).toBe(0);
+      expect(harness.outbound.execute).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { professionalId: "client-selected-professional" },
+    { targetRef: "client-selected-target" },
+    { phone: SYNTHETIC_PHONE },
+    { recipients: [{ phones: [SYNTHETIC_PHONE] }] },
+  ])("rejects arbitrary client recipient input %# with zero side effect", async (extra) => {
+    const harness = createHarness();
+    await expect(
+      harness.service.preview({ ...patientRequest(), ...extra } as RelayPreviewRequest),
+    ).rejects.toMatchObject({ errorCode: "invalid_request_shape" });
+    expect(harness.attempts.records.size).toBe(0);
+    expect(harness.outbound.execute).not.toHaveBeenCalled();
+  });
+
   it("derives a professional task reference exclusively from server-side authority", async () => {
     const harness = createHarness();
-    harness.authority.snapshot = {
-      ...harness.authority.snapshot!,
-      episodeRef: "episode-1",
-      taskRef: "task-derived-by-authority",
-      targetRef: "professional-target-opaque-1",
-      revision: "assignment-v1",
-      professionalEligibility: {
-        episodeRevision: 1,
-        taskRevision: 1,
-        actorRoleAssignmentRef: "actor-role-assignment-1",
-        targetRoleAssignmentRef: "target-role-assignment-1",
-        targetRole: "clinician",
-      },
-    };
-    const request: RelayPreviewRequest = {
-      recipientKind: "PROFESSIONAL",
-      purpose: "PROFESSIONAL_REVIEW_REQUEST",
-      episodeRef: "episode-1",
-      correlationId: CORRELATION_ID,
-    };
+    configureProfessionalAuthority(harness.authority);
+    const request = professionalRequest();
 
     const preview = await harness.service.preview(request);
     expect(preview.context).toEqual({
@@ -457,6 +495,78 @@ describe("Continuity Relay typed authority core", () => {
       harness.service.confirm({ ...request, confirmationToken: preview.confirmationToken }),
     ).resolves.toMatchObject({ lifecycleState: "RESULT_COMPLETED" });
     expect(harness.outbound.execute).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [
+      "Task stale",
+      (authority: MutableAuthority) => {
+        authority.snapshot = {
+          ...authority.snapshot!,
+          revision: "assignment-v2",
+          professionalEligibility: {
+            ...authority.snapshot!.professionalEligibility!,
+            taskRevision: 2,
+          },
+        };
+      },
+    ],
+    [
+      "Task reassigned",
+      (authority: MutableAuthority) => {
+        authority.snapshot = {
+          ...authority.snapshot!,
+          targetRef: "professional-target-opaque-2",
+          revision: "assignment-v2",
+          professionalEligibility: {
+            ...authority.snapshot!.professionalEligibility!,
+            targetRoleAssignmentRef: "target-role-assignment-2",
+          },
+        };
+      },
+    ],
+    [
+      "Task reference changed",
+      (authority: MutableAuthority) => {
+        authority.snapshot = {
+          ...authority.snapshot!,
+          taskRef: "task-derived-by-authority-2",
+          revision: "assignment-v2",
+        };
+      },
+    ],
+  ])("rejects %s after preview with zero executor effect", async (_label, mutate) => {
+    const harness = createHarness();
+    configureProfessionalAuthority(harness.authority);
+    const preview = await harness.service.preview(professionalRequest());
+    harness.execution.rawTechnicalResult = SYNTHETIC_PROFESSIONAL_RELAY_RESULT;
+    mutate(harness.authority);
+    await expect(
+      harness.service.confirm({
+        ...professionalRequest(),
+        confirmationToken: preview.confirmationToken,
+      }),
+    ).rejects.toBeInstanceOf(RelayDeniedError);
+    expect(harness.outbound.execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stored authority fingerprint alteration with zero executor effect", async () => {
+    const harness = createHarness();
+    configureProfessionalAuthority(harness.authority);
+    const preview = await harness.service.preview(professionalRequest());
+    const stored = harness.attempts.records.get("attempt-1");
+    if (!stored) throw new Error("missing synthetic attempt");
+    harness.attempts.records.set(stored.id, {
+      ...stored,
+      authorityFingerprint: "0".repeat(64),
+    });
+    await expect(
+      harness.service.confirm({
+        ...professionalRequest(),
+        confirmationToken: preview.confirmationToken,
+      }),
+    ).rejects.toMatchObject({ errorCode: "authority_stale" });
+    expect(harness.outbound.execute).not.toHaveBeenCalled();
   });
 
   it("consumes before composition and records only technical lifecycle states", async () => {

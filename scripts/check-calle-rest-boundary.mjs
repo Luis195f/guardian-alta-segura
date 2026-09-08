@@ -31,6 +31,8 @@ const exactSyntheticProfessionalRelayRoutes = new Set([
 ]);
 const forbiddenSyntheticTransport =
   /api\.heycall-e\.com|\/v1\/calls|call-e-rest-(?:runtime|adapter)|\bfetch\b|(?:from\s*|import\s*\(|require\s*\()\s*["'](?:node:)?(?:http|https|net|tls)["']|node:(?:http|https|net|tls)|\bundici\b|\baxios\b|XMLHttpRequest|WebSocket/iu;
+const forbiddenIngressConfiguration = /(?:CALL_E[^\r\n]*WEBHOOK|WEBHOOK[^\r\n]*CALL_E)/iu;
+const forbiddenIngressRoutePath = /\/(?:call-e|calle|webhooks?)(?:\/|$)/iu;
 
 function filesBelow(root) {
   if (!existsSync(root)) return [];
@@ -80,7 +82,15 @@ export function checkCallERestBoundary({
         `Browser-visible CALL-E configuration in ${path.relative(repositoryRoot, file)}`,
       );
     }
+    if (forbiddenIngressConfiguration.test(source)) {
+      failures.push(
+        `CALL-E webhook/ingress configuration found in ${path.relative(repositoryRoot, file)}`,
+      );
+    }
     const relative = path.relative(repositoryRoot, file).replaceAll("\\", "/");
+    if (forbiddenIngressRoutePath.test(`/${relative}`)) {
+      failures.push(`CALL-E/webhook ingress route found in ${relative}`);
+    }
     if (
       (source.includes("api.heycall-e.com") || source.includes("/v1/calls")) &&
       !relative.startsWith("src/infrastructure/call-transport/")
@@ -177,7 +187,9 @@ export function checkCallERestBoundary({
     return 1;
   }
   stdout("PASS: CALL-E SDK absent; REST provider details remain server-only infrastructure.");
-  stdout("PASS: no live entrypoint and no prohibited webhook, Goals, batch, or helper surface.");
+  stdout(
+    "PASS: no live entrypoint, ingress route/configuration, webhook, Goals, batch, or helper surface.",
+  );
   return 0;
 }
 

@@ -688,6 +688,56 @@ GHSA-2v37-7h3g-55p8; `deepmerge-ts` GHSA-ggr8-5vv4-36mx; y
 resuelven ni aceptan en C06. DEC-019, GAP-DCB-025, GAS2-R-021 y
 HAZ-GAS-021–038 permanecen abiertos; no hay aceptación residual.
 
+<a id="call-e-c07--adversarial-proof"></a>
+
+## CALL-E C07 — prueba adversarial del Continuity Relay
+
+Corte y validación local: 2026-09-08. Base, HEAD inicial y `origin/main`
+anclados en `3c476c70a8700e4adab3a33aaff5f28aa6c96469`, árbol
+`4c306bb6e4f3335de85ccf94a42597b7570dc0e2`; PR C06 #56 `MERGED`
+con ese `mergeCommit` y run 34190861190/job 101948461782
+`completed/success` para el mismo SHA. La rama C07 partió sin commits, stage,
+upstream ni rama remota.
+
+| Control C07 | Evidencia reproducible | Límite honesto |
+| --- | --- | --- |
+| Autorización | Negativos patient/caregiver/support/admin, episodio ajeno, profesional/target/teléfono del cliente, Task stale/reasignada y revision/fingerprint alterados; revocación persistida entre preview y confirmación se revalida justo antes del executor | El modelo actual no contiene unidad institucional; se acredita aislamiento por episodio y responsable vigente, no aislamiento multiunidad |
+| Carreras e idempotencia | Confirmaciones concurrentes y replay producen un solo intent/evento terminal; conflicto de key/fingerprint falla cerrado; create aceptado + timeout queda `UNCERTAIN` y no recrea; GET usa el mismo `providerRef`; `call_not_ready` no es terminal | Pruebas sobre repositorios/executors locales y fixture sintético; no prueban garantías de proveedor ni llamada real |
+| Cardinalidad y destino | Schemas HTTP cerrados rechazan destinatarios o teléfonos plurales; adapters exigen exactamente un recipient/phone y separan Patient de Professional; target y teléfono proceden del snapshot server-side | No hay fan-out ni target arbitrario, pero tampoco transporte live |
+| Contención | Sentinelas sintéticos verifican HTTP, HTML, consola, DB y artefactos; no se persisten teléfono completo, API key, token claro, prompt, transcript, summary, evidence, confidence, metadata libre, Call/payload o body crudo | Acredita el contrato y la persistencia local; no acredita voz, conversación o divulgación live |
+| Contenido | Casos deterministas de prompt injection, destinatario incorrecto, medicación/tratamiento, emergencia, cambio de voz/policy, insistencia y respuestas ambiguas/no allowlisted terminan en schema cerrado o abstención para revisión humana | Solo parser/policy/fixtures locales; no se afirma cómo respondería un agente o una llamada real |
+| Región y accesibilidad | Región/locale incompatibles fallan cerrado; `verifiedAt=2026-08-27T18:35:50.6934815+02:00`; Line Region `SYNTHETIC_LOCAL_NO_PROVIDER`; axe serious/critical 0 en Patient Relay y Professional Relay | Line Region no es evidencia de proveedor; el axe focalizado no equivale a conformidad WCAG general |
+| Boundary | Checker y regresión adversarial rechazan ingress/webhook/config CALL-E además de SDK, red, worker, scheduler y fan-out | Llamadas reales 0; C08 no autorizado ni iniciado |
+
+El único hardening runtime de C07 exige que el actor siga activo, sintético y
+con `RoleAssignment` nurse/clinician no revocado en cada resolución de autoridad,
+incluida la revalidación inmediatamente anterior al executor, y que la identidad
+del paciente tenga `identityVerifiedAt`. No se añadieron dependencias,
+migraciones, schema, transporte, entrypoint ni funcionalidad clínica.
+
+| Comando/comprobación | Resultado real | Exit |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` / `pnpm prisma:generate` | Lock al día; Prisma Client 6.19.0 | 0 / 0 |
+| PostgreSQL 16 / migraciones / seed / status / DB→Prisma | 16.14, base vacía y exclusiva en loopback 55437; 20/20; seed sintético; schema al día; drift 0 | 0 / 0 / 0 / 0 / 0 |
+| Pruebas focalizadas C07 | 81/81 unitarias; 17/17 integración PostgreSQL; 4/4 E2E focalizadas con axe | 0 / 0 / 0 |
+| `pnpm format:check` / `pnpm lint` / `pnpm typecheck` | PASS / PASS / PASS | 0 / 0 / 0 |
+| `pnpm test` | 556 unitarias + 120 integración + 35 tooling = 711/711 PASS | 0 |
+| `pnpm test:tooling` | 35/35 PASS en ejecución separada | 0 |
+| Trazabilidad / governance / boundary | 14 requisitos; 43 claims; Markdown/CSV drift 0; SDK/red/ingress live ausentes | 0 / 0 / 0 |
+| `pnpm build` | Next 16.2.11; 18/18 páginas estáticas | 0 |
+| Tres `pnpm test:e2e -- --workers=1` desde base recreada | 83/83 PASS en 6,7 min; 83/83 PASS en 6,7 min; 83/83 PASS en 7,8 min; retries 0, skips 0 | 0 / 0 / 0 |
+| `git diff --check` | PASS; avisos autocrlf informativos | 0 |
+| Scan delta y artefactos | E.164 0, emails 0, DNI/NIE 0, valores secretos 0, sentinelas C07 en artefactos 0; `.env` ausente | 0 |
+| `pnpm audit --prod --json` | 0 critical, 8 high, 2 moderate heredados en 10 advisories; C07 atribuibles 0; manifest/lock intactos | 1 esperado, no PASS |
+
+Un intento E2E previo no se contabilizó: primero encontró un servidor Next.js
+huérfano y luego reveló contaminación de un fixture append-only por el orden de
+la nueva suite. Se finalizó únicamente ese proceso local, se movió la suite C07
+al final sin borrar historia ni relajar aserciones, el caso heredado se reprodujo
+aislado con PASS y después se obtuvieron las tres ejecuciones limpias anteriores.
+DEC-019, GAP-DCB-025, GAS2-R-021 y HAZ-GAS-021–038 permanecen abiertos, sin
+aceptación residual.
+
 ## Executed baseline evidence
 
 ### GAS2-P16A local execution — 2026-08-15 — synthetic usability readiness documents
