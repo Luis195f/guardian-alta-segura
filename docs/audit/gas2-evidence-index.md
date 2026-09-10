@@ -114,7 +114,7 @@ or public-deployment readiness.
 | Source | Type | Supports | Limitation |
 | --- | --- | --- | --- |
 | `prisma/schema.prisma` | `CODE` | 54 models, 42 enums, 136 `RESTRICT` relations | Schema alone does not prove deployed state |
-| `prisma/migrations/**` | `DATABASE_CONSTRAINT` | 17-version history, FKs, uniques and triggers | Does not approve lifecycle policy |
+| `prisma/migrations/**` | `DATABASE_CONSTRAINT` | 20-version history, FKs, uniques and triggers | Does not approve lifecycle policy |
 | `20260715000100_platform_foundation` | `DATABASE_CONSTRAINT` | Immutable audit events | Retention/access procedure absent |
 | `20260716000100_consent_legal_basis` | `DATABASE_CONSTRAINT` | Append-only legal history | Legal applicability pending |
 | `20260716000200_discharge_episode` | `DATABASE_CONSTRAINT` | Episode/patient no-delete and transition history | Closure policy pending |
@@ -124,7 +124,7 @@ or public-deployment readiness.
 | `20260720000100_nursing_workqueue_tasks` plus reconciliation migrations | `DATABASE_CONSTRAINT` | Task/Event chain and reviewed-alert link | Institutional task policy pending |
 | `20260721000100_caregiver_access_revocation` | `DATABASE_CONSTRAINT` | Cross-reference integrity, revocation locks and history | Legal/IAM policy pending |
 | `20260721000200_home_safety_and_sbar` | `DATABASE_CONSTRAINT` | Append-only Home Safety | Demo template only |
-| `pnpm db:migrate:status` | `CI` | 17 migrations expected; execution evidence recorded below | Local synthetic DB only |
+| `pnpm db:migrate:status` | `CI` | 20 migrations expected; execution evidence recorded below | Local synthetic DB only |
 
 ## Episode governance
 
@@ -895,6 +895,122 @@ bloqueo adicional independiente `CALL_E_ACCOUNT_CAPABILITY = NOT_VERIFIED` por
 ausencia de key. `CALL_E_RUNTIME_PROOF = NOT_EVIDENCED` y
 `NO_FAKE_LIVE_CLAIM = PASS`. DEC-019, GAP-DCB-025, GAS2-R-021 y
 HAZ-GAS-021–038 permanecen abiertos; no se acepta riesgo residual.
+
+<a id="call-e-c09--judge-submission-package"></a>
+
+## CALL-E C09 — judge demo and submission package
+
+Cut-off: `2026-09-09`. Exact pinned base and PR #58 merge commit:
+`c5a0574e1e29299364a2cca6ec0b2bfdbc910429`; push/main run
+[34277781896](https://github.com/Luis195f/guardian-alta-segura/actions/runs/34277781896)
+was `completed/success` for that SHA. C09 began with 0 commits, a clean
+worktree/stage, no upstream and no remote branch. Community PR
+[CALL-E #280](https://github.com/CALLE-AI/awesome-phone-call-agents/pull/280)
+was observed read-only as merged at
+`c93b7b6f0359091701870e9e5ecc40d8e0829e25`. No automatic rebase occurred.
+
+This section preserves the historical C09 evidence for source head
+`2b1eb504419da413defe5000fb35c30a4038c459`. The current reconciled package is
+built instead on C09-SEC squash
+`6a64564599369b24f2d00fe9ceca1093d1a5c92f`; the dependency state and executed
+validation for those two baselines are not interchangeable.
+
+### Submission artifacts and evidence boundaries
+
+| Artifact | Evidence | Boundary |
+| --- | --- | --- |
+| `docs/build-week/PROBLEM_EVIDENCE.md` | Four bounded claims cover repeated attempts/non-contact and published 48-hour, 72-hour and seven-day windows, each with source, URL/DOI, date, consultation date, population and limits | Published context only; no GAS workload, reach, effectiveness, outcome or Spanish-policy claim |
+| `docs/build-week/JUDGE_DEMO_RUNBOOK.md` | Exact Patient/Professional Relay walk-through in the existing C03–C07 UI and contracts | Local fixture/fake/dry-run; CALL-E live off; no parallel application or public URL |
+| `docs/build-week/JUDGING_EVIDENCE.md` | Maps claim to competition criterion, code path, test, proof type, timestamp and limitation | Synthetic/local proof is distinguished from missing runtime proof |
+| `docs/build-week/VIDEO_SCRIPT.md` and `docs/build-week/VIDEO_SHOT_LIST.md` | English 0:00–2:50 narrative, screen text, capture order and post-export inspection checklist | No real video was present or inspected; duration/audio/legibility/privacy remain `NOT_VERIFIED` |
+| `docs/build-week/DEVPOST_SUBMISSION_EN.md` | Complete copy-ready English draft led by practical phone work; separates pre-existing baseline, hackathon delta, synthetic evidence and live gap | Draft only; human fields, video publication and submission remain human actions |
+| `docs/build-week/BUILD_WEEK_CHANGELOG.md` | Treats exact pre-period commit `88be7da66c38f32f319e0fefc57f8246a1739a51` and earlier functionality as pre-existing | Git history supports repository timing, not organizer eligibility or independent-creation proof |
+| `docs/build-week/C09_SUBMISSION_STATUS.md` | Pins preconditions, gates and real validation counts | Commit/PR/remote CI are read after publication from immutable remote metadata, not self-referentially embedded |
+
+Problem sources were consulted on 2026-09-09: Patel et al. (2026), DOI
+`10.7759/cureus.112101`; Soong et al. (2014), DOI
+`10.1371/journal.pone.0112230`; NICE NG53 (published 2016-08-30); and NHS
+England Digital's 72-hour measure (last edited 2026-06-09). Applicability and
+study limitations are recorded beside each exact claim in Problem Evidence.
+
+### Historical local validation C09 — before C09-SEC
+
+Validation used isolated PostgreSQL 16.14 databases on loopback/tmpfs. C09
+changes documentation only; no runtime, domain, Prisma, migration,
+authentication, lifecycle, dependency, lockfile, workflow, flag or test file is
+changed. The results in this table belong to the pre-remediation C09 source
+head and its Next 16.2.11 / Prisma 6.19.0 graph; they are not validations of the
+versions introduced later by C09-SEC.
+
+| Command or evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; 409 reused, downloads 0, lockfile unchanged | 0 | Initial sandbox attempt was blocked by Corepack global-state permissions; authorized rerun passed |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.0 | 0 | No schema/migration change |
+| Empty PostgreSQL 16, deploy, seed, status and drift | PASS; public tables initially 0; 20/20 migrations; seed; schema current; drift 0 | 0 | Isolated synthetic DB on `127.0.0.1:55439`, tmpfs |
+| Format, lint and typecheck | PASS | 0 | Documentation formatting corrected; strict types unchanged |
+| `pnpm test` | PASS; 556 unit + 120 integration + 35 tooling = 711/711 | 0 | Local fakes/fixtures and synthetic PostgreSQL only |
+| `pnpm test:tooling` | PASS; 35/35 | 0 | Separate required invocation |
+| Traceability and governance | PASS; 14 requirements, 44 claims, references resolved, Markdown/CSV drift 0 | 0 | Does not validate external truth |
+| `pnpm calle:boundary:check` | PASS; SDK absent and no live entrypoint/ingress/webhook/Goals/batch/helper surface | 0 | Confirms repository boundary, not provider behavior |
+| `pnpm build` | PASS; 18/18 static pages | 0 | Local build, not deployment qualification |
+| Full E2E, one worker, zero retries | PASS final; 83/83 | 0 | First full pass was 82/83 from one transient login `ECONNRESET`; without code/config changes, full rerun from another empty PostgreSQL 16 base passed 83/83 |
+| Initial Draft CI run 34359524453 | FAIL in 1/35 tooling; unit 556/556 and integration 120/120 passed before failure | 1 | The new index used eight local Markdown links absent from the checker's isolated fixture; final C09 represents them as path text and reruns the tooling test before publication replacement |
+| `pnpm audit --prod --json` | EXPECTED NONZERO; 2 critical + 9 high + 3 moderate, C09 attributable 0 | 1 | Unchanged dependency graph; GAS2-R-022 blocks a public-deployment-readiness claim |
+| Diff and content scans | PASS after final cleanup; C09 delta sensitive-pattern matches 0 | 0 | Whole tracked tree: E.164 0, DNI/NIE 0, two `.invalid` test emails; secret-shaped hits are documented placeholders/test fixtures; `gitleaks` unavailable; manual delta review found aggregate research and synthetic content only |
+
+C09 does not add or accept a canonical product claim; the claims register stays
+at 44. It prepares externally reviewable wording without asserting clinical
+effect, adoption, compliance, institutional support or live provider behavior.
+
+### Current reconciled evidence after C09-SEC
+
+The current base preserves the complete C09-SEC section above, including
+GAS2-R-022 and its completed remediation evidence: Next 16.3.3, Prisma and
+`@prisma/client` 6.19.3, `browserslist` 4.28.9, and a production audit of **0
+critical, 1 high and 0 moderate**. The remaining `deepmerge-ts` 7.1.5 advisory
+GHSA-ggr8-5vv4-36mx / CVE-2026-40345 remains open and unaccepted. Current
+reconciliation validation is recorded only after execution against exact base
+`6a64564599369b24f2d00fe9ceca1093d1a5c92f`; it is not inferred from either
+earlier run.
+
+Validation on 2026-09-10 used an exclusive PostgreSQL 16.14 container bound to
+`127.0.0.1:55441`, with tmpfs storage, no volume and synthetic data only.
+
+| Current C09-RECON command or evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; lock current, 412 reused and downloads 0 | 0 | Initial sandbox attempt was blocked by Corepack global-state permissions; authorized rerun passed without lockfile change |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.3 | 0 | No schema or migration change |
+| Empty PostgreSQL 16, deploy, seed, status and drift | PASS; initial public tables 0; 20/20 migrations; seed; schema current; drift 0 | 0 | Loopback, tmpfs, no volume |
+| Format, lint and strict typecheck | PASS | 0 | Documentation plus unchanged application baseline |
+| `pnpm test` | PASS; 556 unit + 120 integration + 35 tooling = 711/711 | 0 | Synthetic fixtures and PostgreSQL 16 only |
+| `pnpm test:tooling` | PASS; 35/35 | 0 | Separate required invocation |
+| Traceability and governance | PASS; 14 requirements, 44 claims, references resolved, Markdown/CSV drift 0 | 0 | Repository consistency, not external truth |
+| `pnpm calle:boundary:check` | PASS; SDK and live entrypoint absent; no ingress, webhook, Goals, batch or helper surface | 0 | Real CALL-E network calls remain 0 |
+| `pnpm build` | PASS; Next 16.3.3, 18/18 static pages | 0 | Local build, not deployment qualification |
+| Full E2E, one worker, zero retries | PASS; 83/83 in 6.8 minutes | 0 | Fresh ephemeral schema; no assertion, retry, worker, gate or timeout relaxation |
+| `pnpm audit --prod --json` | 0 critical, 1 high, 0 moderate | 1 expected | Only `deepmerge-ts` 7.1.5; open and unaccepted under GAS2-R-022 |
+| Local Markdown references | PASS; 10 checked, broken 0 | 0 | Intended 13-file documentary scope |
+| Scope and sensitive-pattern scans | PASS; intended Markdown files 13, unexpected 0; E.164, Spanish phone, email, DNI/NIE and high-confidence secret patterns 0; `.env` absent | 0 | One initial phone-pattern false positive was a numeric substring inside the documented lockfile hash; corrected alphanumeric boundaries returned 0 |
+| `git diff --check` | PASS | 0 | Final tracked documentary diff; untracked Markdown is covered by final formatting and staged checks |
+| Ephemeral cleanup | PASS; validation container absent, port 55441 free, `.next` and `test-results` removed | 0 | No persistent volume was created; no other container or worktree was modified |
+
+The reconciliation changes documentation only. Public demo/video verification,
+public-deployment readiness and live CALL-E proof remain blocked or unverified;
+no residual dependency or regulatory risk is accepted.
+
+### Preserved C08 result and external gates
+
+```text
+LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION
+CALL_E_RUNTIME_PROOF = NOT_EVIDENCED
+LIVE_CALLS = NOT_EXECUTED
+```
+
+No API key, full telephone number, authenticated CALL-E request, provider
+response, dry-run or call was used. A public demo URL does not exist, and no
+video file was present or inspected. Public deployment, video publication and
+Devpost submission require separate human authorization/action and are not
+performed by C09.
 
 ## Executed baseline evidence
 
