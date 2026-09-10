@@ -131,9 +131,13 @@ validado.
 La ampliación HAZ-GAS-021–038 y GAP-DCB-025 registra incertidumbre y distingue
 controles técnicos C02/C03/C04/C05/C06 `IMPLEMENTED_UNVALIDATED` de controles todavía
 `PLANNED`; no acredita controles clínicos efectivos. La publicación técnica de
-C06 se limita a revisión técnica y publicación como Draft PR; no se autoriza
-C07/C10, Ready/merge, piloto, producción ni aceptación de riesgo. El core clínico
-y sus requisitos no cambian.
+C06 se limitó, en su corte histórico, a revisión técnica y publicación como
+Draft PR; no autorizó C07/C10, Ready/merge, piloto, producción ni aceptación de
+riesgo. C07 se completó después como prueba adversarial local y C10 #280 fue
+fusionado upstream; ninguno aporta runtime CALL-E real o autorización clínica.
+La [reconciliación C11](build-week/C11_FINAL_READINESS_RECONCILIATION.md)
+mantiene `LIVE_PROOF = NOT_EVIDENCED`, piloto y producción `NO_GO`, y riesgo
+residual sin aceptar. El core clínico y sus requisitos no cambian.
 
 ### Guardián Core
 

@@ -5,8 +5,9 @@
 - Alcance: C01 documental, adapter REST técnico C02, core interno C03, Patient
   Relay C04, Professional Relay C05, gobernanza C06, pruebas adversariales C07
   locales/sintéticas y reconocimiento read-only C08 bloqueado antes de live;
-  solo permite revisión técnica y publicación como Draft PR, sin habilitar una
-  ruta live, C10, llamadas, Ready/merge, piloto ni producción.
+  solo permite revisión técnica, sin habilitar una ruta live, llamadas, piloto
+  ni producción. La contribución comunitaria C10 se fusionó upstream después
+  de ese corte y no constituye evidencia runtime CALL-E en GAS.
 - Autoridad: revisión humana del proyecto limitada a documentación; ninguna
   autoridad clínica, institucional, jurídica o regulatoria acreditada.
 - Prerrequisito: `C00_PREREQUISITE = SATISFIED_BY_HUMAN_REVIEW` y
@@ -95,6 +96,13 @@ autorización de avanzar entre ellos.
 | Demo pública sintética | Describir la frontera y sus limitaciones | `LIVE OFF`; ninguna llamada real, secreto o número completo; no habilita exposición del runtime demo loopback a Internet |
 | Futuro piloto clínico | Ninguno | `NO_GO`; DEC-016 y todas las decisiones aplicables pendientes |
 | Producción y datos reales | Ninguno | `NO_GO`; evaluación y autorización independientes del hackathon |
+
+La reconciliación C11 conserva estos niveles y registra el estado vigente en
+[C11 final readiness reconciliation](../build-week/C11_FINAL_READINESS_RECONCILIATION.md).
+El sandbox obtiene `PASS` únicamente como ejecución local/sintética de sus
+fixtures, fakes y controles; el adapter sigue `IMPLEMENTED_DISABLED`, el SDK
+sigue ausente con licencia no resuelta, el entrypoint live sigue ausente y
+`LIVE_PROOF = NOT_EVIDENCED`.
 
 La excepción no modifica el alcance clínico de GAS: no diagnostica, no predice
 suicidio, no calcula riesgo individual, no prescribe ni modifica tratamientos,
@@ -470,9 +478,14 @@ Soporte no puede acceder a notas clínicas ni resolver referencias a destinos.
 `CALL_E_API_KEY` permanecerá server-only, fuera del browser, base de datos, logs,
 fixtures, screenshots y Git. C02 no crea, solicita ni usa una clave real.
 
-La retención, residencia, subencargados y uso de datos por CALL-E siguen sin
-resolver. No persistir un payload en GAS no prueba que el proveedor no lo
-conserve. No se declara cumplimiento RGPD, MDR, AI Act, DCB0129 o DCB0160.
+GAS does not persist CALL-E transcripts.
+
+Cualquier fase futura debe tratar como due diligence abierta DPA/processor,
+transferencias/localización, retención, grabaciones/transcripts,
+seguridad/SLA/continuidad, incidentes, ePrivacy/telecom, procurement, base
+jurídica, consentimiento y supplier exit. No se afirma cuál es el comportamiento
+de retención del proveedor ni se declara cumplimiento RGPD, MDR, AI Act,
+DCB0129 o DCB0160.
 
 ## Peticiones fuera de alcance y emergencia
 
@@ -540,7 +553,10 @@ elementos quedan para decisiones y fases separadas.
 > no acredita autorización, capacidad, KYC, presupuesto o funcionamiento live.
 
 `CALL_E_RUNTIME = IMPLEMENTED_DISABLED`, `LIVE_ENTRYPOINT = ABSENT`,
+`LIVE_PROOF = NOT_EVIDENCED`,
 `LIVE_CALLS = NOT_EXECUTED`,
 `REAL_CLINICAL_PILOT = NO_GO`, `REAL_DATA_PRODUCTION = NO_GO` y
 `RESIDUAL_RISK_ACCEPTANCE = NONE`. La publicación de C08 se limita a rama y
-Draft PR para revisión humana; no marca Ready, no fusiona ni inicia C09/C10.
+Draft PR para revisión humana; no marca Ready ni fusiona esa rama. C09 se
+completó posteriormente como documentación y C10 #280 fue fusionado upstream;
+ninguno aporta una llamada CALL-E real ni autoriza piloto o producción.

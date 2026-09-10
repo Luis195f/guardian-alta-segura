@@ -6,6 +6,69 @@ Runtime code, schema/migrations and executed tests were treated as primary
 evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 `DECISION_SUPPORT_EVIDENCE` and never institutional approval.
 
+## C11 final readiness reconciliation — 2026-09-10
+
+The canonical state is recorded in
+`docs/build-week/C11_FINAL_READINESS_RECONCILIATION.md`.
+Local preconditions were verified before editing: branch
+`docs/calle-final-readiness-c11`; HEAD and `origin/main`
+`54fd5f2c34e87fe78b5c2893397007c08e2ce85d`; zero C11 commits; clean
+worktree, index and untracked set; no upstream or remote C11 branch. GitHub
+reported GAS PR #62 merged with that exact squash and run `34505812217`, job
+`102967607049`, completed successfully for the same SHA.
+
+CALL-E community PR #280 was verified merged, not Draft, with head
+`c93b7b6f0359091701870e9e5ecc40d8e0829e25` and merge commit
+`342a15c3d100d28a9530b1e32cc1b7242d8eb380`. This is evidence of the upstream
+community contribution, not of a CALL-E request or call from GAS.
+
+GitHub showed a public source repository but no homepage, Pages site,
+deployments, release or repository reference to a public video. Local C09
+artifacts likewise contain no exported video or public application URL.
+Therefore `PUBLIC_DEMO = NOT_VERIFIED`, `VIDEO_LT_180S = NOT_VERIFIED` and
+`PUBLIC_JUDGE_DEMO = BLOCKED`.
+
+The implemented evidence remains the server-only REST adapter disabled by
+default, local synthetic Relay fixtures, fake transports and passing tests.
+The SDK is absent and its license unresolved; the live entrypoint is absent;
+real CALL-E runtime proof is not evidenced. `CALL_E_SANDBOX = PASS` is defined
+only for the local synthetic boundary and must not be interpreted as a live
+request, provider response or call. `LIVE_PROOF = NOT_EVIDENCED` and
+`LIVE_CALLS = NOT_EXECUTED`.
+
+At the C08 cut-off, the credential variable was absent, account capability/KYC
+were not verified and an own or explicitly authorized destination had no safe
+local attestation. The published source listed Spain, Spanish and English, and
+the `International` line region primarily for testing. Published regional
+capability is not destination authorization. Consequently the authenticated
+read-only check, dry-run, live entrypoint, provider request and call were
+`NOT_EXECUTED`.
+
+GAS does not persist CALL-E transcripts. No provider-retention behavior is
+asserted. DPA/processor, transfers/localization, retention,
+recordings/transcripts, security/SLA/continuity, incidents, ePrivacy/telecom,
+procurement, legal basis, consent and supplier exit remain future due diligence.
+`DEC-019`, `GAP-DCB-025`, `GAS2-R-021`, `GAS2-R-022`, `deepmerge-ts` and
+`HAZ-GAS-021–038` remain open and unaccepted.
+
+### C11 local validation
+
+PostgreSQL 16.10 ran in an auto-remove, loopback-only container on port 55442,
+with tmpfs and no persistent volume. The schema began with zero public tables;
+20/20 migrations, synthetic seed, migrate status and drift-zero checks passed.
+Frozen install reused 412 packages with zero downloads; Prisma Client 6.19.3
+generated successfully. Format, lint, typecheck, 556 unit tests, 120 integration
+tests, 35 independent tooling tests, 44-claim traceability/governance, the
+CALL-E boundary checker, an 18-page build and 83/83 E2E tests with one worker
+and zero retries all passed. The final production audit remained at 0 critical,
+1 high and 0 moderate; it is open and unaccepted. A local reference scan checked
+158 links with zero broken targets, and the added-content scan found zero
+secrets, E.164 values, emails, DNI/NIE values, Spanish IBANs or clinical-ID
+assignments. Initial README formatting and tooling-fixture link failures were
+corrected documentally. A non-final E2E diagnostic reused mutated test data and
+failed 5/83; the database was then explicitly recreated empty and the unchanged
+final suite passed 83/83 without relaxing any test setting.
+
 ## C09-SEC dependency remediation — 2026-09-09
 
 ### Anchor and baseline
@@ -193,7 +256,7 @@ or public-deployment readiness.
 | `src/app/api/health/route.ts` | `CODE` | Process liveness and correlation ID | No DB readiness |
 | Error/correlation modules and tests | `CODE` / `UNIT_TEST` | Sanitized technical signal | No metrics/tracing/incident workflow |
 | Repository search for browser offline stores | `CODE` | No clinical `localStorage`/IndexedDB path found | Static absence check |
-| Repository search for connector/FHIR runtime | `CODE` | No external/FHIR adapter found | Documentation contains future boundaries |
+| Repository search for connector/FHIR runtime | `CODE` | No productive external/FHIR adapter found; bounded CALL-E REST adapter is separately implemented-disabled | Documentation contains future boundaries; no live provider proof |
 | ADR-0017 | `DOCUMENTATION` | Provider-neutral future boundary, recipient separation, minimization, conservative failures and threat/test plan | `DOCUMENTED_ONLY`; no transport, delivery, provider, approval or operational evidence |
 | ADR-0018 | `DOCUMENTATION` | Future inbound/read-only FHIR anti-corruption boundary, candidate mappings, open decisions, failure contract, threat model and future test plan | `DOCUMENTED_ONLY / NOT_IMPLEMENTED`; no FHIR runtime, profile, provider, writeback, interoperability or conformance evidence |
 | DEC-014 pack | `DECISION_SUPPORT_EVIDENCE` | Incident-operation decision preparation | Pending |
@@ -890,8 +953,9 @@ CALL-E ni modificación de P15.
 | `git diff --check` y escaneos del delta | PASS; E.164 0, emails 0, DNI 0, NIE 0, asignaciones de secretos 0; `.env` ausente | 0 | `gitleaks` no estaba disponible; no existió dato live que escanear |
 | Limpieza aislada | PASS; contenedor C08 autoremove ausente y puerto 55438 libre | 0 | Las bases sintéticas tmpfs se eliminaron por diseño; contenedor y volumen P15 preservados |
 
-Resultado documental: `LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION`, con el
-bloqueo adicional independiente `CALL_E_ACCOUNT_CAPABILITY = NOT_VERIFIED` por
+Resultado documental: `LIVE_PROOF = NOT_EVIDENCED`; la ejecución quedó
+bloqueada por ausencia de destination attestation y por el bloqueo adicional
+independiente `CALL_E_ACCOUNT_CAPABILITY = NOT_VERIFIED` por
 ausencia de key. `CALL_E_RUNTIME_PROOF = NOT_EVIDENCED` y
 `NO_FAKE_LIVE_CLAIM = PASS`. DEC-019, GAP-DCB-025, GAS2-R-021 y
 HAZ-GAS-021–038 permanecen abiertos; no se acepta riesgo residual.
@@ -1001,7 +1065,7 @@ no residual dependency or regulatory risk is accepted.
 ### Preserved C08 result and external gates
 
 ```text
-LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION
+LIVE_PROOF = NOT_EVIDENCED
 CALL_E_RUNTIME_PROOF = NOT_EVIDENCED
 LIVE_CALLS = NOT_EXECUTED
 ```

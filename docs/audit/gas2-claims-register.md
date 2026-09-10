@@ -86,6 +86,26 @@ llamada, eficacia del proveedor o control de intentos físicos. No se declara
 proveedor productivo, piloto, conformidad RGPD/MDR/AI Act/DCB0129/DCB0160 ni se
 acepta riesgo residual.
 
+## Reconciliación final C11
+
+La reconciliación C11 en
+`docs/build-week/C11_FINAL_READINESS_RECONCILIATION.md` separa el Core GAS
+sintético, el sandbox técnico CALL-E, la demo pública para jueces con live
+desactivado, el futuro piloto clínico y producción. No añade un claim de
+producto nuevo: conserva CLAIM-GAS2-038–044 con sus SHAs históricos y sus
+calificadores. En particular, `IMPLEMENTED_DISABLED` y
+`CALL_E_SANDBOX = PASS` describen solamente el adapter y las pruebas
+locales/sintéticas; no equivalen a una petición, respuesta o llamada CALL-E
+real. `LIVE_PROOF = NOT_EVIDENCED`.
+
+La contribución comunitaria CALL-E #280 fue fusionada upstream con head
+`c93b7b6f0359091701870e9e5ecc40d8e0829e25` y merge commit
+`342a15c3d100d28a9530b1e32cc1b7242d8eb380`. Ese merge acredita la contribución
+comunitaria, no runtime CALL-E en GAS. GAS does not persist CALL-E transcripts.
+La retención, grabaciones/transcripts y las demás cuestiones de proveedor
+permanecen como due diligence futura; no se afirma comportamiento de retención
+del proveedor.
+
 ## Presentation wording
 
 Acceptable:

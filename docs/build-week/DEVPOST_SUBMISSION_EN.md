@@ -126,8 +126,8 @@ assigned as before, with no automatic acceptance, reassignment or resolution.
 - Clinical judgment, confirmation and downstream action remain human.
 - No diagnosis, prescription, suicide prediction, opaque scoring or autonomous
   clinical action.
-- No full phone, clear confirmation token, API key, prompt, transcript,
-  summary, raw provider payload or free metadata in the relay ledger.
+- GAS does not persist CALL-E transcripts. The local relay ledger otherwise
+  remains restricted to the documented minimized allowlist.
 - Patient and professional authority, purpose, schemas and audit namespaces are
   separate.
 - Missing or malformed results abstain; `unknown` is never converted to “no.”
