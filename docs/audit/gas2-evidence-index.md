@@ -46,7 +46,7 @@ The supported direct updates are `next` 16.2.11 → 16.3.3 and both
 `@prisma/client` and `prisma` 6.19.0 → 6.19.3. No production dependency,
 override, allowlist or advisory suppression was added. Compatible lockfile
 resolution selected `effect` 3.21.0, `postcss` 8.5.23, `nanoid` 3.3.18,
-`sharp` 0.35.4, `baseline-browser-mapping` 2.11.21 and `browserslist` 4.28.7.
+`sharp` 0.35.4, `baseline-browser-mapping` 2.11.21 and `browserslist` 4.28.9.
 
 Final `pnpm audit --prod --json` reports **0 critical, 1 high and 0 moderate**:
 a delta of **-2 critical, -8 high and -3 moderate**, with zero new advisories.
