@@ -21,10 +21,10 @@ jurídica, RGPD, MDR o AI Act.
 
 | Comando | Contrato |
 | --- | --- |
-| `pnpm demo:prepare` | Crea `.env` solo si falta, conserva uno existente byte a byte, inicia PostgreSQL 16 en loopback, instala frozen, genera Prisma, despliega/comprueba 14 migraciones, ejecuta el único seed, valida trazabilidad y ejecuta `verify`. Nunca elimina datos. |
+| `pnpm demo:prepare` | Crea `.env` solo si falta, conserva uno existente byte a byte, inicia PostgreSQL 16 en loopback, instala frozen, genera Prisma, despliega/comprueba 20 migraciones, ejecuta el único seed, valida trazabilidad y ejecuta `verify`. Nunca elimina datos. |
 | `pnpm demo:verify` | Falla de forma cerrada si entorno, Compose, PostgreSQL, migraciones, seis identidades, fixtures, flags, badge, health, host efectivo, trazabilidad o fingerprint derivable presentan drift. |
 | `pnpm demo:start` | Ejecuta `verify`, inicia la app únicamente en `127.0.0.1`, espera readiness real mediante `GET /api/health` y permanece en foreground propagando señales y exit code. |
-| `pnpm demo:reset -- --confirm=RESET_SYNTHETIC_DEMO` | Operación destructiva protegida: exige confirmación exacta, ownership P15, markers sintéticos y destino loopback; muestra alcance, recrea solo el schema `public` de `guardian_demo`, aplica las 14 migraciones, un seed y `verify`. |
+| `pnpm demo:reset -- --confirm=RESET_SYNTHETIC_DEMO` | Operación destructiva protegida: exige confirmación exacta, ownership P15, markers sintéticos y destino loopback; muestra alcance, recrea solo el schema `public` de `guardian_demo`, aplica las 20 migraciones, un seed y `verify`. |
 | `pnpm demo:clean` | Detiene solo app/PostgreSQL registrados como iniciados por P15. Conserva base y volumen. Es idempotente. |
 | `pnpm demo:smoke` | Crea un proyecto Compose PostgreSQL 16 efímero P15, migra base vacía, ejecuta y repite el seed, compara fingerprints, inicia la app, ejecuta el recorrido Playwright y destruye solo sus recursos efímeros. |
 

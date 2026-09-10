@@ -70,6 +70,11 @@ pnpm db:migrate:status
 
 CI ejecuta instalación congelada, generación de Prisma, despliegue/estado de migraciones sobre PostgreSQL, trazabilidad, formato, lint, tipos, unit/integration, build y e2e en Chromium.
 
+La base reconciliada usa Next 16.3.3, Prisma 6.19.3 y `browserslist` 4.28.9.
+El audit de producción posterior a C09-SEC conserva un high de
+`deepmerge-ts` 7.1.5 abierto y no aceptado bajo GAS2-R-022. Esta remediación no
+convierte el proyecto en apto para despliegue público: `PUBLIC_DEPLOYMENT_READINESS = NO_GO`.
+
 ## Arquitectura
 
 - `src/domain`: roles, principal, recursos protegidos y política de denegación por defecto.
@@ -142,17 +147,20 @@ Véanse [docs/platform-foundation-security.md](docs/platform-foundation-security
 
 Guardián es una capa de orquestación y trazabilidad. No se ha seleccionado ningún proveedor externo ni se ha implementado integración con telefonía, mensajería, telemonitorización, wearables, sensores, geolocalización, domótica, HCE/EHR, FHIR operativo, SSO institucional, videollamada, chatbot, voz automatizada o servicios hospitalarios.
 
-Una futura llamada al profesional y una futura llamada al paciente serían capacidades diferentes y no equivalentes. Cada una necesitaría propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo propios. Ningún aviso o compromiso puede iniciarlas automáticamente. No hay proveedor, consentimiento, base jurídica, protocolo, horario, SLA o responsable seleccionados: ambas permanecen `FUTURE_ONLY / NO_GO` y no tienen interfaz ni implementación.
+Una llamada al profesional y una llamada al paciente son capacidades diferentes y no equivalentes. Cada una necesita propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo propios. Ningún aviso o compromiso puede iniciarlas automáticamente. Los recorridos Patient Relay y Professional Relay existen únicamente como sandbox técnico sintético; no hay proveedor productivo, consentimiento, base jurídica, protocolo, horario, SLA o responsable local seleccionados. El uso real permanece `NO_GO`.
 
-### Excepción documental para el hackathon CALL-E
+### Excepción técnica acotada para el hackathon CALL-E
 
 Se ha documentado en [ADR-0019](docs/adr/0019-calle-hackathon-sandbox-boundary.md)
-una frontera acotada para evaluar una futura integración CALL-E exclusivamente
-en sandbox técnico del hackathon, con datos sintéticos, llamadas públicas
-desactivadas y revisión humana. La integración no está implementada y no
-autoriza uso clínico, piloto ni producción. No se ha seleccionado un proveedor
-productivo ni se modifica la frontera neutral de ADR-0017. Esta excepción no
-habilita llamadas ni exposición del runtime demo loopback a Internet.
+una frontera acotada para evaluar CALL-E exclusivamente en sandbox técnico del
+hackathon, con datos sintéticos, llamadas públicas desactivadas y revisión
+humana. El repositorio contiene dos recorridos locales y un adapter REST
+server-only desactivado por defecto, sin entrypoint live. No hubo API key,
+destino autorizado, tráfico CALL-E ni llamada en C08; por tanto el runtime live
+permanece `NOT_EVIDENCED`. Nada de ello autoriza uso clínico, piloto o
+producción, selecciona un proveedor productivo ni modifica la frontera neutral
+de ADR-0017. Esta excepción tampoco habilita llamadas ni exposición del runtime
+demo loopback a Internet.
 
 ## OpenAI Build Week 2026
 
@@ -168,7 +176,17 @@ This repository is a **technical pre-pilot MVP** using **synthetic data only**. 
 
 ### What was built during Build Week
 
-Repository history dated 2026-07-20/21 shows deterministic explainable alerts, human alert review, the nursing workqueue, traceable human tasks and granular caregiver access. This closing branch adds an informational/versioned Home Safety checklist, a deterministic minimized SBAR preview, a fail-closed crisis-resource state, a reproducible synthetic demo dataset, release documentation and focused tests. The exact commit timeline and the limits of attribution are in [BUILD_WEEK_CHANGELOG](docs/build-week/BUILD_WEEK_CHANGELOG.md).
+The official submission period began on 2026-07-23 at 21:30 SGT. The repository
+cutoff immediately before it is
+`88be7da66c38f32f319e0fefc57f8246a1739a51`; the existing platform through
+role-based navigation is treated as pre-existing. The hackathon-period C01–C08
+delta adds the bounded CALL-E design, two synthetic relay journeys, a disabled
+server-only adapter, typed authority, one-use confirmation, minimized evidence
+and human review. C09 adds submission documentation only. Exact attribution and
+evidence limits are in
+[BUILD_WEEK_CHANGELOG](docs/build-week/BUILD_WEEK_CHANGELOG.md), and the judge
+package starts at
+[C09_SUBMISSION_STATUS](docs/build-week/C09_SUBMISSION_STATUS.md).
 
 ### How Codex was used
 
