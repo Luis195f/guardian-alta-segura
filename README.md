@@ -74,6 +74,9 @@ La base reconciliada usa Next 16.3.3, Prisma 6.19.3 y `browserslist` 4.28.9.
 El audit de producción posterior a C09-SEC conserva un high de
 `deepmerge-ts` 7.1.5 abierto y no aceptado bajo GAS2-R-022. Esta remediación no
 convierte el proyecto en apto para despliegue público: `PUBLIC_DEPLOYMENT_READINESS = NO_GO`.
+El estado final separado de Core sintético, sandbox CALL-E, demo pública,
+piloto y producción está en
+[C11 final readiness reconciliation](docs/build-week/C11_FINAL_READINESS_RECONCILIATION.md).
 
 ## Arquitectura
 
@@ -145,7 +148,13 @@ Véanse [docs/platform-foundation-security.md](docs/platform-foundation-security
 
 ## Neutralidad tecnológica y comunicaciones futuras
 
-Guardián es una capa de orquestación y trazabilidad. No se ha seleccionado ningún proveedor externo ni se ha implementado integración con telefonía, mensajería, telemonitorización, wearables, sensores, geolocalización, domótica, HCE/EHR, FHIR operativo, SSO institucional, videollamada, chatbot, voz automatizada o servicios hospitalarios.
+Guardián es una capa de orquestación y trazabilidad. No se ha seleccionado
+ningún proveedor productivo ni se ha implementado una integración live o
+productiva con telefonía, mensajería, telemonitorización, wearables, sensores,
+geolocalización, domótica, HCE/EHR, FHIR operativo, SSO institucional,
+videollamada, chatbot, voz automatizada o servicios hospitalarios. La única
+excepción técnica es el adapter REST CALL-E server-only, implementado pero
+desactivado y sin entrypoint live, descrito debajo.
 
 Una llamada al profesional y una llamada al paciente son capacidades diferentes y no equivalentes. Cada una necesita propósito, autorización, destinatario, contenido, auditoría y comportamiento ante fallo propios. Ningún aviso o compromiso puede iniciarlas automáticamente. Los recorridos Patient Relay y Professional Relay existen únicamente como sandbox técnico sintético; no hay proveedor productivo, consentimiento, base jurídica, protocolo, horario, SLA o responsable local seleccionados. El uso real permanece `NO_GO`.
 
@@ -157,7 +166,9 @@ hackathon, con datos sintéticos, llamadas públicas desactivadas y revisión
 humana. El repositorio contiene dos recorridos locales y un adapter REST
 server-only desactivado por defecto, sin entrypoint live. No hubo API key,
 destino autorizado, tráfico CALL-E ni llamada en C08; por tanto el runtime live
-permanece `NOT_EVIDENCED`. Nada de ello autoriza uso clínico, piloto o
+permanece `NOT_EVIDENCED`. Las pruebas locales y sintéticas permiten
+`CALL_E_SANDBOX = PASS` solo para esa definición cerrada; no son una llamada
+real. Nada de ello autoriza uso clínico, piloto o
 producción, selecciona un proveedor productivo ni modifica la frontera neutral
 de ADR-0017. Esta excepción tampoco habilita llamadas ni exposición del runtime
 demo loopback a Internet.

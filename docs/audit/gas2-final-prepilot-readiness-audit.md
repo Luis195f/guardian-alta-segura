@@ -1,5 +1,26 @@
 # GAS 2.0 final prepilot readiness audit
 
+## Reconciliación vigente — GAS2-C11
+
+La [reconciliación final C11](../build-week/C11_FINAL_READINESS_RECONCILIATION.md)
+prevalece para el estado CALL-E y de publicación sin borrar la evidencia
+histórica P16A/C01–C10: Core GAS sintético y sandbox CALL-E local/sintético se
+evalúan por separado; el adapter REST está implementado pero desactivado, el SDK
+está ausente con licencia no resuelta y no existe entrypoint live. Las pruebas
+sintéticas/locales no acreditan runtime CALL-E real. La demo pública y el vídeo
+siguen no verificados; piloto y producción continúan `NO_GO`.
+
+```text
+CALL_E_SANDBOX = PASS
+LIVE_PROOF = NOT_EVIDENCED
+PUBLIC_DEMO = NOT_VERIFIED
+VIDEO_LT_180S = NOT_VERIFIED
+PUBLIC_JUDGE_DEMO = BLOCKED
+REAL_PILOT = NO_GO
+PRODUCTION = NO_GO
+RESIDUAL_RISK_ACCEPTANCE = NONE
+```
+
 ## Respuesta ejecutiva vigente — extensión GAS2-P16A
 
 La evidencia actual permite someter a revisión humana un paquete documental para
@@ -1037,7 +1058,7 @@ Without changing intended clinical behavior or institutional gates:
 | GAS2-OOS-001 | Continuity | `OPEN` | `/api/health` omits DB readiness | Real operational readiness cannot be asserted | Separate post-decision technical branch |
 | GAS2-OOS-002 | Evidence | `DEFERRED` | Authorization decision/reviewer historical role not persisted | Evidence view correctly reports `UNAVAILABLE` | Decide whether institutional evidence requires persistence |
 | GAS2-OOS-003 | Operations | `BLOCKED_BY_DECISION` | No incident/telemetry workflow | Production operation blocked | DEC-014 then scoped implementation |
-| GAS2-OOS-004 | Integration | `DEFERRED` | No external/FHIR adapters | No real interoperability claim | Wait for approved contract/profile |
+| GAS2-OOS-004 | Integration | `DEFERRED` | No productive external/FHIR adapters; bounded CALL-E REST adapter is implemented-disabled with no live entrypoint | No real interoperability or live-integration claim | Wait for approved contract/profile and DEC-019 gates |
 
 These findings were recorded and not repaired.
 

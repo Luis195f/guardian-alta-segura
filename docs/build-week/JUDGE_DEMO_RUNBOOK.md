@@ -10,7 +10,7 @@ There is no public deployment URL. The application deliberately serves only on
 `http://127.0.0.1:3000` and fails closed outside loopback. C09 does not create a
 parallel app, tunnel, cloud service or external resource.
 
-`PUBLIC_DEMO = NOT_VERIFIED`. A public URL may be marked `PASS` only after a
+`PUBLIC_DEMO = NOT_VERIFIED` and `PUBLIC_JUDGE_DEMO = BLOCKED`. A public URL may be marked `PASS` only after a
 separately authorized deployment has been inspected end to end. No such action
 is authorized by C09.
 

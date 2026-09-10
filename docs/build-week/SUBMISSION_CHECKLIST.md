@@ -23,8 +23,9 @@ of human account fields or external publication.
 - [x] Video script and shot list target 2:50.
 - [x] Repository URL verified public.
 - [x] Local C09 validation results recorded in `C09_SUBMISSION_STATUS.md`.
-- [ ] Draft PR URL, exact C09 SHA and remote CI result verified from immutable
-      remote metadata and reported in the final handoff after the single commit.
+- [x] Reconciled C09 package published through PR #62; squash
+      `54fd5f2c34e87fe78b5c2893397007c08e2ce85d` and exact remote CI run
+      `34505812217` / job `102967607049` verified from GitHub metadata.
 
 ## Video — do not infer PASS
 
@@ -82,9 +83,9 @@ functional public demo.
       unaccepted under GAS2-R-022.
 - [x] Secret, E.164, email, DNI/NIE and clinical-content scans reviewed; C09
       delta matches 0 and contains only synthetic/aggregate content.
-- [ ] Exactly one commit, normal push, Draft PR, no reviewers, not Ready, no
-      merge.
-- [ ] Remote CI verified for the exact C09 head SHA.
+- [x] C09 reconciliation publication identity verified after merge through PR
+      #62. C11 uses its own single-commit/Draft-PR publication gate.
+- [x] Remote CI verified for the exact C09 reconciliation squash.
 
 Repository: `https://github.com/Luis195f/guardian-alta-segura`
 
@@ -93,7 +94,8 @@ Current external states remain:
 ```text
 PUBLIC_DEMO = NOT_VERIFIED
 VIDEO_LT_180S = NOT_VERIFIED
-LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION
+PUBLIC_JUDGE_DEMO = BLOCKED
+LIVE_PROOF = NOT_EVIDENCED
 PUBLIC_DEPLOYMENT_READINESS = NO_GO
 LIVE_CALLS = NOT_EXECUTED
 ```

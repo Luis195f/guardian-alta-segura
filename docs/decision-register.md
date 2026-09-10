@@ -24,7 +24,7 @@ Una decisión solo cambia de `Pendiente` cuando existe evidencia versionada y at
 | DEC-016 | Gobierno institucional | Alcance, población, entorno, periodo, formación, soporte, rollback y continuidad de negocio del piloto | REQ-01 a REQ-14 | Gerencia del Hospital como Responsable del Tratamiento | Expediente de gate de Piloto Clínico completo | Pendiente | NO-GO para pacientes y datos reales |
 | DEC-017 | Protocolo/operación | Taxonomía, prioridades administrativas, SLA, tiempos objetivo, resultados de contacto y reglas de asignación de tareas | REQ-09 | Dirección de Enfermería | Configuración versionada, explicable y validada localmente | Pendiente | Prioridades, SLA y valores operativos definitivos no se codifican |
 | DEC-018 | Interoperabilidad/seguridad/privacidad | Versión FHIR, perfiles, terminologías, identificadores/namespaces, provenance, finalidad/base jurídica, seguridad, retención, autoridad semántica, reconciliación, errores y responsabilidad operativa de una posible importación HCE read-only | REQ-01, REQ-02, REQ-12, REQ-13, REQ-14 | Dirección TI, Responsable del Tratamiento y autoridades clínicas aplicables; decisión conjunta pendiente | Contrato y perfiles versionados, threat model, evaluaciones aplicables, responsabilidades y pruebas sintéticas aprobadas para un alcance exacto | Pendiente | FHIR runtime, perfiles definitivos, integración institucional, datos reales, writeback y claims de interoperabilidad/conformidad |
-| DEC-019 | Sandbox técnico externo; seguridad, privacidad y operación | Licencia del SDK 0.6.0, términos del servicio REST, garantías de idempotencia, exactamente un marcado, destino/recipientKind, regiones/idiomas, contención de voz, emergencia, retención/residencia y autorización por llamada | REQ-02, REQ-06, REQ-09, REQ-12, REQ-13 | Responsable del proyecto y revisores técnicos/jurídicos competentes por designar para sandbox; autoridades clínicas, TI, Responsable del Tratamiento y CSO futuros para cualquier uso real; ninguna acreditada por C01/C02 | Contrato versionado y aclaraciones del proveedor, pruebas live futuras de gates/fallos/minimización y revisión humana de alcance; no bastan C00 ni las pruebas con transporte falso C02 | Pendiente | Dependencia SDK y cualquier ensayo live sin gates completos; publicación, datos clínicos reales, piloto y producción requieren decisiones separadas |
+| DEC-019 | Sandbox técnico externo; seguridad, privacidad y operación | Licencia del SDK 0.6.0, términos/garantías REST, idempotencia, intentos físicos, destino/recipientKind, regiones/idiomas, contención de voz, emergencia y autorización por llamada; due diligence de DPA/processor, transferencias/localización, retención, grabaciones/transcripts, seguridad/SLA/continuidad, incidentes, ePrivacy/telecom, procurement, base jurídica, consentimiento y supplier exit | REQ-02, REQ-06, REQ-09, REQ-12, REQ-13 | Responsable del proyecto y revisores técnicos/jurídicos competentes por designar para sandbox; autoridades clínicas, TI, Responsable del Tratamiento y CSO futuros para cualquier uso real; ninguna acreditada por C01–C11 | Contrato versionado y aclaraciones del proveedor, due diligence documentada, pruebas live futuras de gates/fallos/minimización y revisión humana de alcance; no bastan C00, las pruebas con transporte falso ni el merge comunitario C10 | Pendiente | Dependencia SDK y cualquier ensayo live sin gates completos; publicación, datos clínicos reales, piloto y producción requieren decisiones separadas |
 
 ### Evidencia de apoyo a DEC-019
 
@@ -49,6 +49,12 @@ humana obligatoria sin habilitar red. La ausencia de `resultValidation` en Calls
 0.6.0 observada por C00 se conserva como divergencia, no como compatibilidad
 inventada. Cualquier ejecución real sigue no implementada. DEC-019 permanece
 `Pendiente` y no se acepta riesgo residual.
+
+La contribución comunitaria C10 #280 está fusionada upstream con head
+`c93b7b6f0359091701870e9e5ecc40d8e0829e25` y merge commit
+`342a15c3d100d28a9530b1e32cc1b7242d8eb380`. Ese merge no modifica DEC-019,
+no resuelve la licencia del SDK ni aporta evidencia live. GAS does not persist
+CALL-E transcripts. No se afirma comportamiento de retención del proveedor.
 
 ### Evidencia de apoyo a DEC-003 y comunicaciones futuras
 

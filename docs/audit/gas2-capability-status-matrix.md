@@ -50,7 +50,7 @@ Disposition uses `REUSE`, `EXTEND_LATER`, `FREEZE` and `DO_NOT_BUILD`.
 | Technical observability foundation | Correlation IDs, sanitized public errors and sanitized stderr | `PARTIALLY_IMPLEMENTED` | Unit/E2E | No metrics, tracing, telemetry sink or DB readiness | `EXTEND_LATER` |
 | Institutional incident operations | No approved operating model or workflow | `BLOCKED_BY_INSTITUTIONAL_DECISION` | Repository absence | DEC-014/005 | `EXTEND_LATER` |
 | Continuity | No continuity capability; process liveness is separate | `NOT_IMPLEMENTED` | Health E2E proves liveness only, not continuity | DEC-015 | `EXTEND_LATER` |
-| External connectors | No adapters | `DEFERRED` | Repository absence | Contract/institutional requirement absent; reuse the boundary only | `REUSE` |
+| External connectors | No productive connector; bounded CALL-E REST adapter exists server-only, disabled and without live entrypoint | `DEFERRED` | Local synthetic/fake tests plus boundary checker; no live provider proof | Contract, authority, SDK license and institutional requirements unresolved | `REUSE` |
 | FHIR | Conditional documented boundary | `DEFERRED` | Repository absence | No profile, operation, scope or endpoint; reuse only if an approved requirement exists | `REUSE` |
 | Production deployment | No productive environment baseline | `NOT_IMPLEMENTED` | Repository absence | Do not build pending DEC-005/013–016 and infrastructure decisions | `DO_NOT_BUILD` |
 

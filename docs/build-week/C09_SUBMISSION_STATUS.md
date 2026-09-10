@@ -5,7 +5,14 @@ and submission preparation only. The original C09 evidence below remains
 historical evidence for its exact source head; current dependency and validation
 evidence is recorded separately against the remediated base.
 
-## Current reconciled base
+> **Historical C09 record.** The current cross-boundary state is governed by
+> [C11 final readiness reconciliation](C11_FINAL_READINESS_RECONCILIATION.md).
+> GAS PR #62 was subsequently merged at
+> `54fd5f2c34e87fe78b5c2893397007c08e2ce85d`; its exact CI run
+> `34505812217` / job `102967607049` completed successfully. C11 does not
+> reinterpret the historical execution evidence below.
+
+## Historical C09 reconciliation base
 
 | Check | Verified state |
 | --- | --- |
@@ -53,7 +60,7 @@ change the pinned C09 base and requires a separate human decision.
 ## Preserved C08 boundary
 
 ```text
-LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION
+LIVE_PROOF = NOT_EVIDENCED
 CALL_E_RUNTIME_PROOF = NOT_EVIDENCED
 LIVE_CALLS = NOT_EXECUTED
 ```
@@ -138,7 +145,8 @@ metadata and reported in the final reconciliation handoff.
 ```text
 PUBLIC_DEMO = NOT_VERIFIED
 VIDEO_LT_180S = NOT_VERIFIED
-LIVE_PROOF = BLOCKED_NO_AUTHORIZED_DESTINATION
+PUBLIC_JUDGE_DEMO = BLOCKED
+LIVE_PROOF = NOT_EVIDENCED
 PUBLIC_DEPLOYMENT_READINESS = NO_GO
 LIVE_CALLS = NOT_EXECUTED
 ```
