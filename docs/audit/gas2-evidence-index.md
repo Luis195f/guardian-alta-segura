@@ -6,6 +6,90 @@ Runtime code, schema/migrations and executed tests were treated as primary
 evidence. ADRs and traceability explain intent and ownership. Decision Packs are
 `DECISION_SUPPORT_EVIDENCE` and never institutional approval.
 
+## C09-SEC dependency remediation — 2026-09-09
+
+### Anchor and baseline
+
+The isolated worktree was anchored at
+`c5a0574e1e29299364a2cca6ec0b2bfdbc910429`, equal to `origin/main`, with zero
+branch commits, a clean worktree and index, no upstream and no remote
+`fix/c09-critical-dependencies` branch. Initial blobs were
+`package.json=fbdad0f88243e4861876e60c4ec45d382ef7a973` and
+`pnpm-lock.yaml=baa535e822b7a63649c37b674915004a43478a38`. PR #60 remained open, Draft,
+unmerged and pinned to `2b1eb504419da413defe5000fb35c30a4038c459`; it was
+not modified.
+
+Initial `pnpm audit --prod --json` reported exactly **2 critical, 9 high and 3
+moderate** advisories. The chains below are the exact `paths` reported by pnpm;
+all affected packages are transitive except direct dependency `next`.
+
+| Advisory / CVE | Severity | Installed; vulnerable; first fixed | Exact introduction chain | Applicable surface and phase | Official source |
+| --- | --- | --- | --- | --- | --- |
+| GHSA-38f7-945m-qr2g / CVE-2026-32887 | high | `effect` 3.18.4; `<3.20.0`; 3.20.0 | `.>@prisma/client>prisma>@prisma/config>effect` | Prisma configuration/CLI concurrency; build, migration and tooling, not application runtime | [Effect advisory](https://github.com/Effect-TS/effect/security/advisories/GHSA-38f7-945m-qr2g) |
+| GHSA-qx2v-qp2m-jg93 / CVE-2026-41305 | moderate | `postcss` 8.4.31; `<8.5.10`; 8.5.10 | `.>next>postcss` | Next CSS processing; build path and possible generated style output. The repository does not call PostCSS with user-controlled CSS, but that absence was not treated as irrelevance | [PostCSS advisory](https://github.com/postcss/postcss/security/advisories/GHSA-qx2v-qp2m-jg93) |
+| GHSA-f88m-g3jw-g9cj / CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591 | high | `sharp` 0.34.5; `<0.35.0`; 0.35.0 | `.>next>sharp` | Optional Next image optimization runtime and native codec surface; no current `next/image` use was found, but framework/deployment exposure was not assumed absent | [sharp advisory](https://github.com/lovell/sharp/security/advisories/GHSA-f88m-g3jw-g9cj) |
+| GHSA-6g55-p6wh-862q / CVE-2026-45623 | high | `postcss` 8.4.31; `<=8.5.11`; 8.5.12 | `.>next>postcss` | Next CSS/source-map processing; primarily build/tooling, with arbitrary-file-read impact if attacker-controlled CSS reaches the affected parser | [PostCSS advisory](https://github.com/postcss/postcss/security/advisories/GHSA-6g55-p6wh-862q) |
+| GHSA-fxqj-rqcc-2cmp / CVE-2026-69153 | moderate | `postcss` 8.4.31; `<=8.5.22`; 8.5.23 | `.>next>postcss` | Incomplete source-map fix in Next CSS processing; build/tooling surface, without assuming untrusted input is impossible | [PostCSS advisory](https://github.com/postcss/postcss/security/advisories/GHSA-fxqj-rqcc-2cmp) |
+| GHSA-2v37-7h3g-55p8 / CVE-2026-67213 | high | `nanoid` 3.3.17; `<3.3.18`; 3.3.18 | `.>next>postcss>nanoid` | PostCSS transitive identifier generation; build/tooling. The application does not invoke the affected custom size-zero API directly | [nanoid advisory](https://github.com/advisories/GHSA-2v37-7h3g-55p8) |
+| GHSA-r28c-9q8g-f849 / CVE-2026-73646 | high | `postcss` 8.4.31; `<=8.5.17`; 8.5.18 | `.>next>postcss` | Previous source-map auto-loading in Next CSS processing; build/tooling file-read surface | [PostCSS advisory](https://github.com/postcss/postcss/security/advisories/GHSA-r28c-9q8g-f849) |
+| GHSA-ggr8-5vv4-36mx / CVE-2026-40345 | high | `deepmerge-ts` 7.1.5; `<8.0.0`; 8.0.0 | `.>@prisma/client>prisma>@prisma/config>deepmerge-ts` | Prisma configuration merging; migration/build/tooling, not application runtime. Recursive attacker-controlled configuration graphs are not a public input in this repository | [deepmerge-ts advisory](https://github.com/RebeccaStevens/deepmerge-ts/security/advisories/GHSA-ggr8-5vv4-36mx) |
+| GHSA-c83g-rgw3-j3cx / CVE-2026-73089 | high | `browserslist` 4.28.6; `<=4.28.6`; 4.28.7 | `.>next>styled-jsx>@babel/core>@babel/helper-compilation-targets>browserslist` | Babel/styled-jsx target resolution; build/tooling. Public runtime does not submit distinct Browserslist queries | [Browserslist advisory](https://github.com/browserslist/browserslist/security/advisories/GHSA-c83g-rgw3-j3cx) |
+| GHSA-73wf-gq98-2v4g / CVE-2026-73088 | high | `browserslist` 4.28.6; `<=4.28.6`; 4.28.7 | `.>next>styled-jsx>@babel/core>@babel/helper-compilation-targets>browserslist` | Babel/styled-jsx target resolution; build/tooling. No untrusted `browserslist-stats.json` input is accepted by the application | [Browserslist advisory](https://github.com/browserslist/browserslist/security/advisories/GHSA-73wf-gq98-2v4g) |
+| GHSA-p293-qw3h-jr36 / CVE-2026-75604 | critical | direct `next` 16.2.11; `>=16.0.0 <16.3.3`; 16.3.3 | `.>next` | Unauthenticated Windows-hosted server RCE; directly applicable if this Next server is exposed from Windows. Local Windows execution is not public-deployment qualification | [Next.js advisory](https://github.com/vercel/next.js/security/advisories/GHSA-p293-qw3h-jr36) |
+| GHSA-w5vr-8v7q-w6rv / CVE-2026-45819 | moderate | `baseline-browser-mapping` 2.10.43; `>=2.0.0 <2.11.0`; 2.11.0 | `.>next>baseline-browser-mapping`; `.>next>styled-jsx>@babel/core>@babel/helper-compilation-targets>browserslist>baseline-browser-mapping` | Browser-target mapping used by Next and Babel; build/tooling. The application has no public API for this parser | [baseline-browser-mapping advisory](https://github.com/advisories/GHSA-w5vr-8v7q-w6rv) |
+| GHSA-rgj7-g3m4-5g8c / no CVE assigned to the aggregate GHSA | high | `sharp` 0.34.5; `<0.35.4`; 0.35.4 | `.>next>sharp` | Optional Next image optimization runtime and native libheif surface; aggregate advisory references GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545 | [sharp advisory](https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c) |
+| GHSA-2xp9-vwfh-vxw4 / no CVE assigned | critical | direct `next` 16.2.11; `>=16.0.0 <16.3.3`; 16.3.3 | `.>next` | Unauthenticated RCE through the Image Optimization API with AVIF input; direct runtime framework surface. No current `next/image` use was found, but deployment-level disablement was not demonstrated | [Next.js advisory](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4) |
+
+### Minimal update and final audit
+
+The supported direct updates are `next` 16.2.11 → 16.3.3 and both
+`@prisma/client` and `prisma` 6.19.0 → 6.19.3. No production dependency,
+override, allowlist or advisory suppression was added. Compatible lockfile
+resolution selected `effect` 3.21.0, `postcss` 8.5.23, `nanoid` 3.3.18,
+`sharp` 0.35.4, `baseline-browser-mapping` 2.11.21 and `browserslist` 4.28.9.
+
+Final `pnpm audit --prod --json` reports **0 critical, 1 high and 0 moderate**:
+a delta of **-2 critical, -8 high and -3 moderate**, with zero new advisories.
+The remaining finding is GHSA-ggr8-5vv4-36mx / CVE-2026-40345 in
+`deepmerge-ts` 7.1.5 through
+`.>@prisma/client>prisma>@prisma/config>deepmerge-ts`. Prisma 6.19.3 declares
+that version exactly; the available fix is major `deepmerge-ts` 8.0.0. Forcing
+it with an override would be an unsupported compatibility assumption, while a
+Prisma major migration would exceed this remediation. The high advisory remains
+open and unaccepted under GAS2-R-022.
+
+### Local validation
+
+Validation used PostgreSQL 16.14 in an auto-remove ephemeral container, bound only to
+`127.0.0.1:55440`, with tmpfs storage and no volume. The base was explicitly
+recreated empty before migration validation and again before E2E.
+
+| Command or evidence | Result | Exit | Scope / limitation |
+| --- | --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | PASS; exact corrected lock installed | 0 | Supply-chain policy check also passed |
+| `pnpm prisma:generate` | PASS; Prisma Client 6.19.3 | 0 | No schema change |
+| Empty PostgreSQL 16 + `pnpm db:migrate:deploy` | PASS; 0 initial public tables and 20/20 migrations applied | 0 | Synthetic, loopback, tmpfs only |
+| `pnpm db:seed` and `pnpm db:migrate:status` | PASS; synthetic seed; schema up to date | 0 | Same isolated base |
+| DB → Prisma migrate diff | PASS; no difference detected | 0 | `--to-schema-datamodel` comparison |
+| `pnpm format:check` | PASS final | 0 | Final dependency and evidence delta included |
+| `pnpm lint` | PASS | 0 | Static analysis |
+| `pnpm typecheck` | PASS | 0 | Next type generation plus strict TypeScript |
+| `pnpm test` | PASS; 556 unit + 120 integration + 35 tooling = 711/711 | 0 | Synthetic fixtures and PostgreSQL 16 |
+| `pnpm traceability:check` | PASS; 14 requirements, 44 claims, Markdown/CSV drift 0 | 0 | Repository consistency, not external truth |
+| Governance evidence checker | PASS; 44 claims and local references resolved | 0 | No institutional authorization inferred |
+| `pnpm calle:boundary:check` | PASS; SDK absent, live entrypoint absent, network/helper surfaces absent | 0 | CALL-E remains disabled; zero live calls |
+| `pnpm build` | PASS; Next 16.3.3, 18/18 static pages | 0 | Local build, not deployment qualification |
+| `pnpm test:e2e -- --workers=1 --retries=0` | PASS; 83/83 in 6.7 min | 0 | Chromium/mobile Chromium; loopback; no retries |
+| `pnpm audit --prod --json` | 0 critical, 1 high, 0 moderate | 1 expected | Remaining high is open, not accepted; audit is not a zero-vulnerability claim |
+| `git diff --check` | PASS | 0 | Dependency and evidence delta only |
+| Sensitive-data and artifact scans | Delta: E.164 0, emails 0, valid DNI/NIE 0, high-confidence secrets 0, C07 PHI markers 0; `.env` absent | 0 | Whole tracked tree retains two synthetic `.invalid` test emails; `gitleaks` unavailable, so no gitleaks PASS is claimed |
+| Ephemeral cleanup | PASS; C09 container absent, port 55440 free, `.next` and `test-results` removed | 0 | P15 container ID/status, volume and network unchanged |
+
+No functional code, Prisma schema, migration, auth, lifecycle, CALL-E, UI, E2E
+or workflow file is changed by this remediation. It does not establish total
+security, production readiness, clinical validation, institutional authorization
+or public-deployment readiness.
+
 ## Architecture and configuration
 
 | Source | Type | Supports | Limitation |
