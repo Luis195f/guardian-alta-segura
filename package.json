@@ -37,8 +37,8 @@
     "demo:smoke": "node scripts/smoke-demo.mjs"
   },
   "dependencies": {
-    "@prisma/client": "6.19.0",
-    "next": "16.2.11",
+    "@prisma/client": "6.19.3",
+    "next": "16.3.3",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
@@ -51,7 +51,7 @@
     "eslint": "9.39.2",
     "eslint-config-next": "16.2.10",
     "prettier": "3.9.0",
-    "prisma": "6.19.0",
+    "prisma": "6.19.3",
     "typescript": "5.9.3",
     "vitest": "4.1.0"
   }
