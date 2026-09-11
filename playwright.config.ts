@@ -49,6 +49,7 @@ export default defineConfig({
       APP_BASE_URL: "http://127.0.0.1:3000",
       DATABASE_URL: databaseUrl,
       DEMO_MODE: "true",
+      CALL_E_REST_ENABLED: "false",
       DEMO_SESSION_TTL_HOURS: "8",
       // Excepción exclusiva del servidor e2e sobre HTTP loopback.
       SESSION_COOKIE_SECURE: "false",

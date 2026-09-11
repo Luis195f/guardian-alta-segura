@@ -138,6 +138,7 @@ Las rutas protegidas vuelven a comprobar sesión y autorización en servidor. `a
 - La auditoría de reglas y avisos registra por separado evaluación y creación de aviso, además de acción, actor, rol, recurso, resultado y correlation ID; no duplica snapshots ni explicaciones clínicas.
 - La auditoría de tareas registra creación, asignación/reasignación, contacto, nota y resolución sin copiar resumen, nota, explicación ni motivo. Las métricas de cola son agregadas y técnicas.
 - `EXPLAINABLE_TRAFFIC_LIGHT=false` por defecto. La interfaz ordena por estado y texto; DEC-009 bloquea habilitar el semáforo visual sin decisión local.
+- `CALL_E_REST_ENABLED=false` es obligatorio en la demo; `demo:verify` y `demo:start` fallan antes de iniciar la aplicación si falta o cambia, y el resultado verificable es `EXTERNAL_PROVIDER_CALLS=0`.
 - `AuditEvent` es append-only mediante triggers PostgreSQL. Login, logout y asignación de rol se auditan en la misma transacción que su mutación.
 - La asignación de rol revalida en esa transacción que el actor siga activo con `admin`; el objetivo debe existir, estar activo, ser sintético y no ser una de las seis identidades demo reservadas.
 - El rate limit de login es local al proceso y sirve solo como defensa de desarrollo. Un despliegue futuro necesita control distribuido/perimetral, proxy confiable, TLS/HSTS y una política CSP con nonces.

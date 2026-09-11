@@ -35,6 +35,29 @@ test("accepts the disabled server-only REST boundary", () => {
   assert.match(result.stdout, /SDK absent/u);
 });
 
+test("rejects replacing either exact local synthetic Relay provider", (t) => {
+  const root = fixture(t);
+  for (const [relativePath, exactProvider, replacement] of [
+    [
+      "src/infrastructure/relay/synthetic-demo-patient-relay.ts",
+      "new LocalSyntheticPatientRelayProvider()",
+      "new EscapedPatientRelayProvider()",
+    ],
+    [
+      "src/infrastructure/relay/synthetic-demo-professional-relay.ts",
+      "new LocalSyntheticProfessionalRelayProvider()",
+      "new EscapedProfessionalRelayProvider()",
+    ],
+  ]) {
+    const file = path.join(root, relativePath);
+    writeFileSync(file, readFileSync(file, "utf8").replace(exactProvider, replacement));
+  }
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Synthetic Patient Relay executor/u);
+  assert.match(result.stderr, /Synthetic Professional Relay executor/u);
+});
+
 test("rejects a provider SDK import in production", (t) => {
   const root = fixture(t);
   const file = path.join(root, "src", "domain", "prohibited-provider.ts");

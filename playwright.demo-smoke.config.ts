@@ -31,6 +31,7 @@ export default defineConfig({
       APP_BASE_URL: "http://127.0.0.1:3000",
       DATABASE_URL: databaseUrl,
       DEMO_MODE: "true",
+      CALL_E_REST_ENABLED: "false",
       DEMO_SESSION_TTL_HOURS: "8",
       CAREGIVER_DEMO_INVITATION_TTL_MINUTES: "30",
       CAREGIVER_DEMO_SESSION_TTL_HOURS: "8",
