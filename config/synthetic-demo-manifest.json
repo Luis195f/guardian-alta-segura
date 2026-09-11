@@ -24,7 +24,13 @@
     "20260721000400_enforce_task_event_semantics",
     "20260802000100_commitment_sandbox_core_5b",
     "20260808000100_alert_review_idempotency",
-    "20260810000100_commitment_definition_lineage_guard"
+    "20260810000100_commitment_definition_lineage_guard",
+    "20260829000100_calle_rest_disabled_adapter",
+    "20260830000100_continuity_relay_core",
+    "20260830000200_continuity_relay_review_guards",
+    "20260901000100_patient_relay_synthetic_result",
+    "20260902000100_professional_relay_synthetic_result",
+    "20260907000100_relay_result_governance"
   ],
   "identities": [
     { "alias": "demo-admin", "role": "admin" },
@@ -48,7 +54,8 @@
   "requiredFlags": {
     "DEMO_MODE": "true",
     "EXPLAINABLE_TRAFFIC_LIGHT": "false",
-    "COMMITMENT_ENGINE_ENABLED": "false"
+    "COMMITMENT_ENGINE_ENABLED": "false",
+    "CALL_E_REST_ENABLED": "false"
   },
   "capabilities": [
     {

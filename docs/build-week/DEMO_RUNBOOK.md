@@ -22,7 +22,7 @@ jurídica, RGPD, MDR o AI Act.
 | Comando | Contrato |
 | --- | --- |
 | `pnpm demo:prepare` | Crea `.env` solo si falta, conserva uno existente byte a byte, inicia PostgreSQL 16 en loopback, instala frozen, genera Prisma, despliega/comprueba 20 migraciones, ejecuta el único seed, valida trazabilidad y ejecuta `verify`. Nunca elimina datos. |
-| `pnpm demo:verify` | Falla de forma cerrada si entorno, Compose, PostgreSQL, migraciones, seis identidades, fixtures, flags, badge, health, host efectivo, trazabilidad o fingerprint derivable presentan drift. |
+| `pnpm demo:verify` | Falla de forma cerrada si entorno, Compose, PostgreSQL, migraciones, seis identidades, fixtures, flags —incluido `CALL_E_REST_ENABLED=false`—, badge, health, host efectivo, trazabilidad o fingerprint derivable presentan drift. En PASS emite `EXTERNAL_PROVIDER_CALLS=0`. |
 | `pnpm demo:start` | Ejecuta `verify`, inicia la app únicamente en `127.0.0.1`, espera readiness real mediante `GET /api/health` y permanece en foreground propagando señales y exit code. |
 | `pnpm demo:reset -- --confirm=RESET_SYNTHETIC_DEMO` | Operación destructiva protegida: exige confirmación exacta, ownership P15, markers sintéticos y destino loopback; muestra alcance, recrea solo el schema `public` de `guardian_demo`, aplica las 20 migraciones, un seed y `verify`. |
 | `pnpm demo:clean` | Detiene solo app/PostgreSQL registrados como iniciados por P15. Conserva base y volumen. Es idempotente. |
@@ -78,7 +78,8 @@ El único seed es `prisma/seed.mjs`. El manifiesto versionado
 - un fixture técnico separado `synthetic-demo-flow-mechanics`, activado solo
   para persistir el aviso inicial reproducible. Su referencia
   `SYNTHETIC-DEMO-TECHNICAL-ONLY` no es aprobación clínica o institucional;
-- políticas institucionales `PENDING`, semáforo apagado, 5B apagado, cero
+- políticas institucionales `PENDING`, semáforo apagado, 5B apagado, adapter
+  CALL-E apagado (`CALL_E_REST_ENABLED=false`), cero
   compromisos, crisis no accionable y cero comunicaciones.
 
 El fingerprint SHA-256 emitido por `demo:verify` incluye el estado material canónico,

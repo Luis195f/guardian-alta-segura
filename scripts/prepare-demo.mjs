@@ -14,6 +14,7 @@ const environmentVariableNames = [
   "SESSION_COOKIE_SECURE",
   "EXPLAINABLE_TRAFFIC_LIGHT",
   "COMMITMENT_ENGINE_ENABLED",
+  "CALL_E_REST_ENABLED",
 ];
 
 function resolvePnpmInvocation(args, environment) {

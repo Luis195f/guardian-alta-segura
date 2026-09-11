@@ -60,8 +60,8 @@ export function inspectComposeContainer(environment) {
   return { containerId, project: labels["com.docker.compose.project"] };
 }
 
-function verifyStaticBoundary() {
-  const compose = readFileSync(path.join(repositoryRoot, "docker-compose.yml"), "utf8");
+export function verifyStaticBoundary(root = repositoryRoot) {
+  const compose = readFileSync(path.join(root, "docker-compose.yml"), "utf8");
   if (
     !/image:\s*postgres:16(?:-alpine)?/u.test(compose) ||
     !/127\.0\.0\.1:5432:5432/u.test(compose)
@@ -74,14 +74,11 @@ function verifyStaticBoundary() {
     "src/application/sbar/generate-deterministic-sbar.ts",
   ];
   for (const relativePath of badgeSources) {
-    if (!readFileSync(path.join(repositoryRoot, relativePath), "utf8").includes(manifest.notice)) {
+    if (!readFileSync(path.join(root, relativePath), "utf8").includes(manifest.notice)) {
       throw new DemoCommandError("DEMO_NOTICE_MISSING", 2);
     }
   }
-  const healthSource = readFileSync(
-    path.join(repositoryRoot, "src/app/api/health/route.ts"),
-    "utf8",
-  );
+  const healthSource = readFileSync(path.join(root, "src/app/api/health/route.ts"), "utf8");
   if (
     !healthSource.includes('{ status: "ok", service: "guardian-alta-segura" }') ||
     /DATABASE_URL|password|token|cookie|diagnos|note/iu.test(healthSource)
@@ -89,7 +86,7 @@ function verifyStaticBoundary() {
     throw new DemoCommandError("HEALTHCHECK_NOT_SANITIZED", 2);
   }
   const requestBoundary = readFileSync(
-    path.join(repositoryRoot, "src/infrastructure/http/demo-episode-request.ts"),
+    path.join(root, "src/infrastructure/http/demo-episode-request.ts"),
     "utf8",
   );
   if (!requestBoundary.includes("assertLoopbackRequestHost(request)")) {
@@ -98,8 +95,13 @@ function verifyStaticBoundary() {
 
   const externalUrl =
     /https?:\/\/(?!\$\{|127\.0\.0\.1(?::\d+)?(?:[\s/.,;:'"`)]|$)|localhost(?::\d+)?(?:[\s/.,;:'"`)]|$)|\[::1\](?::\d+)?(?:[\s/.,;:'"`)]|$))[^\s'"`)]+/giu;
+  const callEConfigPath = "src/infrastructure/call-transport/call-e-rest-config.ts";
+  const canonicalCallEEndpoint = ["https:", "", "api.heycall-e.com"].join("/");
+  const canonicalCallEDeclaration =
+    /export const CALL_E_API_BASE_URL = "https:\/\/api\.heycall-e\.com" as const;/gu;
+  let authorizedCallEEndpointCount = 0;
   const roots = ["src", "prisma", "scripts"];
-  const pending = roots.map((item) => path.join(repositoryRoot, item));
+  const pending = roots.map((item) => path.join(root, item));
   while (pending.length > 0) {
     const current = pending.pop();
     const entries = readdirSync(current, { withFileTypes: true });
@@ -107,15 +109,32 @@ function verifyStaticBoundary() {
       const absolute = path.join(current, entry.name);
       if (entry.isDirectory()) pending.push(absolute);
       else if (
-        /\.(?:ts|tsx|mjs|json)$/u.test(entry.name) &&
+        /\.(?:ts|tsx|js|jsx|mjs|cjs|json|sql|prisma|ps1)$/u.test(entry.name) &&
         !/\.(?:test|spec)\./u.test(entry.name)
       ) {
         const source = readFileSync(absolute, "utf8");
-        if (externalUrl.test(source))
-          throw new DemoCommandError("EXTERNAL_RUNTIME_ENDPOINT_PRESENT", 2);
-        externalUrl.lastIndex = 0;
+        const relative = path.relative(root, absolute).replaceAll("\\", "/");
+        const declarationMatches =
+          relative === callEConfigPath ? [...source.matchAll(canonicalCallEDeclaration)] : [];
+        for (const match of source.matchAll(externalUrl)) {
+          const declaration = declarationMatches.length === 1 ? declarationMatches[0] : null;
+          const endpointOffset = declaration?.[0].indexOf(canonicalCallEEndpoint) ?? -1;
+          const isExactAuthorizedOccurrence =
+            relative === callEConfigPath &&
+            match[0] === canonicalCallEEndpoint &&
+            declaration !== null &&
+            endpointOffset >= 0 &&
+            match.index === declaration.index + endpointOffset;
+          if (!isExactAuthorizedOccurrence) {
+            throw new DemoCommandError("EXTERNAL_RUNTIME_ENDPOINT_PRESENT", 2);
+          }
+          authorizedCallEEndpointCount += 1;
+        }
       }
     }
+  }
+  if (authorizedCallEEndpointCount !== 1) {
+    throw new DemoCommandError("EXTERNAL_RUNTIME_ENDPOINT_PRESENT", 2);
   }
 }
 
@@ -179,7 +198,7 @@ export async function verifyDemo({
   console.log(`MIGRATIONS_APPLIED=${result.migrations}`);
   console.log(`POSTGRES_MAJOR=${result.postgresMajor}`);
   console.log(`SYNTHETIC_IDENTITIES=${result.state.identities.length}`);
-  console.log(`EXTERNAL_PROVIDERS=0`);
+  console.log(`EXTERNAL_PROVIDER_CALLS=0`);
   console.log(`SYNTHETIC_DEMO_FINGERPRINT=${result.fingerprint}`);
   if (compose) console.log(`COMPOSE_PROJECT=${compose.project}`);
   return result;

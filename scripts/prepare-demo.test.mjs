@@ -19,6 +19,7 @@ const validEnvironment = [
   'SESSION_COOKIE_SECURE="false"',
   'EXPLAINABLE_TRAFFIC_LIGHT="false"',
   'COMMITMENT_ENGINE_ENABLED="false"',
+  'CALL_E_REST_ENABLED="false"',
   "",
 ].join("\n");
 
@@ -55,6 +56,7 @@ test("crea .env desde el ejemplo solo cuando falta y carga sus variables", (t) =
   assert.equal(readFileSync(path.join(root, ".env"), "utf8"), validEnvironment);
   assert.equal(environment.APP_BASE_URL, "http://127.0.0.1:3000");
   assert.equal(environment.POSTGRES_PASSWORD, "synthetic");
+  assert.equal(environment.CALL_E_REST_ENABLED, "false");
 });
 
 test("preserva byte a byte un .env preexistente", (t) => {
