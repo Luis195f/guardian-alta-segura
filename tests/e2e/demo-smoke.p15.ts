@@ -17,6 +17,26 @@ async function authenticated(alias: string): Promise<APIRequestContext> {
 
 test.afterAll(async () => prisma.$disconnect());
 
+test("landing identifica CALL-E y declara sus límites en ambos viewports", async ({ page }) => {
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1920, height: 1080 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await expect(
+      page.getByText("CALL-E · SANDBOX SINTÉTICO · LIVE OFF", { exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+  }
+
+  const integration = page.getByRole("region", { name: "CALL-E Continuity Relay" });
+  await expect(integration).toBeVisible();
+  await expect(integration.getByText("Runtime live", { exact: true })).toBeVisible();
+  await expect(integration.getByText("OFF · no evidenciado", { exact: true })).toBeVisible();
+  await expect(integration.getByText("Contactos externos", { exact: true })).toBeVisible();
+  await expect(integration.getByText("0", { exact: true })).toBeVisible();
+});
+
 test("recorrido sintético completo, seis roles y denegaciones sin tráfico externo", async ({
   page,
 }) => {

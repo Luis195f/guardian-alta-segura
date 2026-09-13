@@ -190,8 +190,12 @@ export function ProfessionalRelayPanel({ episodeId }: { readonly episodeId: stri
       className="workspace-panel professional-relay"
       aria-labelledby="professional-relay-title"
     >
+      <aside className="calle-relay-banner" aria-label="Estado de integración CALL-E">
+        <strong>CALL-E Continuity Relay</strong>
+        <span>SANDBOX SINTÉTICO · LIVE OFF · DATOS SINTÉTICOS · CONTACTOS EXTERNOS 0</span>
+      </aside>
       <p className="eyebrow">
-        Demostración de aplicación · fixture sintético predeterminado · sin proveedor · sin red
+        Carril Professional CALL-E · fixture sintético local · proveedor no invocado · sin red
       </p>
       <h2 id="professional-relay-title">Professional Relay</h2>
       <p>
@@ -272,8 +276,11 @@ export function ProfessionalRelayPanel({ episodeId }: { readonly episodeId: stri
                 <dd>{new Date(detailed.expiresAt).toLocaleString("es-ES")}</dd>
               </div>
               <div>
-                <dt>Red / proveedor</dt>
-                <dd>0 contactos · {detailed.executionMode}</dd>
+                <dt>CALL-E / proveedor externo</dt>
+                <dd>
+                  Adaptador REST implementado · live OFF · contactos externos 0 ·{" "}
+                  {detailed.executionMode}
+                </dd>
               </div>
             </dl>
 

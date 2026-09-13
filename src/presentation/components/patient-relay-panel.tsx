@@ -185,7 +185,13 @@ export function PatientRelayPanel({ episodeId }: { readonly episodeId: string })
 
   return (
     <section className="workspace-panel patient-relay" aria-labelledby="patient-relay-title">
-      <p className="eyebrow">Recorrido sintético · sin proveedor · sin red</p>
+      <aside className="calle-relay-banner" aria-label="Estado de integración CALL-E">
+        <strong>CALL-E Continuity Relay</strong>
+        <span>SANDBOX SINTÉTICO · LIVE OFF · DATOS SINTÉTICOS · CONTACTOS EXTERNOS 0</span>
+      </aside>
+      <p className="eyebrow">
+        Carril Patient CALL-E · ejecución local sintética · proveedor no invocado · sin red
+      </p>
       <h2 id="patient-relay-title">Patient Relay</h2>
       <p>
         Acción profesional explícita para ensayar una oferta logística de contacto humano. No es un
@@ -262,8 +268,11 @@ export function PatientRelayPanel({ episodeId }: { readonly episodeId: string })
                 <dd>{new Date(detailed.expiresAt).toLocaleString("es-ES")}</dd>
               </div>
               <div>
-                <dt>Red / proveedor</dt>
-                <dd>0 contactos · {detailed.executionMode}</dd>
+                <dt>CALL-E / proveedor externo</dt>
+                <dd>
+                  Adaptador REST implementado · live OFF · contactos externos 0 ·{" "}
+                  {detailed.executionMode}
+                </dd>
               </div>
             </dl>
 

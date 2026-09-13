@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
-
 import { prisma } from "../../src/infrastructure/persistence/prisma";
+import { expect, test } from "../support/p14-playwright";
 
 const EPISODE_ID = "synthetic-demo-episode-buildweek";
 const TASK_ID = "synthetic-demo-professional-review-task";
@@ -53,6 +52,13 @@ test("Professional Relay aplica solo el fixture predeterminado y conserva Task y
   await relayTab.press("Enter");
   await expect(relayTab).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Professional Relay", level: 2 })).toBeVisible();
+  const calleBanner = page.getByRole("complementary", {
+    name: "Estado de integración CALL-E",
+  });
+  await expect(calleBanner.getByText("CALL-E Continuity Relay", { exact: true })).toBeVisible();
+  await expect(calleBanner.getByText("LIVE OFF", { exact: false })).toBeVisible();
+  await expect(calleBanner.getByText("DATOS SINTÉTICOS", { exact: false })).toBeVisible();
+  await expect(calleBanner.getByText("CONTACTOS EXTERNOS 0", { exact: false })).toBeVisible();
   await expect(
     page.getByText(
       "Todos los valores mostrados proceden de un fixture sintético predeterminado de la aplicación.",
@@ -87,6 +93,12 @@ test("Professional Relay aplica solo el fixture predeterminado y conserva Task y
   await expect(page.getByText("+34*******02", { exact: true })).toBeVisible();
   await expect(page.getByText(TASK_ID, { exact: true })).toBeVisible();
   await expect(page.getByText(/synthetic-professional-relay-v1/)).toBeVisible();
+  const providerTerm = page.locator("dt").filter({ hasText: /^CALL-E \/ proveedor externo$/ });
+  const providerValue = providerTerm.locator("xpath=following-sibling::dd[1]");
+  await expect(providerTerm).toBeVisible();
+  await expect(providerValue).toContainText("Adaptador REST implementado");
+  await expect(providerValue).toContainText("live OFF");
+  await expect(providerValue).toContainText("contactos externos 0");
   await expect(page.getByText(/agente de IA/)).toBeVisible();
   await expect(page.getByText(/una única pregunta administrativa/)).toBeVisible();
   await expect(

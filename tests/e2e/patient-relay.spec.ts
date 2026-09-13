@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
-
 import { prisma } from "../../src/infrastructure/persistence/prisma";
+import { expect, test } from "../support/p14-playwright";
 
 const EPISODE_ID = "synthetic-demo-episode-buildweek";
 const SYNTHETIC_PHONE = ["+", "34", "600", "000", "001"].join("");
@@ -26,6 +25,13 @@ test("Patient Relay sintético presenta contrato, fixture, carrera y revisión s
   await relayTab.press("Enter");
   await expect(relayTab).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Patient Relay", level: 2 })).toBeVisible();
+  const calleBanner = page.getByRole("complementary", {
+    name: "Estado de integración CALL-E",
+  });
+  await expect(calleBanner.getByText("CALL-E Continuity Relay", { exact: true })).toBeVisible();
+  await expect(calleBanner.getByText("LIVE OFF", { exact: false })).toBeVisible();
+  await expect(calleBanner.getByText("DATOS SINTÉTICOS", { exact: false })).toBeVisible();
+  await expect(calleBanner.getByText("CONTACTOS EXTERNOS 0", { exact: false })).toBeVisible();
 
   const rejectedOverride = await page.request.post(
     `/api/demo/discharge-episodes/${EPISODE_ID}/patient-relay/preview`,
@@ -48,6 +54,12 @@ test("Patient Relay sintético presenta contrato, fixture, carrera y revisión s
   ).toBeVisible();
   await expect(page.getByText("+34*******01", { exact: true })).toBeVisible();
   await expect(page.getByText("SYNTHETIC_LOCAL_NO_PROVIDER", { exact: true })).toBeVisible();
+  const providerTerm = page.locator("dt").filter({ hasText: /^CALL-E \/ proveedor externo$/ });
+  const providerValue = providerTerm.locator("xpath=following-sibling::dd[1]");
+  await expect(providerTerm).toBeVisible();
+  await expect(providerValue).toContainText("Adaptador REST implementado");
+  await expect(providerValue).toContainText("live OFF");
+  await expect(providerValue).toContainText("contactos externos 0");
   await expect(page.getByText("synthetic-patient-relay-v1", { exact: false })).toBeVisible();
   await expect(page.getByText(/No realiza evaluación clínica/)).toBeVisible();
   await expect(page.getByText(/Sin cancelación API/)).toBeVisible();
