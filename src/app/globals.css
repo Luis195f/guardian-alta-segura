@@ -744,6 +744,21 @@ footer {
   color: var(--navy);
 }
 
+.calle-integration-badge {
+  display: inline-flex;
+  max-width: 100%;
+  margin: 0.85rem 0 0;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
 .environment-badge {
   display: inline-flex;
   align-items: center;
@@ -758,6 +773,52 @@ footer {
   font-weight: 800;
   letter-spacing: 0.04em;
   white-space: nowrap;
+}
+
+.calle-integration-card {
+  margin: 2rem 0 2.5rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 92%);
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+  box-shadow: var(--shadow);
+}
+
+.calle-integration-card h2 {
+  color: var(--navy);
+}
+
+.calle-status-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.calle-status-strip div {
+  border-left: 0.25rem solid var(--accent);
+  padding-left: 0.75rem;
+}
+
+.calle-status-strip dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.calle-status-strip dd {
+  margin: 0.2rem 0 0;
+  color: var(--navy);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.calle-integration-note {
+  margin: 0;
+  border-left: 0.3rem solid var(--warning);
+  background: #fff7ed;
+  padding: 0.8rem 1rem;
+  color: var(--ink);
 }
 
 .journey-flow {
@@ -1321,6 +1382,24 @@ footer {
   max-width: 68rem;
 }
 
+.calle-relay-banner {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.8rem;
+  background: var(--accent-soft);
+  padding: 0.8rem 1rem;
+  color: var(--accent-dark);
+}
+
+.calle-relay-banner span {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  overflow-wrap: anywhere;
+}
+
 .relay-stepper {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1533,6 +1612,7 @@ footer {
 }
 
 @media (max-width: 48rem) {
+  .calle-status-strip,
   .landing-access,
   .episode-header,
   .episode-create-form,

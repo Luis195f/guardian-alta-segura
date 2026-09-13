@@ -15,6 +15,7 @@ export default async function HomePage() {
     <main className="landing">
       <header className="landing-hero">
         <p className="eyebrow">Continuidad postalta supervisada</p>
+        <p className="calle-integration-badge">CALL-E · SANDBOX SINTÉTICO · LIVE OFF</p>
         <h1>Guardián Alta Segura</h1>
         <p className="lede">
           Continuidad postalta estructurada, trazable y supervisada por profesionales.
@@ -25,6 +26,38 @@ export default async function HomePage() {
         </p>
         <p className="environment-badge">DEMO SINTÉTICA · NO USO CLÍNICO</p>
       </header>
+
+      <section className="calle-integration-card" aria-labelledby="calle-integration-title">
+        <p className="eyebrow">Integración CALL-E · Hackathon</p>
+        <h2 id="calle-integration-title">CALL-E Continuity Relay</h2>
+        <p>
+          Demostración local y sintética de Patient Relay y Professional Relay. El adaptador REST
+          está implementado, pero el runtime live permanece deshabilitado y el proveedor externo no
+          es invocado.
+        </p>
+        <dl className="calle-status-strip">
+          <div>
+            <dt>Adaptador REST</dt>
+            <dd>Implementado</dd>
+          </div>
+          <div>
+            <dt>Modo demo</dt>
+            <dd>Sintético local</dd>
+          </div>
+          <div>
+            <dt>Runtime live</dt>
+            <dd>OFF · no evidenciado</dd>
+          </div>
+          <div>
+            <dt>Contactos externos</dt>
+            <dd>0</dd>
+          </div>
+        </dl>
+        <p className="calle-integration-note">
+          Integración acotada al sandbox del hackathon. Esta demo no realiza llamadas reales ni
+          presenta como evidenciado el comportamiento de voz o del proveedor.
+        </p>
+      </section>
 
       <ol className="journey-flow" aria-label="Circuito de continuidad postalta">
         {[
